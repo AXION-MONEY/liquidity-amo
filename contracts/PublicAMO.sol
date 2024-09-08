@@ -130,7 +130,9 @@ contract PublicAMO is IPublicAMO, Initializable, AccessControlEnumerableUpgradea
             ) * usdBuyRatio
         ) / 10 ** 6;
         uint256 lpAmount = (usdNeeded * totalLP) / usdBalance;
-        lpAmount = (lpAmount * (1 - (lpAmount / totalLP)));
+
+        // Readjust the LP amount and USD needed to balance price before removing LP
+        lpAmount = (lpAmount - ((lpAmount ** 2) / totalLP));
 
         // Checks cooldown time
         if(userLastTx[msg.sender] + cooldownPeriod > block.timestamp) revert CooldownNotFinished();
