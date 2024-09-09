@@ -3,9 +3,8 @@
 ## Organization
 The AMO manages a significant portion of the USDC backing for the stablecoin (referred to as BOOST in this version). There are two branches:
 
-- Main: For Solidly-v2 Dexes (based on Uniswap v2 contracts).
-- Solidly-v3: For Solidly Dexes (based on Uniswap v3 contracts).
-(I just realise devs uploaded solidly v2 not v3 -> to be corrected tomorrow!!!)
+- Main: For Solidly-v3 Dexes (based on Uniswap v3 contracts).
+- Solidly-v2: For Solidly Dexes (based on Uniswap v2 contracts).
 
 Note: Price rebalancing is triggered by a bot but can also be activated by the community through the publicAMO.sol contract. This rebalancing is designed to be beneficial for the protocol, with no risk to the stablecoin from community actions or flash loans.
 
