@@ -76,14 +76,14 @@ contract PublicAMO is IPublicAMO, Initializable, AccessControlEnumerableUpgradea
         if(userLastTx[msg.sender] + cooldownPeriod > block.timestamp) revert CooldownNotFinished();
         userLastTx[msg.sender] = block.timestamp;
 
-        address lpAddress = ILiquidityAMO(amoAddress).usd_boost();
+        address pool = ILiquidityAMO(amoAddress).pool();
         address boostAddress = ILiquidityAMO(amoAddress).boost();
         uint8 boostDecimals = IERC20(boostAddress).decimals();
         // TODO: check the reserves
-        uint256 boostBalance = IERC20(boostAddress).balanceOf(lpAddress);
+        uint256 boostBalance = IERC20(boostAddress).balanceOf(pool);
         address usdAddress = ILiquidityAMO(amoAddress).usd();
         uint8 usdDecimals = IERC20(usdAddress).decimals();
-        uint256 usdBalance = IERC20(usdAddress).balanceOf(lpAddress);
+        uint256 usdBalance = IERC20(usdAddress).balanceOf(pool);
         boostAmountIn = (
             (
                 (
@@ -113,15 +113,15 @@ contract PublicAMO is IPublicAMO, Initializable, AccessControlEnumerableUpgradea
     /// @inheritdoc IPublicAMO
     function unfarmBuyBurn() external whenNotPaused
     returns (uint256 boostRemoved, uint256 usdRemoved, uint256 boostAmountOut) {
-        address lpAddress = ILiquidityAMO(amoAddress).usd_boost();
+        address pool = ILiquidityAMO(amoAddress).pool();
         address boostAddress = ILiquidityAMO(amoAddress).boost();
         uint8 boostDecimals = IERC20(boostAddress).decimals();
         // TODO: check the reserves
-        uint256 boostBalance = IERC20(boostAddress).balanceOf(lpAddress);
+        uint256 boostBalance = IERC20(boostAddress).balanceOf(pool);
         address usdAddress = ILiquidityAMO(amoAddress).usd();
         uint8 usdDecimals = IERC20(usdAddress).decimals();
-        uint256 usdBalance = IERC20(usdAddress).balanceOf(lpAddress);
-        uint256 totalLP = IERC20(lpAddress).totalSupply();   //  is the total amounts of LP in the contract
+        uint256 usdBalance = IERC20(usdAddress).balanceOf(pool);
+        uint256 totalLP = IERC20(pool).totalSupply();   //  is the total amounts of LP in the contract
         uint256 usdNeeded = (
             (
                 (
@@ -143,7 +143,7 @@ contract PublicAMO is IPublicAMO, Initializable, AccessControlEnumerableUpgradea
 
         (boostRemoved, usdRemoved, boostAmountOut) = ILiquidityAMO(amoAddress).unfarmBuyBurn(
             lpAmount,
-            (lpAmount * boostBalance) / IERC20(lpAddress).totalSupply(), // minBoostRemove
+            (lpAmount * boostBalance) / IERC20(pool).totalSupply(), // minBoostRemove
             usdNeeded, // minUsdRemove
             usdNeeded * (10 ** (boostDecimals - usdDecimals)), //minBoostAmountOut
             block.timestamp  //deadline
