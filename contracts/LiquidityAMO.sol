@@ -56,11 +56,11 @@ contract LiquidityAMO is ILiquidityAMO, Initializable, AccessControlEnumerableUp
         __Pausable_init();
         require(
             admin != address(0) &&
-            boost_ != address(0) &&
-            usd_ != address(0) &&
-            pool_ != address(0) &&
-            boostMinter_ != address(0) &&
-            treasuryVault_ != address(0),
+                boost_ != address(0) &&
+                usd_ != address(0) &&
+                pool_ != address(0) &&
+                boostMinter_ != address(0) &&
+                treasuryVault_ != address(0),
             "LiquidityAMO: ZERO_ADDRESS"
         );
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
@@ -85,13 +85,8 @@ contract LiquidityAMO is ILiquidityAMO, Initializable, AccessControlEnumerableUp
 
     ////////////////////////// SETTER_ROLE ACTIONS //////////////////////////
     /// @inheritdoc ILiquidityAMO
-    function setVault(
-        address treasuryVault_
-    ) external onlyRole(SETTER_ROLE) {
-        require(
-            treasuryVault_ != address(0),
-            "LiquidityAMO: ZERO_ADDRESS"
-        );
+    function setVault(address treasuryVault_) external onlyRole(SETTER_ROLE) {
+        require(treasuryVault_ != address(0), "LiquidityAMO: ZERO_ADDRESS");
         treasuryVault = treasuryVault_;
 
         emit SetVault(treasuryVault_);
@@ -116,10 +111,7 @@ contract LiquidityAMO is ILiquidityAMO, Initializable, AccessControlEnumerableUp
         emit SetParams(boostAmountLimit_, liquidityAmountLimit_, validRangeRatio_, boostMultiplier_, delta_, epsilon_);
     }
 
-    function setTickBounds(
-        int24 tickLower_,
-        int24 tickUpper_
-    ) external onlyRole(SETTER_ROLE) {
+    function setTickBounds(int24 tickLower_, int24 tickUpper_) external onlyRole(SETTER_ROLE) {
         tickLower = tickLower_;
         tickUpper = tickUpper_;
         emit SetTick(tickLower, tickUpper);
@@ -131,15 +123,10 @@ contract LiquidityAMO is ILiquidityAMO, Initializable, AccessControlEnumerableUp
         uint256 boostAmount,
         uint256 minUsdAmountOut,
         uint256 deadline
-    ) public onlyRole(AMO_ROLE) whenNotPaused
-    returns (uint256 usdAmountOut, uint256 dryPowderAmount) {
+    ) public onlyRole(AMO_ROLE) whenNotPaused returns (uint256 usdAmountOut, uint256 dryPowderAmount) {
         // Ensure the BOOST amount does not exceed the allowed limit
-        require(
-            boostAmount <= boostAmountLimit,
-            "LiquidityAMO: BOOST_AMOUNT_LIMIT_EXCEEDED"
-        );
-        if (toUsdAmount(boostAmount) > minUsdAmountOut)
-            minUsdAmountOut = toUsdAmount(boostAmount);
+        require(boostAmount <= boostAmountLimit, "LiquidityAMO: BOOST_AMOUNT_LIMIT_EXCEEDED");
+        if (toUsdAmount(boostAmount) > minUsdAmountOut) minUsdAmountOut = toUsdAmount(boostAmount);
 
         // Mint the specified amount of BOOST tokens
         IMinter(boostMinter).protocolMint(address(this), boostAmount);
@@ -157,9 +144,9 @@ contract LiquidityAMO is ILiquidityAMO, Initializable, AccessControlEnumerableUp
             deadline
         );
         (, int256 usdDelta) = sortAmounts(amount0, amount1);
-        usdAmountOut = uint256(- usdDelta);
+        usdAmountOut = uint256(-usdDelta);
 
-        dryPowderAmount = usdAmountOut * delta / 1e6;
+        dryPowderAmount = (usdAmountOut * delta) / 1e6;
         // Transfer the dry powder USD to the treasury
         IERC20Upgradeable(usd).safeTransfer(treasuryVault, dryPowderAmount);
 
@@ -174,10 +161,9 @@ contract LiquidityAMO is ILiquidityAMO, Initializable, AccessControlEnumerableUp
         uint256 minBoostSpend,
         uint256 minUsdSpend,
         uint256 deadline
-    ) public onlyRole(AMO_ROLE) whenNotPaused
-    returns (uint256 boostSpent, uint256 usdSpent, uint256 liquidity)  {
+    ) public onlyRole(AMO_ROLE) whenNotPaused returns (uint256 boostSpent, uint256 usdSpent, uint256 liquidity) {
         // Mint the specified amount of BOOST tokens
-        uint256 boostAmount = toBoostAmount(usdAmount) * boostMultiplier / 1e6;
+        uint256 boostAmount = (toBoostAmount(usdAmount) * boostMultiplier) / 1e6;
 
         IMinter(boostMinter).protocolMint(address(this), boostAmount);
 
@@ -200,10 +186,9 @@ contract LiquidityAMO is ILiquidityAMO, Initializable, AccessControlEnumerableUp
         (boostSpent, usdSpent) = sortAmounts(amount0, amount1);
 
         // Calculate the valid range for USD spent based on the BOOST spent and the validRangeRatio
-        uint256 validRange = boostSpent * validRangeRatio / 1e6;
+        uint256 validRange = (boostSpent * validRangeRatio) / 1e6;
         require(
-            toBoostAmount(usdSpent) > boostSpent - validRange &&
-            toBoostAmount(usdSpent) < boostSpent + validRange,
+            toBoostAmount(usdSpent) > boostSpent - validRange && toBoostAmount(usdSpent) < boostSpent + validRange,
             "LiquidityAMO: INVALID_RANGE_TO_ADD_LIQUIDITY"
         );
 
@@ -221,8 +206,12 @@ contract LiquidityAMO is ILiquidityAMO, Initializable, AccessControlEnumerableUp
         uint256 minBoostSpend,
         uint256 minUsdSpend,
         uint256 deadline
-    ) external onlyRole(AMO_ROLE) whenNotPaused
-    returns (uint256 usdAmountOut, uint256 dryPowderAmount, uint256 boostSpent, uint256 usdSpent, uint256 liquidity) {
+    )
+        external
+        onlyRole(AMO_ROLE)
+        whenNotPaused
+        returns (uint256 usdAmountOut, uint256 dryPowderAmount, uint256 boostSpent, uint256 usdSpent, uint256 liquidity)
+    {
         (usdAmountOut, dryPowderAmount) = mintAndSellBoost(boostAmount, minUsdAmountOut, deadline);
         uint256 usdBalance = usdAmountOut - dryPowderAmount;
         (boostSpent, usdSpent, liquidity) = addLiquidity(usdBalance, minBoostSpend, minUsdSpend, deadline);
@@ -235,41 +224,47 @@ contract LiquidityAMO is ILiquidityAMO, Initializable, AccessControlEnumerableUp
         uint256 minUsdRemove,
         uint256 minBoostAmountOut,
         uint256 deadline
-    ) external onlyRole(AMO_ROLE) whenNotPaused
-    returns (uint256 boostRemoved, uint256 usdRemoved, uint256 boostAmountOut) {
+    )
+        external
+        onlyRole(AMO_ROLE)
+        whenNotPaused
+        returns (uint256 boostRemoved, uint256 usdRemoved, uint256 boostAmountOut)
+    {
         (uint256 totalLiquidity, uint128 boostOwed, uint128 usdOwed) = position();
         // Ensure the liquidity amount does not exceed the allowed limit
         require(
-            liquidity <= liquidityAmountLimit &&
-            liquidity <= totalLiquidity,
+            liquidity <= liquidityAmountLimit && liquidity <= totalLiquidity,
             "LiquidityAMO: LIQUIDITY_AMOUNT_LIMIT_EXCEEDED"
         );
 
         (uint256 amount0Min, uint256 amount1Min) = sortAmounts(minBoostRemove, minUsdRemove);
         (uint256 amount0ToCollect, uint256 amount1ToCollect) = sortAmounts(boostOwed, usdOwed);
         // Remove liquidity and store the amounts of USD and BOOST tokens received
-        (uint256 amount0FromBurn, uint256 amount1FromBurn, uint128 amount0Collected, uint128 amount1Collected) =
-        ISolidlyV3Pool(pool).burnAndCollect(
-            address(this),
-            tickLower,
-            tickUpper,
-            uint128(liquidity),
-            amount0Min,
-            amount1Min,
-            uint128(amount0ToCollect),
-            uint128(amount1ToCollect),
-            deadline
-        );
+        (
+            uint256 amount0FromBurn,
+            uint256 amount1FromBurn,
+            uint128 amount0Collected,
+            uint128 amount1Collected
+        ) = ISolidlyV3Pool(pool).burnAndCollect(
+                address(this),
+                tickLower,
+                tickUpper,
+                uint128(liquidity),
+                amount0Min,
+                amount1Min,
+                uint128(amount0ToCollect),
+                uint128(amount1ToCollect),
+                deadline
+            );
         (boostRemoved, usdRemoved) = sortAmounts(amount0FromBurn, amount1FromBurn);
         (uint256 boostCollected, uint256 usdCollected) = sortAmounts(amount0Collected, amount1Collected);
 
         // Ensure the BOOST amount is greater than or equal to the USD amount
         require(
-            boostRemoved * epsilon / 1e6 >= toBoostAmount(usdRemoved),
+            (boostRemoved * epsilon) / 1e6 >= toBoostAmount(usdRemoved),
             "LiquidityAMO: REMOVE_LIQUIDITY_WITH_WRONG_RATIO"
         );
-        if (toBoostAmount(usdRemoved) > minBoostAmountOut)
-            minBoostAmountOut = toBoostAmount(usdRemoved);
+        if (toBoostAmount(usdRemoved) > minBoostAmountOut) minBoostAmountOut = toBoostAmount(usdRemoved);
 
         // Approve the transfer of usd tokens to the pool
         IERC20Upgradeable(usd).approve(pool, usdRemoved);
@@ -283,25 +278,18 @@ contract LiquidityAMO is ILiquidityAMO, Initializable, AccessControlEnumerableUp
             minBoostAmountOut,
             deadline
         );
-        (int256 boostDelta,) = sortAmounts(amount0, amount1);
-        boostAmountOut = uint256(- boostDelta);
+        (int256 boostDelta, ) = sortAmounts(amount0, amount1);
+        boostAmountOut = uint256(-boostDelta);
 
         // Burn the BOOST tokens received from burn liquidity, collect owed tokens and swap
         IBoostStablecoin(boost).burn(boostRemoved + boostCollected + boostAmountOut);
 
         // Emit events for removing liquidity, burning BOOST tokens, and executing the swap
-        emit RemoveLiquidity(
-            minBoostRemove,
-            minUsdRemove,
-            boostRemoved,
-            usdRemoved,
-            liquidity
-        );
+        emit RemoveLiquidity(minBoostRemove, minUsdRemove, boostRemoved, usdRemoved, liquidity);
         emit CollectOwedTokens(boostCollected, usdCollected);
         emit Swap(usd, boost, usdRemoved, boostAmountOut);
         emit BurnBoost(boostRemoved + boostCollected + boostAmountOut);
     }
-
 
     ////////////////////////// OPERATOR_ROLE ACTIONS //////////////////////////
     /// @inheritdoc ILiquidityAMO
@@ -309,19 +297,17 @@ contract LiquidityAMO is ILiquidityAMO, Initializable, AccessControlEnumerableUp
         address _target,
         bytes calldata _calldata
     ) external payable onlyRole(OPERATOR_ROLE) returns (bool _success, bytes memory _resultdata) {
-        return _target.call{value : msg.value}(_calldata);
+        return _target.call{value: msg.value}(_calldata);
     }
 
     ////////////////////////// Internal functions //////////////////////////
     function sortAmounts(uint256 amount0, uint256 amount1) internal view returns (uint256, uint256) {
-        if (boost < usd)
-            return (amount0, amount1);
+        if (boost < usd) return (amount0, amount1);
         return (amount1, amount0);
     }
 
     function sortAmounts(int256 amount0, int256 amount1) internal view returns (int256, int256) {
-        if (boost < usd)
-            return (amount0, amount1);
+        if (boost < usd) return (amount0, amount1);
         return (amount1, amount0);
     }
 
@@ -349,12 +335,12 @@ contract LiquidityAMO is ILiquidityAMO, Initializable, AccessControlEnumerableUp
     }
 
     function liquidityForUsd(uint256 usdAmount) public view returns (uint256 liquidityAmount) {
-        (uint128 _liquidity,,) = position();
-        return usdAmount * _liquidity / IERC20Upgradeable(usd).balanceOf(pool);
+        (uint128 _liquidity, , ) = position();
+        return (usdAmount * _liquidity) / IERC20Upgradeable(usd).balanceOf(pool);
     }
 
     function liquidityForBoost(uint256 boostAmount) public view returns (uint256 liquidityAmount) {
-        (uint128 _liquidity,,) = position();
-        return boostAmount * _liquidity / IERC20Upgradeable(boost).balanceOf(pool);
+        (uint128 _liquidity, , ) = position();
+        return (boostAmount * _liquidity) / IERC20Upgradeable(boost).balanceOf(pool);
     }
 }

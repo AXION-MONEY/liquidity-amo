@@ -70,8 +70,8 @@ interface ISolidlyV3Pool {
         uint128 amount1ToCollect,
         uint256 deadline
     )
-    external
-    returns (uint256 amount0FromBurn, uint256 amount1FromBurn, uint128 amount0Collected, uint128 amount1Collected);
+        external
+        returns (uint256 amount0FromBurn, uint256 amount1FromBurn, uint128 amount0Collected, uint128 amount1Collected);
 
     /// @notice Swap token0 for token1, or token1 for token0
     /// Has additional slippage/deadline protection; no callback or referrer tracking

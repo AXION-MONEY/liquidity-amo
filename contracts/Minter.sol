@@ -29,11 +29,7 @@ contract Minter is Initializable, AccessControlEnumerableUpgradeable, PausableUp
         _disableInitializers();
     }
 
-    function initialize(
-        address boostAddress_,
-        address collateralAddress_,
-        address treasury_
-    ) external initializer {
+    function initialize(address boostAddress_, address collateralAddress_, address treasury_) external initializer {
         __AccessControl_init();
         __Pausable_init();
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -53,18 +49,12 @@ contract Minter is Initializable, AccessControlEnumerableUpgradeable, PausableUp
         _unpause();
     }
 
-    function setTokens(
-        address boostAddress_,
-        address collateralAddress_
-    ) public onlyRole(ADMIN_ROLE) {
+    function setTokens(address boostAddress_, address collateralAddress_) public onlyRole(ADMIN_ROLE) {
         require(boostAddress_ != address(0), "Zero address NOT allowed");
         boostAddress = boostAddress_;
         collateralAddress = collateralAddress_;
         collateralDecimals = IERC20(collateralAddress).decimals();
-        emit TokensAddressesUpdated(
-            boostAddress_,
-            collateralAddress_
-        );
+        emit TokensAddressesUpdated(boostAddress_, collateralAddress_);
     }
 
     function setTreasury(address treasury_) public onlyRole(ADMIN_ROLE) {
@@ -73,11 +63,7 @@ contract Minter is Initializable, AccessControlEnumerableUpgradeable, PausableUp
         emit TreasuryUpdated(treasury_);
     }
 
-    function mint(
-        address to_,
-        uint256 amount_
-    ) external whenNotPaused onlyRole(MINTER_ROLE) {
-
+    function mint(address to_, uint256 amount_) external whenNotPaused onlyRole(MINTER_ROLE) {
         IERC20Upgradeable(collateralAddress).safeTransferFrom(
             msg.sender,
             treasury,
@@ -89,22 +75,13 @@ contract Minter is Initializable, AccessControlEnumerableUpgradeable, PausableUp
         emit TokenMinted(msg.sender, to_, amount_);
     }
 
-    function protocolMint(
-        address to_,
-        uint256 amount_
-    ) external whenNotPaused onlyRole(AMO_ROLE) {
+    function protocolMint(address to_, uint256 amount_) external whenNotPaused onlyRole(AMO_ROLE) {
         IBoostStablecoin(boostAddress).mint(to_, amount_);
         emit TokenProtocolMinted(msg.sender, to_, amount_);
     }
 
-    function withdrawToken(
-        address token_,
-        uint256 amount_
-    ) external onlyRole(WITHDRAW_TOKEN_ROLE) {
-        IERC20Upgradeable(token_).safeTransfer(
-            treasury,
-            amount_
-        );
+    function withdrawToken(address token_, uint256 amount_) external onlyRole(WITHDRAW_TOKEN_ROLE) {
+        IERC20Upgradeable(token_).safeTransfer(treasury, amount_);
         emit TokenWithdrawn(token_, amount_);
     }
 }

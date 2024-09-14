@@ -22,11 +22,30 @@
     "hardhat": "^2.22.6",
     "hardhat-gas-reporter": "^1.0.8",
     "mcl-wasm": "^1.5.0",
+    "prettier": "^3.3.3",
+    "prettier-plugin-solidity": "^1.4.1",
     "solidity-coverage": "^0.8.1",
     "ts-node": "^10.9.2",
     "typechain": "^8.3.0",
     "typescript": "^5.5.4",
     "web3": "^4.11.0"
   },
-  "dependencies": {}
+  "prettier": {
+    "plugins": [
+      "prettier-plugin-solidity"
+    ],
+    "overrides": [
+      {
+        "files": "*.sol",
+        "options": {
+          "parser": "solidity-parse",
+          "printWidth": 120,
+          "tabWidth": 4,
+          "useTabs": false,
+          "singleQuote": false,
+          "bracketSpacing": false
+        }
+      }
+    ]
+  }
 }

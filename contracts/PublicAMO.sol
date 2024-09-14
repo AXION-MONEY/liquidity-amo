@@ -24,10 +24,10 @@ contract PublicAMO is IPublicAMO, Initializable, AccessControlEnumerableUpgradea
 
     ////////////////////////// VARIABLES //////////////////////////
     address public amoAddress;
-    uint256 public boostLowerPriceSell;  // Decimals: 6
-    uint256 public boostUpperPriceBuy;  // Decimals: 6
-    uint256 public boostSellRatio;  // Decimals: 6
-    uint256 public usdBuyRatio;  // Decimals: 6
+    uint256 public boostLowerPriceSell; // Decimals: 6
+    uint256 public boostUpperPriceBuy; // Decimals: 6
+    uint256 public boostSellRatio; // Decimals: 6
+    uint256 public usdBuyRatio; // Decimals: 6
     uint256 public boostLimitToMint;
     uint256 public lpLimitToUnfarm;
     uint256 public cooldownPeriod;
@@ -45,10 +45,7 @@ contract PublicAMO is IPublicAMO, Initializable, AccessControlEnumerableUpgradea
 
     ////////////////////////// INITIALIZER //////////////////////////
     /// @inheritdoc IPublicAMO
-    function initialize(
-        address admin_,
-        address amoAddress_
-    ) public initializer {
+    function initialize(address admin_, address amoAddress_) public initializer {
         __AccessControlEnumerable_init();
         __Pausable_init();
         if (admin_ == address(0) || amoAddress_ == address(0)) revert ZeroAddress();
@@ -70,10 +67,13 @@ contract PublicAMO is IPublicAMO, Initializable, AccessControlEnumerableUpgradea
 
     ////////////////////////// PUBLIC FUNCTIONS //////////////////////////
     /// @inheritdoc IPublicAMO
-    function mintSell() external whenNotPaused
-    returns (uint256 boostAmountIn, uint256 usdAmountOut, uint256 dryPowderAmount) {
+    function mintSell()
+        external
+        whenNotPaused
+        returns (uint256 boostAmountIn, uint256 usdAmountOut, uint256 dryPowderAmount)
+    {
         // Checks cooldown time
-        if(userLastTx[msg.sender] + cooldownPeriod > block.timestamp) revert CooldownNotFinished();
+        if (userLastTx[msg.sender] + cooldownPeriod > block.timestamp) revert CooldownNotFinished();
         userLastTx[msg.sender] = block.timestamp;
 
         address pool = ILiquidityAMO(amoAddress).pool();
@@ -84,13 +84,10 @@ contract PublicAMO is IPublicAMO, Initializable, AccessControlEnumerableUpgradea
         address usdAddress = ILiquidityAMO(amoAddress).usd();
         uint8 usdDecimals = IERC20(usdAddress).decimals();
         uint256 usdBalance = IERC20(usdAddress).balanceOf(pool);
-        boostAmountIn = (
-            (
-                (
-                    (boostBalance + (usdBalance * 10 ** (boostDecimals - usdDecimals))) / 2
-                ) - boostBalance
-            ) * boostSellRatio
-        ) / 10 ** 6;
+        boostAmountIn =
+            ((((boostBalance + (usdBalance * 10 ** (boostDecimals - usdDecimals))) / 2) - boostBalance) *
+                boostSellRatio) /
+            10 ** 6;
         if (
             boostAmountIn > boostLimitToMint || // Set a high limit on boost amount to be minted, sold and farmed
             boostBalance < (usdBalance * 10 ** (boostDecimals - usdDecimals)) // Checks if the expected boost price is more than 1$
@@ -99,7 +96,7 @@ contract PublicAMO is IPublicAMO, Initializable, AccessControlEnumerableUpgradea
         (usdAmountOut, dryPowderAmount) = ILiquidityAMO(amoAddress).mintAndSellBoost(
             boostAmountIn,
             boostAmountIn / (10 ** (boostDecimals - usdDecimals)), //minUsdAmountOut
-            block.timestamp  //deadline
+            block.timestamp //deadline
         );
 
         uint256 boostPrice = (usdAmountOut * 10 ** (boostDecimals + 6 - usdDecimals)) / boostAmountIn;
@@ -111,8 +108,11 @@ contract PublicAMO is IPublicAMO, Initializable, AccessControlEnumerableUpgradea
     }
 
     /// @inheritdoc IPublicAMO
-    function unfarmBuyBurn() external whenNotPaused
-    returns (uint256 boostRemoved, uint256 usdRemoved, uint256 boostAmountOut) {
+    function unfarmBuyBurn()
+        external
+        whenNotPaused
+        returns (uint256 boostRemoved, uint256 usdRemoved, uint256 boostAmountOut)
+    {
         address pool = ILiquidityAMO(amoAddress).pool();
         address boostAddress = ILiquidityAMO(amoAddress).boost();
         uint8 boostDecimals = IERC20(boostAddress).decimals();
@@ -121,21 +121,16 @@ contract PublicAMO is IPublicAMO, Initializable, AccessControlEnumerableUpgradea
         address usdAddress = ILiquidityAMO(amoAddress).usd();
         uint8 usdDecimals = IERC20(usdAddress).decimals();
         uint256 usdBalance = IERC20(usdAddress).balanceOf(pool);
-        uint256 totalLP = IERC20(pool).totalSupply();   //  is the total amounts of LP in the contract
-        uint256 usdNeeded = (
-            (
-                (
-                    ((boostBalance / 10 ** (boostDecimals - usdDecimals)) + usdBalance) / 2
-                ) - usdBalance
-            ) * usdBuyRatio
-        ) / 10 ** 6;
+        uint256 totalLP = IERC20(pool).totalSupply(); //  is the total amounts of LP in the contract
+        uint256 usdNeeded = (((((boostBalance / 10 ** (boostDecimals - usdDecimals)) + usdBalance) / 2) - usdBalance) *
+            usdBuyRatio) / 10 ** 6;
         uint256 lpAmount = (usdNeeded * totalLP) / usdBalance;
 
         // Readjust the LP amount and USD needed to balance price before removing LP
         lpAmount = (lpAmount - ((lpAmount ** 2) / totalLP));
 
         // Checks cooldown time
-        if(userLastTx[msg.sender] + cooldownPeriod > block.timestamp) revert CooldownNotFinished();
+        if (userLastTx[msg.sender] + cooldownPeriod > block.timestamp) revert CooldownNotFinished();
         userLastTx[msg.sender] = block.timestamp;
 
         // Set a high limit on LP amount to be unfarmed, bought and burned
@@ -146,7 +141,7 @@ contract PublicAMO is IPublicAMO, Initializable, AccessControlEnumerableUpgradea
             (lpAmount * boostBalance) / IERC20(pool).totalSupply(), // minBoostRemove
             usdNeeded, // minUsdRemove
             usdNeeded * (10 ** (boostDecimals - usdDecimals)), //minBoostAmountOut
-            block.timestamp  //deadline
+            block.timestamp //deadline
         );
 
         uint256 boostPrice = (usdRemoved * 10 ** (boostDecimals + 6 - usdDecimals)) / (boostAmountOut);
@@ -159,10 +154,7 @@ contract PublicAMO is IPublicAMO, Initializable, AccessControlEnumerableUpgradea
 
     ////////////////////////// SETTER FUNCTIONS //////////////////////////
     /// @inheritdoc IPublicAMO
-    function setLimits(
-        uint256 boostLimitToMint_,
-        uint256 lpLimitToUnfarm_
-    ) external onlyRole(LIMIT_SETTER_ROLE) {
+    function setLimits(uint256 boostLimitToMint_, uint256 lpLimitToUnfarm_) external onlyRole(LIMIT_SETTER_ROLE) {
         boostLimitToMint = boostLimitToMint_;
         lpLimitToUnfarm = lpLimitToUnfarm_;
         emit LimitsSet(boostLimitToMint_, lpLimitToUnfarm_);
@@ -179,44 +171,33 @@ contract PublicAMO is IPublicAMO, Initializable, AccessControlEnumerableUpgradea
     }
 
     /// @inheritdoc IPublicAMO
-    function setAmo(
-        address amoAddress_
-    ) external onlyRole(AMO_SETTER_ROLE) {
+    function setAmo(address amoAddress_) external onlyRole(AMO_SETTER_ROLE) {
         if (amoAddress_ == address(0)) revert ZeroAddress();
         amoAddress = amoAddress_;
         emit AMOSet(amoAddress_);
     }
 
     /// @inheritdoc IPublicAMO
-    function setCooldownPeriod(
-        uint256 cooldownPeriod_
-    ) external onlyRole(COOLDOWN_SETTER_ROLE) {
+    function setCooldownPeriod(uint256 cooldownPeriod_) external onlyRole(COOLDOWN_SETTER_ROLE) {
         cooldownPeriod = cooldownPeriod_;
         emit CooldownPeriodSet(cooldownPeriod_);
     }
 
     /// @inheritdoc IPublicAMO
-    function setToken(
-        uint256 tokenId_,
-        bool useToken_
-    ) external onlyRole(COOLDOWN_SETTER_ROLE) {
+    function setToken(uint256 tokenId_, bool useToken_) external onlyRole(COOLDOWN_SETTER_ROLE) {
         tokenId = tokenId_;
         useToken = useToken_;
         emit TokenSet(tokenId_, useToken_);
     }
 
     /// @inheritdoc IPublicAMO
-    function setBoostSellRatio(
-        uint256 boostSellRatio_
-    ) external onlyRole(RATIO_SETTER_ROLE) {
+    function setBoostSellRatio(uint256 boostSellRatio_) external onlyRole(RATIO_SETTER_ROLE) {
         boostSellRatio = boostSellRatio_;
         emit BoostSellRatioSet(boostSellRatio_);
     }
 
     /// @inheritdoc IPublicAMO
-    function setUsdBuyRatio(
-        uint256 usdBuyRatio_
-    ) external onlyRole(RATIO_SETTER_ROLE) {
+    function setUsdBuyRatio(uint256 usdBuyRatio_) external onlyRole(RATIO_SETTER_ROLE) {
         usdBuyRatio = usdBuyRatio_;
         emit UsdBuyRatioSet(usdBuyRatio_);
     }

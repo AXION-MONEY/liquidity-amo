@@ -6,7 +6,12 @@ import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
-contract BoostStablecoin is Initializable, ERC20BurnableUpgradeable, PausableUpgradeable, AccessControlEnumerableUpgradeable {
+contract BoostStablecoin is
+    Initializable,
+    ERC20BurnableUpgradeable,
+    PausableUpgradeable,
+    AccessControlEnumerableUpgradeable
+{
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
     bytes32 public constant UNPAUSER_ROLE = keccak256("UNPAUSER_ROLE");
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
@@ -37,11 +42,7 @@ contract BoostStablecoin is Initializable, ERC20BurnableUpgradeable, PausableUpg
         _mint(to_, amount_);
     }
 
-    function _beforeTokenTransfer(
-        address from_,
-        address to_,
-        uint256 amount_
-    ) internal override whenNotPaused {
+    function _beforeTokenTransfer(address from_, address to_, uint256 amount_) internal override whenNotPaused {
         super._beforeTokenTransfer(from_, to_, amount_);
     }
 }

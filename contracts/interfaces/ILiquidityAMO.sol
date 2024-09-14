@@ -16,10 +16,7 @@ interface ILiquidityAMO {
         uint256 usdGet,
         uint256 liquidity
     );
-    event CollectOwedTokens(
-        uint256 boostCollected,
-        uint256 usdCollected
-    );
+    event CollectOwedTokens(uint256 boostCollected, uint256 usdCollected);
 
     event MintBoost(uint256 amount);
     event BurnBoost(uint256 amount);
@@ -48,9 +45,7 @@ interface ILiquidityAMO {
      * @dev Can only be called by an account with the SETTER_ROLE
      * @param treasuryVault_ The address of the treasury vault
      */
-    function setVault(
-        address treasuryVault_
-    ) external;
+    function setVault(address treasuryVault_) external;
 
     /**
      * @notice This function sets various limits for the contract
@@ -84,8 +79,7 @@ interface ILiquidityAMO {
         uint256 boostAmount,
         uint256 minUsdAmountOut,
         uint256 deadline
-    ) external
-    returns (uint256 usdAmountOut, uint256 dryPowderAmount);
+    ) external returns (uint256 usdAmountOut, uint256 dryPowderAmount);
 
     /**
      * @notice This function adds liquidity to the BOOST-USD pool
@@ -103,8 +97,7 @@ interface ILiquidityAMO {
         uint256 minBoostSpend,
         uint256 minUsdSpend,
         uint256 deadline
-    ) external
-    returns (uint256 boostSpent, uint256 usdSpent, uint256 liquidity);
+    ) external returns (uint256 boostSpent, uint256 usdSpent, uint256 liquidity);
 
     /**
      * @notice This function rebalances the BOOST-USD pool by Calling mintAndSellBoost() and addLiquidity()
@@ -126,8 +119,15 @@ interface ILiquidityAMO {
         uint256 minBoostSpend,
         uint256 minUsdSpend,
         uint256 deadline
-    ) external
-    returns (uint256 usdAmountOut, uint256 dryPowderAmount, uint256 boostSpent, uint256 usdSpent, uint256 liquidity);
+    )
+        external
+        returns (
+            uint256 usdAmountOut,
+            uint256 dryPowderAmount,
+            uint256 boostSpent,
+            uint256 usdSpent,
+            uint256 liquidity
+        );
 
     /**
      * @notice This function rebalances the BOOST-USD pool by removing liquidity, buying and burning BOOST tokens
@@ -147,8 +147,7 @@ interface ILiquidityAMO {
         uint256 minUsdRemove,
         uint256 minBoostAmountOut,
         uint256 deadline
-    ) external
-    returns (uint256 boostRemoved, uint256 usdRemoved, uint256 boostAmountOut);
+    ) external returns (uint256 boostRemoved, uint256 usdRemoved, uint256 boostAmountOut);
 
     /**
      * @notice This function allows to call arbitrary functions on external contracts
