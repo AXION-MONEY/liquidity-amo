@@ -3,7 +3,7 @@ pragma solidity ^0.8.19;
 
 /// @title Interface for Liquidity AMO for BOOST-USD Solidly pair
 /// @notice This interface defines the public functions for the PublicAMO contract
-interface IPublicAMO {
+interface ISolidlyV3PublicAMO {
     ////////////////////////// EVENTS //////////////////////////
     event AMOSet(address indexed newAmoAddress);
     event LimitsSet(uint256 boostLimitToMint, uint256 lpLimitToUnfarm);

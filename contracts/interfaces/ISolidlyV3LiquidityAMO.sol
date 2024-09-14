@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-interface ILiquidityAMO {
+interface ISolidlyV3LiquidityAMO {
     event AddLiquidity(
         uint256 requestedBoostAmount,
         uint256 requestedUsdAmount,

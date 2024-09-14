@@ -9,14 +9,19 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeab
 import {IERC20} from "./interfaces/IERC20.sol";
 import {IMinter} from "./interfaces/IMinter.sol";
 import {IBoostStablecoin} from "./interfaces/IBoostStablecoin.sol";
-import {ILiquidityAMO} from "./interfaces/ILiquidityAMO.sol";
+import {ISolidlyV3LiquidityAMO} from "./interfaces/ISolidlyV3LiquidityAMO.sol";
 import {ISolidlyV3Factory} from "./interfaces/ISolidlyV3Factory.sol";
 import {ISolidlyV3Pool} from "./interfaces/ISolidlyV3Pool.sol";
 
 /// @title Liquidity AMO for BOOST-USD Solidly pair
 /// @notice The LiquidityAMO contract is responsible for maintaining the BOOST-USD peg in Solidly pairs. It achieves
 /// this through minting and burning BOOST tokens, as well as adding and removing liquidity from the BOOST-USD pair.
-contract LiquidityAMO is ILiquidityAMO, Initializable, AccessControlEnumerableUpgradeable, PausableUpgradeable {
+contract SolidlyV3LiquidityAMO is
+    ISolidlyV3LiquidityAMO,
+    Initializable,
+    AccessControlEnumerableUpgradeable,
+    PausableUpgradeable
+{
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
     /* ========== ROLES ========== */
@@ -84,7 +89,7 @@ contract LiquidityAMO is ILiquidityAMO, Initializable, AccessControlEnumerableUp
     }
 
     ////////////////////////// SETTER_ROLE ACTIONS //////////////////////////
-    /// @inheritdoc ILiquidityAMO
+    /// @inheritdoc ISolidlyV3LiquidityAMO
     function setVault(address treasuryVault_) external onlyRole(SETTER_ROLE) {
         require(treasuryVault_ != address(0), "LiquidityAMO: ZERO_ADDRESS");
         treasuryVault = treasuryVault_;
@@ -92,7 +97,7 @@ contract LiquidityAMO is ILiquidityAMO, Initializable, AccessControlEnumerableUp
         emit SetVault(treasuryVault_);
     }
 
-    /// @inheritdoc ILiquidityAMO
+    /// @inheritdoc ISolidlyV3LiquidityAMO
     function setParams(
         uint256 boostAmountLimit_,
         uint256 liquidityAmountLimit_,
@@ -118,7 +123,7 @@ contract LiquidityAMO is ILiquidityAMO, Initializable, AccessControlEnumerableUp
     }
 
     ////////////////////////// AMO_ROLE ACTIONS //////////////////////////
-    /// @inheritdoc ILiquidityAMO
+    /// @inheritdoc ISolidlyV3LiquidityAMO
     function mintAndSellBoost(
         uint256 boostAmount,
         uint256 minUsdAmountOut,
@@ -155,7 +160,7 @@ contract LiquidityAMO is ILiquidityAMO, Initializable, AccessControlEnumerableUp
         emit Swap(boost, usd, boostAmount, usdAmountOut);
     }
 
-    /// @inheritdoc ILiquidityAMO
+    /// @inheritdoc ISolidlyV3LiquidityAMO
     function addLiquidity(
         uint256 usdAmount,
         uint256 minBoostSpend,
@@ -199,7 +204,7 @@ contract LiquidityAMO is ILiquidityAMO, Initializable, AccessControlEnumerableUp
         emit AddLiquidity(boostAmount, usdAmount, boostSpent, usdSpent, liquidity);
     }
 
-    /// @inheritdoc ILiquidityAMO
+    /// @inheritdoc ISolidlyV3LiquidityAMO
     function mintSellFarm(
         uint256 boostAmount,
         uint256 minUsdAmountOut,
@@ -217,7 +222,7 @@ contract LiquidityAMO is ILiquidityAMO, Initializable, AccessControlEnumerableUp
         (boostSpent, usdSpent, liquidity) = addLiquidity(usdBalance, minBoostSpend, minUsdSpend, deadline);
     }
 
-    /// @inheritdoc ILiquidityAMO
+    /// @inheritdoc ISolidlyV3LiquidityAMO
     function unfarmBuyBurn(
         uint256 liquidity,
         uint256 minBoostRemove,
@@ -292,7 +297,7 @@ contract LiquidityAMO is ILiquidityAMO, Initializable, AccessControlEnumerableUp
     }
 
     ////////////////////////// OPERATOR_ROLE ACTIONS //////////////////////////
-    /// @inheritdoc ILiquidityAMO
+    /// @inheritdoc ISolidlyV3LiquidityAMO
     function _call(
         address _target,
         bytes calldata _calldata

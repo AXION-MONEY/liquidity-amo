@@ -4,15 +4,20 @@ pragma solidity ^0.8.19;
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
-import {ILiquidityAMO} from "./interfaces/ILiquidityAMO.sol";
+import {ISolidlyV3LiquidityAMO} from "./interfaces/ISolidlyV3LiquidityAMO.sol";
 import {IERC20} from "./interfaces/IERC20.sol";
-import {IPublicAMO} from "./interfaces/IPublicAMO.sol";
+import {ISolidlyV3PublicAMO} from "./interfaces/ISolidlyV3PublicAMO.sol";
 
 /// @title A public wrapper for BOOST-USD LiquidityAMO
 /// @notice The PublicAMO contract is responsible for maintaining the BOOST-USD peg in Solidly pairs.
 /// It achieves this through minting and burning BOOST tokens, as well as adding and removing liquidity from the BOOST-USD pair.
-/// @dev This contract implements the IPublicAMO interface and inherits from Initializable, AccessControlEnumerableUpgradeable, and PausableUpgradeable.
-contract PublicAMO is IPublicAMO, Initializable, AccessControlEnumerableUpgradeable, PausableUpgradeable {
+/// @dev This contract implements the ISolidlyV3PublicAMO interface and inherits from Initializable, AccessControlEnumerableUpgradeable, and PausableUpgradeable.
+contract SolidlyV3PublicAMO is
+    ISolidlyV3PublicAMO,
+    Initializable,
+    AccessControlEnumerableUpgradeable,
+    PausableUpgradeable
+{
     ////////////////////////// ROLES //////////////////////////
     bytes32 public constant AMO_SETTER_ROLE = keccak256("AMO_SETTER_ROLE");
     bytes32 public constant RATIO_SETTER_ROLE = keccak256("RATIO_SETTER_ROLE");
@@ -44,7 +49,7 @@ contract PublicAMO is IPublicAMO, Initializable, AccessControlEnumerableUpgradea
     error CooldownNotFinished();
 
     ////////////////////////// INITIALIZER //////////////////////////
-    /// @inheritdoc IPublicAMO
+    /// @inheritdoc ISolidlyV3PublicAMO
     function initialize(address admin_, address amoAddress_) public initializer {
         __AccessControlEnumerable_init();
         __Pausable_init();
@@ -55,18 +60,18 @@ contract PublicAMO is IPublicAMO, Initializable, AccessControlEnumerableUpgradea
 
     ////////////////////////// PAUSE ACTIONS //////////////////////////
 
-    /// @inheritdoc IPublicAMO
+    /// @inheritdoc ISolidlyV3PublicAMO
     function pause() external onlyRole(PAUSER_ROLE) {
         _pause();
     }
 
-    /// @inheritdoc IPublicAMO
+    /// @inheritdoc ISolidlyV3PublicAMO
     function unpause() external onlyRole(UNPAUSER_ROLE) {
         _unpause();
     }
 
     ////////////////////////// PUBLIC FUNCTIONS //////////////////////////
-    /// @inheritdoc IPublicAMO
+    /// @inheritdoc ISolidlyV3PublicAMO
     function mintSell()
         external
         whenNotPaused
@@ -76,12 +81,12 @@ contract PublicAMO is IPublicAMO, Initializable, AccessControlEnumerableUpgradea
         if (userLastTx[msg.sender] + cooldownPeriod > block.timestamp) revert CooldownNotFinished();
         userLastTx[msg.sender] = block.timestamp;
 
-        address pool = ILiquidityAMO(amoAddress).pool();
-        address boostAddress = ILiquidityAMO(amoAddress).boost();
+        address pool = ISolidlyV3LiquidityAMO(amoAddress).pool();
+        address boostAddress = ISolidlyV3LiquidityAMO(amoAddress).boost();
         uint8 boostDecimals = IERC20(boostAddress).decimals();
         // TODO: check the reserves
         uint256 boostBalance = IERC20(boostAddress).balanceOf(pool);
-        address usdAddress = ILiquidityAMO(amoAddress).usd();
+        address usdAddress = ISolidlyV3LiquidityAMO(amoAddress).usd();
         uint8 usdDecimals = IERC20(usdAddress).decimals();
         uint256 usdBalance = IERC20(usdAddress).balanceOf(pool);
         boostAmountIn =
@@ -93,7 +98,7 @@ contract PublicAMO is IPublicAMO, Initializable, AccessControlEnumerableUpgradea
             boostBalance < (usdBalance * 10 ** (boostDecimals - usdDecimals)) // Checks if the expected boost price is more than 1$
         ) revert InvalidBoostAmount();
 
-        (usdAmountOut, dryPowderAmount) = ILiquidityAMO(amoAddress).mintAndSellBoost(
+        (usdAmountOut, dryPowderAmount) = ISolidlyV3LiquidityAMO(amoAddress).mintAndSellBoost(
             boostAmountIn,
             boostAmountIn / (10 ** (boostDecimals - usdDecimals)), //minUsdAmountOut
             block.timestamp //deadline
@@ -107,18 +112,18 @@ contract PublicAMO is IPublicAMO, Initializable, AccessControlEnumerableUpgradea
         emit MintSellExecuted(boostAmountIn, usdAmountOut);
     }
 
-    /// @inheritdoc IPublicAMO
+    /// @inheritdoc ISolidlyV3PublicAMO
     function unfarmBuyBurn()
         external
         whenNotPaused
         returns (uint256 boostRemoved, uint256 usdRemoved, uint256 boostAmountOut)
     {
-        address pool = ILiquidityAMO(amoAddress).pool();
-        address boostAddress = ILiquidityAMO(amoAddress).boost();
+        address pool = ISolidlyV3LiquidityAMO(amoAddress).pool();
+        address boostAddress = ISolidlyV3LiquidityAMO(amoAddress).boost();
         uint8 boostDecimals = IERC20(boostAddress).decimals();
         // TODO: check the reserves
         uint256 boostBalance = IERC20(boostAddress).balanceOf(pool);
-        address usdAddress = ILiquidityAMO(amoAddress).usd();
+        address usdAddress = ISolidlyV3LiquidityAMO(amoAddress).usd();
         uint8 usdDecimals = IERC20(usdAddress).decimals();
         uint256 usdBalance = IERC20(usdAddress).balanceOf(pool);
         uint256 totalLP = IERC20(pool).totalSupply(); //  is the total amounts of LP in the contract
@@ -136,7 +141,7 @@ contract PublicAMO is IPublicAMO, Initializable, AccessControlEnumerableUpgradea
         // Set a high limit on LP amount to be unfarmed, bought and burned
         if (lpAmount > lpLimitToUnfarm) revert InvalidLpAmount();
 
-        (boostRemoved, usdRemoved, boostAmountOut) = ILiquidityAMO(amoAddress).unfarmBuyBurn(
+        (boostRemoved, usdRemoved, boostAmountOut) = ISolidlyV3LiquidityAMO(amoAddress).unfarmBuyBurn(
             lpAmount,
             (lpAmount * boostBalance) / IERC20(pool).totalSupply(), // minBoostRemove
             usdNeeded, // minUsdRemove
@@ -153,14 +158,14 @@ contract PublicAMO is IPublicAMO, Initializable, AccessControlEnumerableUpgradea
     }
 
     ////////////////////////// SETTER FUNCTIONS //////////////////////////
-    /// @inheritdoc IPublicAMO
+    /// @inheritdoc ISolidlyV3PublicAMO
     function setLimits(uint256 boostLimitToMint_, uint256 lpLimitToUnfarm_) external onlyRole(LIMIT_SETTER_ROLE) {
         boostLimitToMint = boostLimitToMint_;
         lpLimitToUnfarm = lpLimitToUnfarm_;
         emit LimitsSet(boostLimitToMint_, lpLimitToUnfarm_);
     }
 
-    /// @inheritdoc IPublicAMO
+    /// @inheritdoc ISolidlyV3PublicAMO
     function setBuyAndSellBound(
         uint256 boostUpperPriceBuy_,
         uint256 boostLowerPriceSell_
@@ -170,33 +175,33 @@ contract PublicAMO is IPublicAMO, Initializable, AccessControlEnumerableUpgradea
         emit BuyAndSellBoundSet(boostUpperPriceBuy_, boostLowerPriceSell_);
     }
 
-    /// @inheritdoc IPublicAMO
+    /// @inheritdoc ISolidlyV3PublicAMO
     function setAmo(address amoAddress_) external onlyRole(AMO_SETTER_ROLE) {
         if (amoAddress_ == address(0)) revert ZeroAddress();
         amoAddress = amoAddress_;
         emit AMOSet(amoAddress_);
     }
 
-    /// @inheritdoc IPublicAMO
+    /// @inheritdoc ISolidlyV3PublicAMO
     function setCooldownPeriod(uint256 cooldownPeriod_) external onlyRole(COOLDOWN_SETTER_ROLE) {
         cooldownPeriod = cooldownPeriod_;
         emit CooldownPeriodSet(cooldownPeriod_);
     }
 
-    /// @inheritdoc IPublicAMO
+    /// @inheritdoc ISolidlyV3PublicAMO
     function setToken(uint256 tokenId_, bool useToken_) external onlyRole(COOLDOWN_SETTER_ROLE) {
         tokenId = tokenId_;
         useToken = useToken_;
         emit TokenSet(tokenId_, useToken_);
     }
 
-    /// @inheritdoc IPublicAMO
+    /// @inheritdoc ISolidlyV3PublicAMO
     function setBoostSellRatio(uint256 boostSellRatio_) external onlyRole(RATIO_SETTER_ROLE) {
         boostSellRatio = boostSellRatio_;
         emit BoostSellRatioSet(boostSellRatio_);
     }
 
-    /// @inheritdoc IPublicAMO
+    /// @inheritdoc ISolidlyV3PublicAMO
     function setUsdBuyRatio(uint256 usdBuyRatio_) external onlyRole(RATIO_SETTER_ROLE) {
         usdBuyRatio = usdBuyRatio_;
         emit UsdBuyRatioSet(usdBuyRatio_);
