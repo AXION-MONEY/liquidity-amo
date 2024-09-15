@@ -9,9 +9,9 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeab
 import {IERC20} from "./interfaces/IERC20.sol";
 import {IMinter} from "./interfaces/IMinter.sol";
 import {IBoostStablecoin} from "./interfaces/IBoostStablecoin.sol";
-import {IGauge} from "./interfaces/IGauge.sol";
-import {ISolidlyV2LiquidityAMO} from "./interfaces/ISolidlyV2LiquidityAMO.sol";
-import {ISolidlyRouter} from "./interfaces/ISolidlyRouter.sol";
+import {IGauge} from "./interfaces/v2/IGauge.sol";
+import {ISolidlyV2LiquidityAMO} from "./interfaces/v2/ISolidlyV2LiquidityAMO.sol";
+import {ISolidlyRouter} from "./interfaces/v2/ISolidlyRouter.sol";
 
 /// @title Liquidity AMO for BOOST-USD Solidly pair
 /// @notice The LiquidityAMO contract is responsible for maintaining the BOOST-USD peg in Solidly pairs. It achieves this through minting and burning BOOST tokens, as well as adding and removing liquidity from the BOOST-USD pair.

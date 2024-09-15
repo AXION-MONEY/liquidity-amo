@@ -4,9 +4,9 @@ pragma solidity ^0.8.19;
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
-import {ISolidlyV3LiquidityAMO} from "./interfaces/ISolidlyV3LiquidityAMO.sol";
+import {ISolidlyV3LiquidityAMO} from "./interfaces/v3/ISolidlyV3LiquidityAMO.sol";
 import {IERC20} from "./interfaces/IERC20.sol";
-import {ISolidlyV3PublicAMO} from "./interfaces/ISolidlyV3PublicAMO.sol";
+import {ISolidlyV3PublicAMO} from "./interfaces/v3/ISolidlyV3PublicAMO.sol";
 
 /// @title A public wrapper for BOOST-USD LiquidityAMO
 /// @notice The PublicAMO contract is responsible for maintaining the BOOST-USD peg in Solidly pairs.
