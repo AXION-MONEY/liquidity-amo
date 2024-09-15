@@ -10,9 +10,9 @@ interface ISolidlyV3LiquidityAMOImmutables {
 
     function pool() external view returns (address);
 
-    function boostDecimals() external view returns (uint256);
+    function boostDecimals() external view returns (uint8);
 
-    function usdDecimals() external view returns (uint256);
+    function usdDecimals() external view returns (uint8);
 
     function boostMinter() external view returns (address);
 }

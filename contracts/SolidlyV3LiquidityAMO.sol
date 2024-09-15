@@ -34,8 +34,8 @@ contract SolidlyV3LiquidityAMO is
     address public override boost;
     address public override usd;
     address public override pool;
-    uint256 public override boostDecimals;
-    uint256 public override usdDecimals;
+    uint8 public override boostDecimals;
+    uint8 public override usdDecimals;
     address public override boostMinter;
 
     address public override treasuryVault;
@@ -53,6 +53,9 @@ contract SolidlyV3LiquidityAMO is
     uint160 internal constant MIN_SQRT_RATIO = 4295128739;
     uint160 internal constant MAX_SQRT_RATIO = 1461446703485210103287273052203988822378723970342;
     uint256 internal constant Q96 = 2 ** 96;
+    uint8 internal constant PRICE_DECIMALS = 6;
+    uint8 internal constant PARAMS_DECIMALS = 6;
+    uint256 internal constant ONE_UNIT = 10 ** PARAMS_DECIMALS;
 
     /* ========== FUNCTIONS ========== */
     function initialize(
@@ -118,7 +121,7 @@ contract SolidlyV3LiquidityAMO is
         uint256 delta_,
         uint256 epsilon_
     ) external override onlyRole(SETTER_ROLE) {
-        require(validRangeRatio_ <= 1e6, "SolidlyV3LiquidityAMO: INVALID_RATIO_VALUE");
+        require(validRangeRatio_ <= ONE_UNIT, "SolidlyV3LiquidityAMO: INVALID_RATIO_VALUE");
         boostAmountLimit = boostAmountLimit_;
         liquidityAmountLimit = liquidityAmountLimit_;
         validRangeRatio = validRangeRatio_;
@@ -179,7 +182,7 @@ contract SolidlyV3LiquidityAMO is
         usdAmountOut = uint256(-usdDelta);
         require(toBoostAmount(usdAmountOut) > boostAmountIn, "SolidlyV3LiquidityAMO: INSUFFICIENT_OUTPUT_AMOUNT");
 
-        dryPowderAmount = (usdAmountOut * delta) / 1e6;
+        dryPowderAmount = (usdAmountOut * delta) / ONE_UNIT;
         // Transfer the dry powder USD to the treasury
         IERC20Upgradeable(usd).safeTransfer(treasuryVault, dryPowderAmount);
 
@@ -205,7 +208,7 @@ contract SolidlyV3LiquidityAMO is
         returns (uint256 boostSpent, uint256 usdSpent, uint256 liquidity)
     {
         // Mint the specified amount of BOOST tokens
-        uint256 boostAmount = (toBoostAmount(usdAmount) * boostMultiplier) / 1e6;
+        uint256 boostAmount = (toBoostAmount(usdAmount) * boostMultiplier) / ONE_UNIT;
 
         IMinter(boostMinter).protocolMint(address(this), boostAmount);
 
@@ -228,7 +231,7 @@ contract SolidlyV3LiquidityAMO is
         (boostSpent, usdSpent) = sortAmounts(amount0, amount1);
 
         // Calculate the valid range for USD spent based on the BOOST spent and the validRangeRatio
-        uint256 validRange = (boostSpent * validRangeRatio) / 1e6;
+        uint256 validRange = (boostSpent * validRangeRatio) / ONE_UNIT;
         require(
             toBoostAmount(usdSpent) > boostSpent - validRange && toBoostAmount(usdSpent) < boostSpent + validRange,
             "SolidlyV3LiquidityAMO: INVALID_RANGE_TO_ADD_LIQUIDITY"
@@ -265,7 +268,7 @@ contract SolidlyV3LiquidityAMO is
         (boostAmountIn, usdAmountOut, dryPowderAmount) = mintAndSellBoost(boostAmount, minUsdAmountOut, deadline);
 
         uint256 price = boostPrice();
-        if (price > 1e6 - validRangeRatio && price < 1e6 + validRangeRatio) {
+        if (price > ONE_UNIT - validRangeRatio && price < ONE_UNIT + validRangeRatio) {
             uint256 usdBalance = IERC20Upgradeable(usd).balanceOf(address(this));
             (boostSpent, usdSpent, liquidity) = addLiquidity(usdBalance, minBoostSpend, minUsdSpend, deadline);
         }
@@ -315,7 +318,7 @@ contract SolidlyV3LiquidityAMO is
 
         // Ensure the BOOST amount is greater than or equal to the USD amount
         require(
-            (boostRemoved * epsilon) / 1e6 >= toBoostAmount(usdRemoved),
+            (boostRemoved * epsilon) / ONE_UNIT >= toBoostAmount(usdRemoved),
             "SolidlyV3LiquidityAMO: REMOVE_LIQUIDITY_WITH_WRONG_RATIO"
         );
 
@@ -414,9 +417,9 @@ contract SolidlyV3LiquidityAMO is
     function boostPrice() public view returns (uint256 price) {
         (uint160 sqrtPriceX96, , , ) = ISolidlyV3Pool(pool).slot0();
         if (boost < usd) {
-            price = (10 ** (boostDecimals - usdDecimals + 6) * sqrtPriceX96 ** 2) / Q96 ** 2;
+            price = (10 ** (boostDecimals - usdDecimals + PRICE_DECIMALS) * sqrtPriceX96 ** 2) / Q96 ** 2;
         } else {
-            price = sqrtPriceX96 ** 2 / Q96 ** 2 / 10 ** (boostDecimals - usdDecimals - 6);
+            price = ((sqrtPriceX96 ** 2 / Q96 ** 2) * 10 ** PRICE_DECIMALS) / 10 ** (boostDecimals - usdDecimals);
         }
     }
 }
