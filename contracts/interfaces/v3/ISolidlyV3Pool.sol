@@ -5,6 +5,16 @@ pragma solidity >=0.5.0;
 /// @notice A Solidly pool facilitates swapping and automated market making between any two assets that strictly conform
 /// to the ERC20 specification
 interface ISolidlyV3Pool {
+    /// @notice The 0th storage slot in the pool stores many values, and is exposed as a single method to save gas
+    /// when accessed externally.
+    /// @return sqrtPriceX96 The current price of the pool as a sqrt(token1/token0) Q64.96 value
+    /// tick The current tick of the pool, i.e. according to the last tick transition that was run.
+    /// This value may not always be equal to SqrtTickMath.getTickAtSqrtRatio(sqrtPriceX96) if the price is on a tick
+    /// boundary.
+    /// fee The pool's current fee in hundredths of a bip, i.e. 1e-6
+    /// unlocked Whether the pool is currently locked to reentrancy
+    function slot0() external view returns (uint160 sqrtPriceX96, int24 tick, uint24 fee, bool unlocked);
+
     /// @notice The currently in range liquidity available to the pool
     /// @dev This value has no relationship to the total liquidity across all ticks
     function liquidity() external view returns (uint128);

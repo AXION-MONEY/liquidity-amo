@@ -98,10 +98,10 @@ contract SolidlyV3PublicAMO is
             boostBalance < (usdBalance * 10 ** (boostDecimals - usdDecimals)) // Checks if the expected boost price is more than 1$
         ) revert InvalidBoostAmount();
 
-        (usdAmountOut, dryPowderAmount) = ISolidlyV3LiquidityAMO(amoAddress).mintAndSellBoost(
+        (, usdAmountOut, dryPowderAmount) = ISolidlyV3LiquidityAMO(amoAddress).mintAndSellBoost(
             boostAmountIn,
-            boostAmountIn / (10 ** (boostDecimals - usdDecimals)), //minUsdAmountOut
-            block.timestamp //deadline
+            boostAmountIn / (10 ** (boostDecimals - usdDecimals)), // minUsdAmountOut
+            block.timestamp // deadline
         );
 
         uint256 boostPrice = (usdAmountOut * 10 ** (boostDecimals + 6 - usdDecimals)) / boostAmountIn;
@@ -141,7 +141,7 @@ contract SolidlyV3PublicAMO is
         // Set a high limit on LP amount to be unfarmed, bought and burned
         if (lpAmount > lpLimitToUnfarm) revert InvalidLpAmount();
 
-        (boostRemoved, usdRemoved, boostAmountOut) = ISolidlyV3LiquidityAMO(amoAddress).unfarmBuyBurn(
+        (boostRemoved, usdRemoved, , boostAmountOut) = ISolidlyV3LiquidityAMO(amoAddress).unfarmBuyBurn(
             lpAmount,
             (lpAmount * boostBalance) / IERC20(pool).totalSupply(), // minBoostRemove
             usdNeeded, // minUsdRemove
