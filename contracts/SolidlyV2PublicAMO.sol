@@ -4,8 +4,8 @@ pragma solidity ^0.8.19;
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import {IERC20, IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 import {ISolidlyV2LiquidityAMO} from "./interfaces/v2/ISolidlyV2LiquidityAMO.sol";
-import {IERC20} from "./interfaces/IERC20.sol";
 import {ISolidlyV2PublicAMO} from "./interfaces/v2/ISolidlyV2PublicAMO.sol";
 
 /// @title A public wrapper for BOOST-USD LiquidityAMO
@@ -83,11 +83,11 @@ contract SolidlyV2PublicAMO is
 
         address lpAddress = ISolidlyV2LiquidityAMO(amoAddress).usd_boost();
         address boostAddress = ISolidlyV2LiquidityAMO(amoAddress).boost();
-        uint8 boostDecimals = IERC20(boostAddress).decimals();
+        uint8 boostDecimals = IERC20Metadata(boostAddress).decimals();
         // TODO: check the reserves
         uint256 boostBalance = IERC20(boostAddress).balanceOf(lpAddress);
         address usdAddress = ISolidlyV2LiquidityAMO(amoAddress).usd();
-        uint8 usdDecimals = IERC20(usdAddress).decimals();
+        uint8 usdDecimals = IERC20Metadata(usdAddress).decimals();
         uint256 usdBalance = IERC20(usdAddress).balanceOf(lpAddress);
         boostAmountIn =
             ((((boostBalance + (usdBalance * 10 ** (boostDecimals - usdDecimals))) / 2) - boostBalance) *
@@ -120,11 +120,11 @@ contract SolidlyV2PublicAMO is
     {
         address lpAddress = ISolidlyV2LiquidityAMO(amoAddress).usd_boost();
         address boostAddress = ISolidlyV2LiquidityAMO(amoAddress).boost();
-        uint8 boostDecimals = IERC20(boostAddress).decimals();
+        uint8 boostDecimals = IERC20Metadata(boostAddress).decimals();
         // TODO: check the reserves
         uint256 boostBalance = IERC20(boostAddress).balanceOf(lpAddress);
         address usdAddress = ISolidlyV2LiquidityAMO(amoAddress).usd();
-        uint8 usdDecimals = IERC20(usdAddress).decimals();
+        uint8 usdDecimals = IERC20Metadata(usdAddress).decimals();
         uint256 usdBalance = IERC20(usdAddress).balanceOf(lpAddress);
         uint256 totalLP = IERC20(lpAddress).totalSupply(); //  is the total amounts of LP in the contract
         uint256 usdNeeded = (((((boostBalance / 10 ** (boostDecimals - usdDecimals)) + usdBalance) / 2) - usdBalance) *

@@ -6,8 +6,8 @@ import "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgrad
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 import "./interfaces/v3/ISolidlyV3LiquidityAMO.sol";
-import {IERC20} from "./interfaces/IERC20.sol";
 import {IMinter} from "./interfaces/IMinter.sol";
 import {IBoostStablecoin} from "./interfaces/IBoostStablecoin.sol";
 import {ISolidlyV3Factory} from "./interfaces/v3/ISolidlyV3Factory.sol";
@@ -83,8 +83,8 @@ contract SolidlyV3LiquidityAMO is
         boost = boost_;
         usd = usd_;
         pool = pool_;
-        boostDecimals = IERC20(boost).decimals();
-        usdDecimals = IERC20(usd).decimals();
+        boostDecimals = IERC20Metadata(boost).decimals();
+        usdDecimals = IERC20Metadata(usd).decimals();
         boostMinter = boostMinter_;
         treasuryVault = treasuryVault_;
         targetSqrtPriceX96 = targetSqrtPriceX96_;

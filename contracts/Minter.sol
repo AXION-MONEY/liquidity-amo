@@ -5,8 +5,8 @@ import "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgrad
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 import {IMinter} from "./interfaces/IMinter.sol";
-import {IERC20} from "./interfaces/IERC20.sol";
 import {IBoostStablecoin} from "./interfaces/IBoostStablecoin.sol";
 
 contract Minter is Initializable, AccessControlEnumerableUpgradeable, PausableUpgradeable, IMinter {
@@ -38,7 +38,7 @@ contract Minter is Initializable, AccessControlEnumerableUpgradeable, PausableUp
         treasury = treasury_;
         boostAddress = boostAddress_;
         collateralAddress = collateralAddress_;
-        collateralDecimals = IERC20(collateralAddress).decimals();
+        collateralDecimals = IERC20Metadata(collateralAddress).decimals();
     }
 
     function pause() public onlyRole(PAUSER_ROLE) {
@@ -53,7 +53,7 @@ contract Minter is Initializable, AccessControlEnumerableUpgradeable, PausableUp
         require(boostAddress_ != address(0), "Zero address NOT allowed");
         boostAddress = boostAddress_;
         collateralAddress = collateralAddress_;
-        collateralDecimals = IERC20(collateralAddress).decimals();
+        collateralDecimals = IERC20Metadata(collateralAddress).decimals();
         emit TokensAddressesUpdated(boostAddress_, collateralAddress_);
     }
 

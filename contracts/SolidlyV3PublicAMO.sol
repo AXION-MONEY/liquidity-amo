@@ -4,8 +4,8 @@ pragma solidity ^0.8.19;
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import {IERC20, IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 import {ISolidlyV3LiquidityAMO} from "./interfaces/v3/ISolidlyV3LiquidityAMO.sol";
-import {IERC20} from "./interfaces/IERC20.sol";
 import {ISolidlyV3PublicAMO} from "./interfaces/v3/ISolidlyV3PublicAMO.sol";
 import {ISolidlyV3Pool} from "./interfaces/v3/ISolidlyV3Pool.sol";
 
@@ -133,8 +133,8 @@ contract SolidlyV3PublicAMO is
         uint128 liquidity = ISolidlyV3Pool(pool).liquidity();
         uint256 boostBalance = IERC20(boost).balanceOf(pool);
         uint256 usdBalance = IERC20(usd).balanceOf(pool);
-        uint8 boostDecimals = IERC20(boost).decimals();
-        uint8 usdDecimals = IERC20(usd).decimals();
+        uint8 boostDecimals = IERC20Metadata(boost).decimals();
+        uint8 usdDecimals = IERC20Metadata(usd).decimals();
         usdBalance *= 10 ** (boostDecimals - usdDecimals);
         if (boostBalance <= usdBalance) revert PriceNotInRange();
 

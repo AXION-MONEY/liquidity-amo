@@ -6,7 +6,7 @@ import "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgrad
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
-import {IERC20} from "./interfaces/IERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 import {IMinter} from "./interfaces/IMinter.sol";
 import {IBoostStablecoin} from "./interfaces/IBoostStablecoin.sol";
 import {IGauge} from "./interfaces/v2/IGauge.sol";
@@ -80,8 +80,8 @@ contract SolidlyV2LiquidityAMO is
         boostMinter = boostMinter_;
         usd = usd_;
         usd_boost = ISolidlyRouter(router).pairFor(usd, boost, true);
-        usdDecimals = IERC20(usd).decimals();
-        boostDecimals = IERC20(boost).decimals();
+        usdDecimals = IERC20Metadata(usd).decimals();
+        boostDecimals = IERC20Metadata(boost).decimals();
         rewardVault = rewardVault_;
         treasuryVault = treasuryVault_;
     }
