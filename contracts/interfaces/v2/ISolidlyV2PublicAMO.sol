@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity 0.8.19;
 
 /// @title Interface for Liquidity AMO for BOOST-USD Solidly pair
 /// @notice This interface defines the public functions for the PublicAMO contract
