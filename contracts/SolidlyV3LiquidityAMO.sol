@@ -24,6 +24,16 @@ contract SolidlyV3LiquidityAMO is
 {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
+    /* ========== ERRORS ========== */
+    error ZeroAddress();
+    error InvalidRatioValue();
+    error BoostAmountLimitExceeded(uint256 amount, uint256 limit);
+    error LiquidityAmountLimitExceeded(uint256 amount, uint256 limit);
+    error InsufficientOutputAmount(uint256 outputAmount, uint256 minRequired);
+    error InvalidRatioToAddLiquidity();
+    error InvalidRatioToRemoveLiquidity();
+    error ExcessiveLiquidityRemoval(uint256 liquidity, uint256 unusedUsdAmount);
+
     /* ========== ROLES ========== */
     bytes32 public constant override SETTER_ROLE = keccak256("SETTER_ROLE");
     bytes32 public constant override AMO_ROLE = keccak256("AMO_ROLE");
@@ -69,19 +79,15 @@ contract SolidlyV3LiquidityAMO is
     ) public initializer {
         __AccessControlEnumerable_init();
         __Pausable_init();
-        require(
-            admin != address(0) &&
-                boost_ != address(0) &&
-                usd_ != address(0) &&
-                pool_ != address(0) &&
-                boostMinter_ != address(0) &&
-                treasuryVault_ != address(0),
-            "SolidlyV3LiquidityAMO: ZERO_ADDRESS"
-        );
-        require(
-            targetSqrtPriceX96_ > MIN_SQRT_RATIO && targetSqrtPriceX96_ < MAX_SQRT_RATIO,
-            "SolidlyV3LiquidityAMO: INVALID_RATIO_VALUE"
-        );
+        if (
+            admin == address(0) ||
+            boost_ == address(0) ||
+            usd_ == address(0) ||
+            pool_ == address(0) ||
+            boostMinter_ == address(0) ||
+            treasuryVault_ == address(0)
+        ) revert ZeroAddress();
+        if (targetSqrtPriceX96_ <= MIN_SQRT_RATIO || targetSqrtPriceX96_ >= MAX_SQRT_RATIO) revert InvalidRatioValue();
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         boost = boost_;
         usd = usd_;
@@ -106,7 +112,7 @@ contract SolidlyV3LiquidityAMO is
     ////////////////////////// SETTER_ROLE ACTIONS //////////////////////////
     /// @inheritdoc ISolidlyV3LiquidityAMOActions
     function setVault(address treasuryVault_) external override onlyRole(SETTER_ROLE) {
-        require(treasuryVault_ != address(0), "SolidlyV3LiquidityAMO: ZERO_ADDRESS");
+        if (treasuryVault_ == address(0)) revert ZeroAddress();
         treasuryVault = treasuryVault_;
 
         emit SetVault(treasuryVault_);
@@ -121,7 +127,7 @@ contract SolidlyV3LiquidityAMO is
         uint256 delta_,
         uint256 epsilon_
     ) external override onlyRole(SETTER_ROLE) {
-        require(validRangeRatio_ <= ONE_UNIT, "SolidlyV3LiquidityAMO: INVALID_RATIO_VALUE");
+        if (validRangeRatio_ > ONE_UNIT) revert InvalidRatioValue();
         boostAmountLimit = boostAmountLimit_;
         liquidityAmountLimit = liquidityAmountLimit_;
         validRangeRatio = validRangeRatio_;
@@ -138,10 +144,7 @@ contract SolidlyV3LiquidityAMO is
     }
 
     function setTargetSqrtPriceX96(uint160 targetSqrtPriceX96_) external override onlyRole(SETTER_ROLE) {
-        require(
-            targetSqrtPriceX96_ > MIN_SQRT_RATIO && targetSqrtPriceX96_ < MAX_SQRT_RATIO,
-            "SolidlyV3LiquidityAMO: INVALID_RATIO_VALUE"
-        );
+        if (targetSqrtPriceX96_ <= MIN_SQRT_RATIO || targetSqrtPriceX96_ >= MAX_SQRT_RATIO) revert InvalidRatioValue();
         targetSqrtPriceX96 = targetSqrtPriceX96_;
         emit SetTargetSqrtPriceX96(targetSqrtPriceX96_);
     }
@@ -160,7 +163,7 @@ contract SolidlyV3LiquidityAMO is
         returns (uint256 boostAmountIn, uint256 usdAmountOut, uint256 dryPowderAmount)
     {
         // Ensure the BOOST amount does not exceed the allowed limit
-        require(boostAmount <= boostAmountLimit, "SolidlyV3LiquidityAMO: BOOST_AMOUNT_LIMIT_EXCEEDED");
+        if (boostAmount > boostAmountLimit) revert BoostAmountLimitExceeded(boostAmount, boostAmountLimit);
 
         // Mint the specified amount of BOOST tokens
         IMinter(boostMinter).protocolMint(address(this), boostAmount);
@@ -180,7 +183,8 @@ contract SolidlyV3LiquidityAMO is
         (int256 boostDelta, int256 usdDelta) = sortAmounts(amount0, amount1);
         boostAmountIn = uint256(boostDelta);
         usdAmountOut = uint256(-usdDelta);
-        require(toBoostAmount(usdAmountOut) > boostAmountIn, "SolidlyV3LiquidityAMO: INSUFFICIENT_OUTPUT_AMOUNT");
+        if (toBoostAmount(usdAmountOut) <= boostAmountIn)
+            revert InsufficientOutputAmount({outputAmount: toBoostAmount(usdAmountOut), minRequired: boostAmountIn});
 
         dryPowderAmount = (usdAmountOut * delta) / ONE_UNIT;
         // Transfer the dry powder USD to the treasury
@@ -232,10 +236,8 @@ contract SolidlyV3LiquidityAMO is
 
         // Calculate the valid range for USD spent based on the BOOST spent and the validRangeRatio
         uint256 validRange = (boostSpent * validRangeRatio) / ONE_UNIT;
-        require(
-            toBoostAmount(usdSpent) > boostSpent - validRange && toBoostAmount(usdSpent) < boostSpent + validRange,
-            "SolidlyV3LiquidityAMO: INVALID_RANGE_TO_ADD_LIQUIDITY"
-        );
+        if (toBoostAmount(usdSpent) <= boostSpent - validRange || toBoostAmount(usdSpent) >= boostSpent + validRange)
+            revert InvalidRatioToAddLiquidity();
 
         // Burn excessive boosts
         IBoostStablecoin(boost).burn(boostAmount - boostSpent);
@@ -290,10 +292,8 @@ contract SolidlyV3LiquidityAMO is
     {
         (uint256 totalLiquidity, , ) = position();
         // Ensure the liquidity amount does not exceed the allowed limit
-        require(
-            liquidity <= liquidityAmountLimit && liquidity <= totalLiquidity,
-            "SolidlyV3LiquidityAMO: LIQUIDITY_AMOUNT_LIMIT_EXCEEDED"
-        );
+        if (liquidity > liquidityAmountLimit) revert LiquidityAmountLimitExceeded(liquidity, liquidityAmountLimit);
+        if (liquidity > totalLiquidity) revert LiquidityAmountLimitExceeded(liquidity, totalLiquidity);
 
         (uint256 amount0Min, uint256 amount1Min) = sortAmounts(minBoostRemove, minUsdRemove);
         // Remove liquidity and store the amounts of USD and BOOST tokens received
@@ -317,10 +317,7 @@ contract SolidlyV3LiquidityAMO is
         (uint256 boostCollected, uint256 usdCollected) = sortAmounts(amount0Collected, amount1Collected);
 
         // Ensure the BOOST amount is greater than or equal to the USD amount
-        require(
-            (boostRemoved * epsilon) / ONE_UNIT >= toBoostAmount(usdRemoved),
-            "SolidlyV3LiquidityAMO: REMOVE_LIQUIDITY_WITH_WRONG_RATIO"
-        );
+        if ((boostRemoved * epsilon) / ONE_UNIT < toBoostAmount(usdRemoved)) revert InvalidRatioToRemoveLiquidity();
 
         // Approve the transfer of usd tokens to the pool
         IERC20Upgradeable(usd).approve(pool, usdRemoved);
@@ -337,11 +334,11 @@ contract SolidlyV3LiquidityAMO is
         (int256 boostDelta, int256 usdDelta) = sortAmounts(amount0, amount1);
         usdAmountIn = uint256(usdDelta);
         boostAmountOut = uint256(-boostDelta);
-        require(toUsdAmount(boostAmountOut) > usdAmountIn, "SolidlyV3LiquidityAMO: INSUFFICIENT_OUTPUT_AMOUNT");
-        require(
-            usdRemoved - usdAmountIn < 100 * 10 ** usdDecimals,
-            "SolidlyV3LiquidityAMO: REMOVED_TOO_MUCH_LIQUIDITY"
-        );
+        if (toUsdAmount(boostAmountOut) <= usdAmountIn)
+            revert InsufficientOutputAmount({outputAmount: toUsdAmount(boostAmountOut), minRequired: usdAmountIn});
+
+        if (usdRemoved - usdAmountIn > 100 * 10 ** usdDecimals)
+            revert ExcessiveLiquidityRemoval({liquidity: liquidity, unusedUsdAmount: usdRemoved - usdAmountIn});
 
         // Burn the BOOST tokens received from burn liquidity, collect owed tokens and swap
         IBoostStablecoin(boost).burn(boostCollected + boostAmountOut);
