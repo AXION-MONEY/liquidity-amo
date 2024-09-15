@@ -64,7 +64,7 @@ contract SolidlyV3LiquidityAMO is
     uint256 internal constant Q96 = 2 ** 96;
     uint8 internal constant PRICE_DECIMALS = 6;
     uint8 internal constant PARAMS_DECIMALS = 6;
-    uint256 internal constant ONE_UNIT = 10 ** PARAMS_DECIMALS;
+    uint256 internal constant FACTOR = 10 ** PARAMS_DECIMALS;
 
     /* ========== FUNCTIONS ========== */
     function initialize(
@@ -126,7 +126,7 @@ contract SolidlyV3LiquidityAMO is
         uint256 delta_,
         uint256 epsilon_
     ) external override onlyRole(SETTER_ROLE) {
-        if (validRangeRatio_ > ONE_UNIT) revert InvalidRatioValue();
+        if (validRangeRatio_ > FACTOR) revert InvalidRatioValue();
         boostAmountLimit = boostAmountLimit_;
         liquidityAmountLimit = liquidityAmountLimit_;
         validRangeRatio = validRangeRatio_;
@@ -185,7 +185,7 @@ contract SolidlyV3LiquidityAMO is
         if (toBoostAmount(usdAmountOut) <= boostAmountIn)
             revert InsufficientOutputAmount({outputAmount: toBoostAmount(usdAmountOut), minRequired: boostAmountIn});
 
-        dryPowderAmount = (usdAmountOut * delta) / ONE_UNIT;
+        dryPowderAmount = (usdAmountOut * delta) / FACTOR;
         // Transfer the dry powder USD to the treasury
         IERC20Upgradeable(usd).safeTransfer(treasuryVault, dryPowderAmount);
 
@@ -211,7 +211,7 @@ contract SolidlyV3LiquidityAMO is
         returns (uint256 boostSpent, uint256 usdSpent, uint256 liquidity)
     {
         // Mint the specified amount of BOOST tokens
-        uint256 boostAmount = (toBoostAmount(usdAmount) * boostMultiplier) / ONE_UNIT;
+        uint256 boostAmount = (toBoostAmount(usdAmount) * boostMultiplier) / FACTOR;
 
         IMinter(boostMinter).protocolMint(address(this), boostAmount);
 
@@ -234,7 +234,7 @@ contract SolidlyV3LiquidityAMO is
         (boostSpent, usdSpent) = sortAmounts(amount0, amount1);
 
         // Calculate the valid range for USD spent based on the BOOST spent and the validRangeRatio
-        uint256 validRange = (boostSpent * validRangeRatio) / ONE_UNIT;
+        uint256 validRange = (boostSpent * validRangeRatio) / FACTOR;
         if (toBoostAmount(usdSpent) <= boostSpent - validRange || toBoostAmount(usdSpent) >= boostSpent + validRange)
             revert InvalidRatioToAddLiquidity();
 
@@ -269,7 +269,7 @@ contract SolidlyV3LiquidityAMO is
         (boostAmountIn, usdAmountOut, dryPowderAmount) = mintAndSellBoost(boostAmount, minUsdAmountOut, deadline);
 
         uint256 price = boostPrice();
-        if (price > ONE_UNIT - validRangeRatio && price < ONE_UNIT + validRangeRatio) {
+        if (price > FACTOR - validRangeRatio && price < FACTOR + validRangeRatio) {
             uint256 usdBalance = IERC20Upgradeable(usd).balanceOf(address(this));
             (boostSpent, usdSpent, liquidity) = addLiquidity(usdBalance, minBoostSpend, minUsdSpend, deadline);
         }
@@ -316,7 +316,7 @@ contract SolidlyV3LiquidityAMO is
         (uint256 boostCollected, uint256 usdCollected) = sortAmounts(amount0Collected, amount1Collected);
 
         // Ensure the BOOST amount is greater than or equal to the USD amount
-        if ((boostRemoved * epsilon) / ONE_UNIT < toBoostAmount(usdRemoved)) revert InvalidRatioToRemoveLiquidity();
+        if ((boostRemoved * epsilon) / FACTOR < toBoostAmount(usdRemoved)) revert InvalidRatioToRemoveLiquidity();
 
         // Approve the transfer of usd tokens to the pool
         IERC20Upgradeable(usd).approve(pool, usdRemoved);
