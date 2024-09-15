@@ -26,7 +26,6 @@ contract SolidlyV2LiquidityAMO is
     /* ========== ROLES ========== */
     bytes32 public constant SETTER_ROLE = keccak256("SETTER_ROLE");
     bytes32 public constant AMO_ROLE = keccak256("AMO_ROLE");
-    bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
     bytes32 public constant REWARD_COLLECTOR_ROLE = keccak256("REWARD_COLLECTOR_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
     bytes32 public constant UNPAUSER_ROLE = keccak256("UNPAUSER_ROLE");
@@ -339,15 +338,6 @@ contract SolidlyV2LiquidityAMO is
         bool passTokens
     ) external onlyRole(REWARD_COLLECTOR_ROLE) whenNotPaused {
         _getReward(tokens, passTokens);
-    }
-
-    ////////////////////////// OPERATOR_ROLE ACTIONS //////////////////////////
-    /// @inheritdoc ISolidlyV2LiquidityAMO
-    function _call(
-        address _target,
-        bytes calldata _calldata
-    ) external payable onlyRole(OPERATOR_ROLE) returns (bool _success, bytes memory _resultdata) {
-        return _target.call{value: msg.value}(_calldata);
     }
 
     ////////////////////////// Internal functions //////////////////////////

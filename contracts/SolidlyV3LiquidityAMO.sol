@@ -37,7 +37,6 @@ contract SolidlyV3LiquidityAMO is
     /* ========== ROLES ========== */
     bytes32 public constant override SETTER_ROLE = keccak256("SETTER_ROLE");
     bytes32 public constant override AMO_ROLE = keccak256("AMO_ROLE");
-    bytes32 public constant override OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
     bytes32 public constant override PAUSER_ROLE = keccak256("PAUSER_ROLE");
     bytes32 public constant override UNPAUSER_ROLE = keccak256("UNPAUSER_ROLE");
     /* ========== VARIABLES ========== */
@@ -348,23 +347,6 @@ contract SolidlyV3LiquidityAMO is
         emit CollectOwedTokens(boostCollected - boostRemoved, usdCollected - usdRemoved);
         emit Swap(usd, boost, usdAmountIn, boostAmountOut);
         emit BurnBoost(boostCollected + boostAmountOut);
-    }
-
-    ////////////////////////// OPERATOR_ROLE ACTIONS //////////////////////////
-    function _call(
-        address _target,
-        bytes calldata _calldata
-    ) external payable onlyRole(OPERATOR_ROLE) returns (bool _success, bytes memory _resultdata) {
-        return _target.call{value: msg.value}(_calldata);
-    }
-
-    function _call(
-        address _target,
-        bytes calldata _calldata,
-        bool _requireSuccess
-    ) external payable onlyRole(OPERATOR_ROLE) returns (bool _success, bytes memory _resultdata) {
-        (_success, _resultdata) = _target.call{value: msg.value}(_calldata);
-        if (_requireSuccess) require(_success, string(_resultdata));
     }
 
     ////////////////////////// Internal functions //////////////////////////

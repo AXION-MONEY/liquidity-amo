@@ -171,19 +171,6 @@ interface ISolidlyV2LiquidityAMO {
     function getReward(address[] memory tokens, bool passTokens) external;
 
     /**
-     * @notice This function allows to call arbitrary functions on external contracts
-     * @dev Can only be called by an account with the OPERATOR_ROLE
-     * @param _target The address of the external contract to call
-     * @param _calldata The calldata to be passed to the external contract call
-     * @return _success A boolean indicating whether the call was successful
-     * @return _resultdata The data returned by the external contract call
-     */
-    function _call(
-        address _target,
-        bytes calldata _calldata
-    ) external payable returns (bool _success, bytes memory _resultdata);
-
-    /**
      * @notice This view function return the total LP amount owned and staked by AMO
      * @return freeLp + stakedLp The total LP amount owned and staked by AMO
      */

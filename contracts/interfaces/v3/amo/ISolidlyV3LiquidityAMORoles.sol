@@ -8,8 +8,6 @@ interface ISolidlyV3LiquidityAMORoles {
 
     function AMO_ROLE() external view returns (bytes32);
 
-    function OPERATOR_ROLE() external view returns (bytes32);
-
     function PAUSER_ROLE() external view returns (bytes32);
 
     function UNPAUSER_ROLE() external view returns (bytes32);
