@@ -6,10 +6,10 @@ pragma solidity ^0.8.19;
 interface ISolidlyV3PublicAMO {
     ////////////////////////// EVENTS //////////////////////////
     event AMOSet(address indexed newAmoAddress);
-    event LimitsSet(uint256 boostLimitToMint, uint256 lpLimitToUnfarm);
+    event LimitsSet(uint256 boostLimitToMint, uint256 liquidityToUnfarmLimit);
     event BuyAndSellBoundSet(uint256 boostUpperPriceBuy, uint256 boostLowerPriceSell);
-    event MintSellExecuted(uint256 boostAmountIn, uint256 usdAmountOut);
-    event UnfarmBuyBurnExecuted(uint256 lpAmount, uint256 boostRemoved, uint256 usdRemoved);
+    event MintSellFarmExecuted(uint256 boostAmountIn, uint256 usdAmountOut, uint256 liquidity);
+    event UnfarmBuyBurnExecuted(uint256 liquidity, uint256 boostRemoved, uint256 usdRemoved);
     event CooldownPeriodSet(uint256 cooldownPeriod);
     event TokenSet(uint256 indexed tokenId, bool useToken);
     event BoostSellRatioSet(uint256 boostSellRatio);
@@ -29,21 +29,36 @@ interface ISolidlyV3PublicAMO {
     function unpause() external;
 
     /// @notice Mints BOOST tokens and sells them for USD
-    /// @return boostAmountIn The amount of BOOST is used in selling BOOST
-    /// @return usdAmountOut The amount of USD received from selling BOOST
-    /// @return dryPowderAmount The amount of USD kept as dry powder
-    function mintSell() external returns (uint256 boostAmountIn, uint256 usdAmountOut, uint256 dryPowderAmount);
+    /// @return boostAmountIn The BOOST amount that sent to the pool for the swap
+    /// @return usdAmountOut The USD amount that received from the swap
+    /// @return dryPowderAmount The USD amount that transferred to the treasury as dry powder
+    /// @return boostSpent The BOOST amount that is spent in add liquidity
+    /// @return usdSpent The USD amount that is spent in add liquidity
+    /// @return liquidity The liquidity Amount that received from add liquidity
+    function mintSellFarm()
+        external
+        returns (
+            uint256 boostAmountIn,
+            uint256 usdAmountOut,
+            uint256 dryPowderAmount,
+            uint256 boostSpent,
+            uint256 usdSpent,
+            uint256 liquidity
+        );
 
     /// @notice Unfarms liquidity, buys BOOST tokens with USD, and burns them
-    /// @return boostRemoved_ The amount of BOOST removed from the pool
-    /// @return usdRemoved_ The amount of USD removed from the pool
-    /// @return boostAmountOut_ The amount of BOOST received from buying
-    function unfarmBuyBurn() external returns (uint256 boostRemoved_, uint256 usdRemoved_, uint256 boostAmountOut_);
+    /// @return boostRemoved The amount of BOOST removed from the pool
+    /// @return usdRemoved The amount of USD removed from the pool
+    /// @return usdAmountIn The amount of USD spent for buying
+    /// @return boostAmountOut The amount of BOOST received from buying
+    function unfarmBuyBurn()
+        external
+        returns (uint256 boostRemoved, uint256 usdRemoved, uint256 usdAmountIn, uint256 boostAmountOut);
 
-    /// @notice Sets the limits for minting BOOST and unfarming LP tokens
+    /// @notice Sets the limits for minting BOOST and unfarming liquidity
     /// @param boostLimitToMint_ The new limit for minting BOOST tokens
-    /// @param lpLimitToUnfarm_ The new limit for unfarming LP tokens
-    function setLimits(uint256 boostLimitToMint_, uint256 lpLimitToUnfarm_) external;
+    /// @param liquidityToUnfarmLimit_ The new limit for unfarming liquidity
+    function setLimits(uint256 boostLimitToMint_, uint256 liquidityToUnfarmLimit_) external;
 
     /// @notice Sets the buy upper price and sell lower price bounds for BOOST tokens
     /// @param boostUpperPriceBuy_ The new upper price bound for buying BOOST
@@ -57,11 +72,6 @@ interface ISolidlyV3PublicAMO {
     /// @notice Sets the cooldown period for users
     /// @param cooldownPeriod_ The new cooldown period
     function setCooldownPeriod(uint256 cooldownPeriod_) external;
-
-    /// @notice Sets the token id for depositing in mintSellFarm
-    /// @param tokenId_ The token id
-    /// @param useToken_ A boolean indicating use or not to use the token id
-    function setToken(uint256 tokenId_, bool useToken_) external;
 
     /// @notice Sets the BOOST sell ratio for mintSell
     /// @param boostSellRatio_ The new BOOST sell ratio
