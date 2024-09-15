@@ -6,6 +6,7 @@ import "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgrad
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 import "./interfaces/v3/ISolidlyV3LiquidityAMO.sol";
 import {IMinter} from "./interfaces/IMinter.sol";
@@ -39,6 +40,7 @@ contract SolidlyV3LiquidityAMO is
     bytes32 public constant override AMO_ROLE = keccak256("AMO_ROLE");
     bytes32 public constant override PAUSER_ROLE = keccak256("PAUSER_ROLE");
     bytes32 public constant override UNPAUSER_ROLE = keccak256("UNPAUSER_ROLE");
+    bytes32 public constant override WITHDRAWER_ROLE = keccak256("WITHDRAWER_ROLE");
     /* ========== VARIABLES ========== */
     address public override boost;
     address public override usd;
@@ -347,6 +349,19 @@ contract SolidlyV3LiquidityAMO is
         emit CollectOwedTokens(boostCollected - boostRemoved, usdCollected - usdRemoved);
         emit Swap(usd, boost, usdAmountIn, boostAmountOut);
         emit BurnBoost(boostCollected + boostAmountOut);
+    }
+
+    ////////////////////////// Withdrawal functions //////////////////////////
+    /// @inheritdoc ISolidlyV3LiquidityAMOActions
+    function withdrawERC20(address token, uint256 amount, address recipient) external onlyRole(WITHDRAWER_ROLE) {
+        if (recipient == address(0)) revert ZeroAddress();
+        IERC20Upgradeable(token).safeTransfer(recipient, amount);
+    }
+
+    /// @inheritdoc ISolidlyV3LiquidityAMOActions
+    function withdrawERC721(address token, uint256 tokenId, address recipient) external onlyRole(WITHDRAWER_ROLE) {
+        if (recipient == address(0)) revert ZeroAddress();
+        IERC721Upgradeable(token).safeTransferFrom(address(this), recipient, tokenId);
     }
 
     ////////////////////////// Internal functions //////////////////////////

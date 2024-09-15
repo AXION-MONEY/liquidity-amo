@@ -124,4 +124,22 @@ interface ISolidlyV3LiquidityAMOActions {
         uint256 minBoostAmountOut,
         uint256 deadline
     ) external returns (uint256 boostRemoved, uint256 usdRemoved, uint256 usdAmountIn, uint256 boostAmountOut);
+
+    /**
+     * @notice Withdraws ERC20 tokens from the contract
+     * @dev Can only be called by an account with the WITHDRAWER_ROLE
+     * @param token The address of the ERC20 token contract
+     * @param amount The amount of tokens to withdraw
+     * @param recipient The address to receive the tokens
+     */
+    function withdrawERC20(address token, uint256 amount, address recipient) external;
+
+    /**
+     * @notice Withdraws an ERC721 token from the contract
+     * @dev Can only be called by an account with the WITHDRAWER_ROLE
+     * @param token The address of the ERC721 token contract
+     * @param tokenId The ID of the token to withdraw
+     * @param recipient The address to receive the token
+     */
+    function withdrawERC721(address token, uint256 tokenId, address recipient) external;
 }

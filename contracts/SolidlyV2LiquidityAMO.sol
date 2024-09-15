@@ -6,6 +6,7 @@ import "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgrad
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 import {IMinter} from "./interfaces/IMinter.sol";
 import {IBoostStablecoin} from "./interfaces/IBoostStablecoin.sol";
@@ -29,6 +30,7 @@ contract SolidlyV2LiquidityAMO is
     bytes32 public constant REWARD_COLLECTOR_ROLE = keccak256("REWARD_COLLECTOR_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
     bytes32 public constant UNPAUSER_ROLE = keccak256("UNPAUSER_ROLE");
+    bytes32 public constant WITHDRAWER_ROLE = keccak256("WITHDRAWER_ROLE");
 
     /* ========== VARIABLES ========== */
     address public router;
@@ -338,6 +340,17 @@ contract SolidlyV2LiquidityAMO is
         bool passTokens
     ) external onlyRole(REWARD_COLLECTOR_ROLE) whenNotPaused {
         _getReward(tokens, passTokens);
+    }
+
+    ////////////////////////// Withdrawal functions //////////////////////////
+    /// @inheritdoc ISolidlyV2LiquidityAMO
+    function withdrawERC20(address token, uint256 amount, address recipient) external onlyRole(WITHDRAWER_ROLE) {
+        IERC20Upgradeable(token).safeTransfer(recipient, amount);
+    }
+
+    /// @inheritdoc ISolidlyV2LiquidityAMO
+    function withdrawERC721(address token, uint256 tokenId, address recipient) external onlyRole(WITHDRAWER_ROLE) {
+        IERC721Upgradeable(token).safeTransferFrom(address(this), recipient, tokenId);
     }
 
     ////////////////////////// Internal functions //////////////////////////
