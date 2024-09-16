@@ -4,6 +4,7 @@ pragma solidity 0.8.19;
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import {IERC20, IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 import {ISolidlyV3LiquidityAMO} from "./interfaces/v3/ISolidlyV3LiquidityAMO.sol";
 import {ISolidlyV3PublicAMO} from "./interfaces/v3/ISolidlyV3PublicAMO.sol";
@@ -17,7 +18,8 @@ contract SolidlyV3PublicAMO is
     ISolidlyV3PublicAMO,
     Initializable,
     AccessControlEnumerableUpgradeable,
-    PausableUpgradeable
+    PausableUpgradeable,
+    ReentrancyGuardUpgradeable
 {
     ////////////////////////// ROLES //////////////////////////
     bytes32 public constant SETTER_ROLE = keccak256("SETTER_ROLE");
@@ -71,6 +73,7 @@ contract SolidlyV3PublicAMO is
     function mintSellFarm()
         external
         whenNotPaused
+        nonReentrant
         returns (
             uint256 boostAmountIn,
             uint256 usdAmountOut,
@@ -125,6 +128,7 @@ contract SolidlyV3PublicAMO is
     )
         external
         whenNotPaused
+        nonReentrant
         returns (
             uint256 boostRemoved,
             uint256 usdRemoved,

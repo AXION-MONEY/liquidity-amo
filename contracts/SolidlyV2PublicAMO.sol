@@ -4,6 +4,7 @@ pragma solidity 0.8.19;
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import {IERC20, IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 import {ISolidlyV2LiquidityAMO} from "./interfaces/v2/ISolidlyV2LiquidityAMO.sol";
 import {ISolidlyV2PublicAMO} from "./interfaces/v2/ISolidlyV2PublicAMO.sol";
@@ -16,7 +17,8 @@ contract SolidlyV2PublicAMO is
     ISolidlyV2PublicAMO,
     Initializable,
     AccessControlEnumerableUpgradeable,
-    PausableUpgradeable
+    PausableUpgradeable,
+    ReentrancyGuardUpgradeable
 {
     ////////////////////////// ROLES //////////////////////////
     bytes32 public constant AMO_SETTER_ROLE = keccak256("AMO_SETTER_ROLE");
@@ -75,6 +77,7 @@ contract SolidlyV2PublicAMO is
     function mintSell()
         external
         whenNotPaused
+        nonReentrant
         returns (uint256 boostAmountIn, uint256 usdAmountOut, uint256 dryPowderAmount)
     {
         // Checks cooldown time
@@ -116,6 +119,7 @@ contract SolidlyV2PublicAMO is
     function unfarmBuyBurn()
         external
         whenNotPaused
+        nonReentrant
         returns (uint256 boostRemoved, uint256 usdRemoved, uint256 boostAmountOut)
     {
         address lpAddress = ISolidlyV2LiquidityAMO(amoAddress).usd_boost();
