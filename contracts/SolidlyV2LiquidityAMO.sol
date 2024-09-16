@@ -8,10 +8,10 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
+import {ISolidlyV2LiquidityAMO} from "./interfaces/v2/ISolidlyV2LiquidityAMO.sol";
 import {IMinter} from "./interfaces/IMinter.sol";
 import {IBoostStablecoin} from "./interfaces/IBoostStablecoin.sol";
 import {IGauge} from "./interfaces/v2/IGauge.sol";
-import {ISolidlyV2LiquidityAMO} from "./interfaces/v2/ISolidlyV2LiquidityAMO.sol";
 import {ISolidlyRouter} from "./interfaces/v2/ISolidlyRouter.sol";
 
 /// @title Liquidity AMO for BOOST-USD Solidly pair
@@ -24,6 +24,16 @@ contract SolidlyV2LiquidityAMO is
 {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
+    /* ========== ERRORS ========== */
+    error ZeroAddress();
+    error InvalidRatioValue();
+    error BoostAmountLimitExceeded(uint256 amount, uint256 limit);
+    error LiquidityAmountLimitExceeded(uint256 amount, uint256 limit);
+    error InsufficientOutputAmount(uint256 outputAmount, uint256 minRequired);
+    error InvalidRatioToAddLiquidity();
+    error InvalidRatioToRemoveLiquidity();
+    error TokenNotWhitelisted(address token);
+
     /* ========== ROLES ========== */
     bytes32 public constant SETTER_ROLE = keccak256("SETTER_ROLE");
     bytes32 public constant AMO_ROLE = keccak256("AMO_ROLE");
@@ -33,56 +43,62 @@ contract SolidlyV2LiquidityAMO is
     bytes32 public constant WITHDRAWER_ROLE = keccak256("WITHDRAWER_ROLE");
 
     /* ========== VARIABLES ========== */
+    address public boost;
+    address public usd;
+    address public pool;
+    uint256 public boostDecimals;
+    uint256 public usdDecimals;
+    address public boostMinter;
     address public router;
     address public gauge;
-    address public boost;
-    address public boostMinter;
-    address public usd;
-    address public usd_boost;
-    uint256 public usdDecimals;
-    uint256 public boostDecimals;
+
     address public rewardVault;
     address public treasuryVault;
     uint256 public boostAmountLimit;
     uint256 public lpAmountLimit;
-    uint256 public validRangeRatio; // decimals 6
     uint256 public boostMultiplier; // decimals 6
-    uint256 public epsilon; // decimals 6
-    uint256 public delta; // decimals 6
+    uint24 public validRangeRatio; // decimals 6
+    uint24 public validRemovingRatio; // decimals 6
+    uint24 public dryPowderRatio; // decimals 6
     mapping(address => bool) public whitelistedRewardTokens;
+
+    /* ========== CONSTANTS ========== */
+    uint8 internal constant PRICE_DECIMALS = 6;
+    uint8 internal constant PARAMS_DECIMALS = 6;
+    uint256 internal constant FACTOR = 10 ** PARAMS_DECIMALS;
 
     /* ========== FUNCTIONS ========== */
     function initialize(
         address admin,
+        address boost_,
+        address usd_,
+        address boostMinter_,
         address router_,
         address gauge_,
-        address boost_,
-        address boostMinter_,
-        address usd_,
         address rewardVault_,
         address treasuryVault_
     ) public initializer {
         __AccessControlEnumerable_init();
         __Pausable_init();
-        require(
-            admin != address(0) &&
-                router_ != address(0) &&
-                gauge_ != address(0) &&
-                boost_ != address(0) &&
-                usd_ != address(0) &&
-                rewardVault_ != address(0) &&
-                treasuryVault_ != address(0),
-            "LiquidityAMO: ZERO_ADDRESS"
-        );
+        if (
+            admin == address(0) ||
+            boost_ == address(0) ||
+            usd_ == address(0) ||
+            boostMinter_ == address(0) ||
+            router_ == address(0) ||
+            gauge_ == address(0) ||
+            rewardVault_ == address(0) ||
+            treasuryVault_ == address(0)
+        ) revert ZeroAddress();
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
+        boost = boost_;
+        usd = usd_;
+        pool = ISolidlyRouter(router).pairFor(usd, boost, true);
+        boostDecimals = IERC20Metadata(boost).decimals();
+        usdDecimals = IERC20Metadata(usd).decimals();
+        boostMinter = boostMinter_;
         router = router_;
         gauge = gauge_;
-        boost = boost_;
-        boostMinter = boostMinter_;
-        usd = usd_;
-        usd_boost = ISolidlyRouter(router).pairFor(usd, boost, true);
-        usdDecimals = IERC20Metadata(usd).decimals();
-        boostDecimals = IERC20Metadata(boost).decimals();
         rewardVault = rewardVault_;
         treasuryVault = treasuryVault_;
     }
@@ -100,30 +116,28 @@ contract SolidlyV2LiquidityAMO is
     ////////////////////////// SETTER_ROLE ACTIONS //////////////////////////
     /// @inheritdoc ISolidlyV2LiquidityAMO
     function setVaults(address rewardVault_, address treasuryVault_) external onlyRole(SETTER_ROLE) {
-        require(rewardVault_ != address(0) && treasuryVault_ != address(0), "LiquidityAMO: ZERO_ADDRESS");
+        if (rewardVault_ == address(0) || treasuryVault_ == address(0)) revert ZeroAddress();
         rewardVault = rewardVault_;
         treasuryVault = treasuryVault_;
-
-        emit SetVaults(rewardVault_, treasuryVault_);
     }
 
     /// @inheritdoc ISolidlyV2LiquidityAMO
     function setParams(
         uint256 boostAmountLimit_,
         uint256 lpAmountLimit_,
-        uint256 validRangeRatio_,
         uint256 boostMultiplier_,
-        uint256 delta_,
-        uint256 epsilon_
+        uint24 validRangeRatio_,
+        uint24 validRemovingRatio_,
+        uint24 dryPowderRatio_
     ) external onlyRole(SETTER_ROLE) {
-        require(validRangeRatio_ <= 1e6, "LiquidityAMO: INVALID_RATIO_VALUE");
+        if (validRangeRatio_ > FACTOR || validRemovingRatio_ > FACTOR || dryPowderRatio_ > FACTOR)
+            revert InvalidRatioValue();
         boostAmountLimit = boostAmountLimit_;
         lpAmountLimit = lpAmountLimit_;
-        validRangeRatio = validRangeRatio_;
         boostMultiplier = boostMultiplier_;
-        delta = delta_;
-        epsilon = epsilon_;
-        emit SetParams(boostAmountLimit_, lpAmountLimit_, validRangeRatio_, boostMultiplier_, delta_, epsilon_);
+        validRangeRatio = validRangeRatio_;
+        validRemovingRatio = validRemovingRatio_;
+        dryPowderRatio = dryPowderRatio_;
     }
 
     /// @inheritdoc ISolidlyV2LiquidityAMO
@@ -131,7 +145,6 @@ contract SolidlyV2LiquidityAMO is
         for (uint i = 0; i < tokens.length; i++) {
             whitelistedRewardTokens[tokens[i]] = isWhitelisted;
         }
-        emit SetRewardToken(tokens, isWhitelisted);
     }
 
     ////////////////////////// AMO_ROLE ACTIONS //////////////////////////
@@ -142,7 +155,7 @@ contract SolidlyV2LiquidityAMO is
         uint256 deadline
     ) public onlyRole(AMO_ROLE) whenNotPaused returns (uint256 usdAmountOut, uint256 dryPowderAmount) {
         // Ensure the BOOST amount does not exceed the allowed limit
-        require(boostAmount <= boostAmountLimit, "LiquidityAMO: BOOST_AMOUNT_LIMIT_EXCEEDED");
+        if (boostAmount > boostAmountLimit) revert BoostAmountLimitExceeded(boostAmount, boostAmountLimit);
 
         // Mint the specified amount of BOOST tokens
         IMinter(boostMinter).protocolMint(address(this), boostAmount);
@@ -165,7 +178,7 @@ contract SolidlyV2LiquidityAMO is
             deadline
         );
         usdAmountOut = amounts[1];
-        dryPowderAmount = (usdAmountOut * delta) / (10 ** 6);
+        dryPowderAmount = (usdAmountOut * dryPowderRatio) / (10 ** 6);
         // Transfer the dry powder USD to the treasury
         IERC20Upgradeable(usd).safeTransfer(treasuryVault, dryPowderAmount);
 
@@ -211,18 +224,17 @@ contract SolidlyV2LiquidityAMO is
         );
 
         // Ensure the liquidity tokens minted are greater than or equal to the minimum required
-        require(lpAmount >= minLpAmount, "LiquidityAMO: INSUFFICIENT_OUTPUT_LIQUIDITY");
+        if (lpAmount < minLpAmount) revert InsufficientOutputAmount(lpAmount, minLpAmount);
 
         // Calculate the valid range for USD spent based on the BOOST spent and the validRangeRatio
         uint256 validRange = (boostSpent * validRangeRatio) / 1e6;
-        require(
-            usdSpent * (10 ** (boostDecimals - usdDecimals)) > boostSpent - validRange &&
-                usdSpent * (10 ** (boostDecimals - usdDecimals)) < boostSpent + validRange,
-            "LiquidityAMO: INVALID_RANGE_TO_ADD_LIQUIDITY"
-        );
+        if (
+            usdSpent * 10 ** (boostDecimals - usdDecimals) < boostSpent - validRange ||
+            usdSpent * 10 ** (boostDecimals - usdDecimals) > boostSpent + validRange
+        ) revert InvalidRatioToAddLiquidity();
 
         // Approve the transfer of liquidity tokens to the gauge and deposit them
-        IERC20Upgradeable(usd_boost).approve(gauge, lpAmount);
+        IERC20Upgradeable(pool).approve(gauge, lpAmount);
         if (useTokenId) {
             IGauge(gauge).deposit(lpAmount, tokenId);
         } else {
@@ -230,8 +242,7 @@ contract SolidlyV2LiquidityAMO is
         }
 
         // Burn excessive boosts
-        if (boostAmount > boostSpent)
-            IBoostStablecoin(boost).burn(boostAmount - boostSpent);
+        if (boostAmount > boostSpent) IBoostStablecoin(boost).burn(boostAmount - boostSpent);
 
         // Emit events for adding liquidity and depositing liquidity tokens
         emit AddLiquidity(usdAmount, boostAmount, usdSpent, boostSpent, lpAmount);
@@ -279,12 +290,14 @@ contract SolidlyV2LiquidityAMO is
         returns (uint256 boostRemoved, uint256 usdRemoved, uint256 boostAmountOut)
     {
         // Ensure the LP amount does not exceed the allowed limit
-        require(lpAmount <= lpAmountLimit && lpAmount <= totalLP(), "LiquidityAMO: LP_AMOUNT_LIMIT_EXCEEDED");
+        uint256 totalLp = totalLP();
+        if (lpAmount > lpAmountLimit) revert LiquidityAmountLimitExceeded(lpAmount, lpAmountLimit);
+        if (lpAmount > totalLp) revert LiquidityAmountLimitExceeded(lpAmount, totalLp);
         // Withdraw the specified amount of liquidity tokens from the gauge
         IGauge(gauge).withdraw(lpAmount);
 
         // Approve the transfer of liquidity tokens to the router for removal
-        IERC20Upgradeable(usd_boost).approve(router, lpAmount);
+        IERC20Upgradeable(pool).approve(router, lpAmount);
 
         // Remove liquidity and store the amounts of USD and BOOST tokens received
         (boostRemoved, usdRemoved) = ISolidlyRouter(router).removeLiquidity(
@@ -299,10 +312,8 @@ contract SolidlyV2LiquidityAMO is
         );
 
         // Ensure the BOOST amount is greater than or equal to the USD amount
-        require(
-            boostRemoved * epsilon >= usdRemoved * (10 ** (boostDecimals - usdDecimals + 6)),
-            "LiquidityAMO: REMOVE_LIQUIDITY_WITH_WRONG_RATIO"
-        );
+        if ((boostRemoved * validRemovingRatio) / FACTOR < toBoostAmount(usdRemoved))
+            revert InvalidRatioToRemoveLiquidity();
 
         // Define the route to swap USD tokens for BOOST tokens
         ISolidlyRouter.route[] memory routes = new ISolidlyRouter.route[](1);
@@ -355,7 +366,6 @@ contract SolidlyV2LiquidityAMO is
     }
 
     ////////////////////////// Internal functions //////////////////////////
-
     function _getReward(address[] memory tokens, bool passTokens) internal {
         uint256[] memory rewardsAmounts = new uint256[](tokens.length);
         // Collect the rewards
@@ -367,7 +377,7 @@ contract SolidlyV2LiquidityAMO is
         // Calculate the reward amounts and transfer them to the reward vault
         uint256 totalLp = totalLP();
         for (uint i = 0; i < tokens.length; i++) {
-            require(whitelistedRewardTokens[tokens[i]], "LiquidityAMO: NOT_WHITELISTED_REWARD_TOKEN");
+            if (!whitelistedRewardTokens[tokens[i]]) revert TokenNotWhitelisted(tokens[i]);
             rewardsAmounts[i] = IERC20Upgradeable(tokens[i]).balanceOf(address(this));
             IERC20Upgradeable(tokens[i]).safeTransfer(rewardVault, (rewardsAmounts[i] * totalLp) / totalLp);
         }
@@ -375,10 +385,28 @@ contract SolidlyV2LiquidityAMO is
         emit GetReward(tokens, rewardsAmounts);
     }
 
+    function sortAmounts(uint256 amount0, uint256 amount1) internal view returns (uint256, uint256) {
+        if (boost < usd) return (amount0, amount1);
+        return (amount1, amount0);
+    }
+
+    function sortAmounts(int256 amount0, int256 amount1) internal view returns (int256, int256) {
+        if (boost < usd) return (amount0, amount1);
+        return (amount1, amount0);
+    }
+
+    function toBoostAmount(uint256 usdAmount) internal view returns (uint256) {
+        return usdAmount * 10 ** (boostDecimals - usdDecimals);
+    }
+
+    function toUsdAmount(uint256 boostAmount) internal view returns (uint256) {
+        return boostAmount / 10 ** (boostDecimals - usdDecimals);
+    }
+
     ////////////////////////// View Functions //////////////////////////
     /// @inheritdoc ISolidlyV2LiquidityAMO
     function totalLP() public view returns (uint256) {
-        uint256 freeLp = IERC20Upgradeable(usd_boost).balanceOf(address(this));
+        uint256 freeLp = IERC20Upgradeable(pool).balanceOf(address(this));
         uint256 stakedLp = IGauge(gauge).balanceOf(address(this));
         return freeLp + stakedLp;
     }

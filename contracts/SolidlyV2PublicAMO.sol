@@ -84,7 +84,7 @@ contract SolidlyV2PublicAMO is
         if (userLastTx[msg.sender] + cooldownPeriod > block.timestamp) revert CooldownNotFinished();
         userLastTx[msg.sender] = block.timestamp;
 
-        address lpAddress = ISolidlyV2LiquidityAMO(amoAddress).usd_boost();
+        address lpAddress = ISolidlyV2LiquidityAMO(amoAddress).pool();
         address boostAddress = ISolidlyV2LiquidityAMO(amoAddress).boost();
         uint8 boostDecimals = IERC20Metadata(boostAddress).decimals();
         // TODO: check the reserves
@@ -122,7 +122,7 @@ contract SolidlyV2PublicAMO is
         nonReentrant
         returns (uint256 boostRemoved, uint256 usdRemoved, uint256 boostAmountOut)
     {
-        address lpAddress = ISolidlyV2LiquidityAMO(amoAddress).usd_boost();
+        address lpAddress = ISolidlyV2LiquidityAMO(amoAddress).pool();
         address boostAddress = ISolidlyV2LiquidityAMO(amoAddress).boost();
         uint8 boostDecimals = IERC20Metadata(boostAddress).decimals();
         // TODO: check the reserves

@@ -27,22 +27,11 @@ interface ISolidlyV2LiquidityAMO {
 
     event GetReward(address[] tokens, uint256[] amounts);
 
-    event SetRewardToken(address[] token, bool isWhitelisted);
-    event SetVaults(address rewardVault, address treasuryVault);
-    event SetParams(
-        uint256 boostAmountLimit,
-        uint256 lpAmountLimit,
-        uint256 validRangeRatio,
-        uint256 boostMultiplier,
-        uint256 delta,
-        uint256 epsilon
-    );
-
     function usdDecimals() external returns (uint256);
 
     function boostDecimals() external returns (uint256);
 
-    function usd_boost() external returns (address);
+    function pool() external returns (address);
 
     /**
      * @notice This function sets the reward and buyback vault addresses
@@ -56,18 +45,18 @@ interface ISolidlyV2LiquidityAMO {
      * @dev Can only be called by an account with the SETTER_ROLE
      * @param boostAmountLimit_ The maximum amount of BOOST for mintAndSellBoost() and unfarmBuyBurn()
      * @param lpAmountLimit_ The maximum amount of LP tokens for unfarmBuyBurn()
-     * @param validRangeRatio_ The valid range ratio for addLiquidityAndDeposit()
      * @param boostMultiplier_ The multiplier used to calculate the amount of boost to mint in addLiquidityAndDeposit()
-     * @param delta_ The percent of collateral that transfer to treasuryVault in mintAndSellBoost() as dry powder
-     * @param epsilon_ Set the price (<1$) on which the unfarmBuyBurn() is allowed
+     * @param validRangeRatio_ The valid range ratio for addLiquidityAndDeposit()
+     * @param validRemovingRatio_ Set the price (<1$) on which the unfarmBuyBurn() is allowed
+     * @param dryPowderRatio_ The percent of collateral that transfer to treasuryVault in mintAndSellBoost() as dry powder
      */
     function setParams(
         uint256 boostAmountLimit_,
         uint256 lpAmountLimit_,
-        uint256 validRangeRatio_,
         uint256 boostMultiplier_,
-        uint256 delta_,
-        uint256 epsilon_
+        uint24 validRangeRatio_,
+        uint24 validRemovingRatio_,
+        uint24 dryPowderRatio_
     ) external;
 
     /**

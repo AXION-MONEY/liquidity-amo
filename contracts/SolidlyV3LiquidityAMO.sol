@@ -11,7 +11,6 @@ import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.
 import "./interfaces/v3/ISolidlyV3LiquidityAMO.sol";
 import {IMinter} from "./interfaces/IMinter.sol";
 import {IBoostStablecoin} from "./interfaces/IBoostStablecoin.sol";
-import {ISolidlyV3Factory} from "./interfaces/v3/ISolidlyV3Factory.sol";
 import {ISolidlyV3Pool} from "./interfaces/v3/ISolidlyV3Pool.sol";
 
 /// @title Liquidity AMO for BOOST-USD Solidly pair
@@ -41,6 +40,7 @@ contract SolidlyV3LiquidityAMO is
     bytes32 public constant override PAUSER_ROLE = keccak256("PAUSER_ROLE");
     bytes32 public constant override UNPAUSER_ROLE = keccak256("UNPAUSER_ROLE");
     bytes32 public constant override WITHDRAWER_ROLE = keccak256("WITHDRAWER_ROLE");
+
     /* ========== VARIABLES ========== */
     address public override boost;
     address public override usd;
