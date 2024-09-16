@@ -20,18 +20,20 @@ interface ISolidlyV3LiquidityAMOActions {
      * @dev Can only be called by an account with the SETTER_ROLE
      * @param boostAmountLimit_ The maximum amount of BOOST for mintAndSellBoost() and unfarmBuyBurn()
      * @param liquidityAmountLimit_ The maximum amount of liquidity for unfarmBuyBurn()
-     * @param validRangeRatio_ The valid range ratio for addLiquidity()
      * @param boostMultiplier_ The multiplier used to calculate the amount of boost to mint in addLiquidity()
-     * @param delta_ The percent of collateral that transfer to treasuryVault in mintAndSellBoost() as dry powder
-     * @param epsilon_ Set the price (<1$) on which the unfarmBuyBurn() is allowed
+     * @param validRangeRatio_ The valid range ratio for addLiquidity()
+     * @param validRemovingRatio_ Set the price (<1$) on which the unfarmBuyBurn() is allowed
+     * @param dryPowderRatio_ The percent of collateral that transfer to treasuryVault in mintAndSellBoost() as dry powder
+     * @param usdUsageRatio_ The minimum valid ratio of usdAmountIn to usdRemoved in unfarmBuyBurn()
      */
     function setParams(
         uint256 boostAmountLimit_,
         uint256 liquidityAmountLimit_,
-        uint256 validRangeRatio_,
         uint256 boostMultiplier_,
-        uint256 delta_,
-        uint256 epsilon_
+        uint24 validRangeRatio_,
+        uint24 validRemovingRatio_,
+        uint24 dryPowderRatio_,
+        uint24 usdUsageRatio_
     ) external;
 
     function setTickBounds(int24 tickLower_, int24 tickUpper_) external;

@@ -10,13 +10,15 @@ interface ISolidlyV3LiquidityAMOVariables {
 
     function liquidityAmountLimit() external view returns (uint256);
 
-    function validRangeRatio() external view returns (uint256);
-
     function boostMultiplier() external view returns (uint256);
 
-    function epsilon() external view returns (uint256);
+    function validRangeRatio() external view returns (uint24);
 
-    function delta() external view returns (uint256);
+    function validRemovingRatio() external view returns (uint24);
+
+    function dryPowderRatio() external view returns (uint24);
+
+    function usdUsageRatio() external view returns (uint24);
 
     function tickLower() external view returns (int24);
 

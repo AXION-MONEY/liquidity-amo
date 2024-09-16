@@ -24,16 +24,4 @@ interface ISolidlyV3LiquidityAMOEvents {
     event BurnBoost(uint256 amount);
 
     event Swap(address indexed from, address indexed to, uint256 amountFrom, uint256 amountTo);
-
-    event SetVault(address treasuryVault);
-    event SetParams(
-        uint256 boostAmountLimit,
-        uint256 liquidityAmountLimit,
-        uint256 validRangeRatio,
-        uint256 boostMultiplier,
-        uint256 delta,
-        uint256 epsilon
-    );
-    event SetTick(int24 tickLower, int24 tickUpper);
-    event SetTargetSqrtPriceX96(uint160 targetSqrtPriceX96);
 }

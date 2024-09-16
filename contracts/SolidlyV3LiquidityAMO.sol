@@ -52,10 +52,11 @@ contract SolidlyV3LiquidityAMO is
     address public override treasuryVault;
     uint256 public override boostAmountLimit;
     uint256 public override liquidityAmountLimit;
-    uint256 public override validRangeRatio; // decimals 6
     uint256 public override boostMultiplier; // decimals 6
-    uint256 public override epsilon; // decimals 6
-    uint256 public override delta; // decimals 6
+    uint24 public override validRangeRatio; // decimals 6
+    uint24 public override validRemovingRatio; // decimals 6
+    uint24 public override dryPowderRatio; // decimals 6
+    uint24 public override usdUsageRatio; // decimals 6
     int24 public override tickLower;
     int24 public override tickUpper;
     uint160 public override targetSqrtPriceX96;
@@ -115,39 +116,41 @@ contract SolidlyV3LiquidityAMO is
     function setVault(address treasuryVault_) external override onlyRole(SETTER_ROLE) {
         if (treasuryVault_ == address(0)) revert ZeroAddress();
         treasuryVault = treasuryVault_;
-
-        emit SetVault(treasuryVault_);
     }
 
     /// @inheritdoc ISolidlyV3LiquidityAMOActions
     function setParams(
         uint256 boostAmountLimit_,
         uint256 liquidityAmountLimit_,
-        uint256 validRangeRatio_,
         uint256 boostMultiplier_,
-        uint256 delta_,
-        uint256 epsilon_
+        uint24 validRangeRatio_,
+        uint24 validRemovingRatio_,
+        uint24 dryPowderRatio_,
+        uint24 usdUsageRatio_
     ) external override onlyRole(SETTER_ROLE) {
-        if (validRangeRatio_ > FACTOR) revert InvalidRatioValue();
+        if (
+            validRangeRatio_ > FACTOR ||
+            validRemovingRatio_ > FACTOR ||
+            dryPowderRatio_ > FACTOR ||
+            usdUsageRatio_ > FACTOR
+        ) revert InvalidRatioValue();
         boostAmountLimit = boostAmountLimit_;
         liquidityAmountLimit = liquidityAmountLimit_;
-        validRangeRatio = validRangeRatio_;
         boostMultiplier = boostMultiplier_;
-        delta = delta_;
-        epsilon = epsilon_;
-        emit SetParams(boostAmountLimit_, liquidityAmountLimit_, validRangeRatio_, boostMultiplier_, delta_, epsilon_);
+        validRangeRatio = validRangeRatio_;
+        validRemovingRatio = validRemovingRatio_;
+        dryPowderRatio = dryPowderRatio_;
+        usdUsageRatio = usdUsageRatio_;
     }
 
     function setTickBounds(int24 tickLower_, int24 tickUpper_) external override onlyRole(SETTER_ROLE) {
         tickLower = tickLower_;
         tickUpper = tickUpper_;
-        emit SetTick(tickLower_, tickUpper_);
     }
 
     function setTargetSqrtPriceX96(uint160 targetSqrtPriceX96_) external override onlyRole(SETTER_ROLE) {
         if (targetSqrtPriceX96_ <= MIN_SQRT_RATIO || targetSqrtPriceX96_ >= MAX_SQRT_RATIO) revert InvalidRatioValue();
         targetSqrtPriceX96 = targetSqrtPriceX96_;
-        emit SetTargetSqrtPriceX96(targetSqrtPriceX96_);
     }
 
     ////////////////////////// AMO_ROLE ACTIONS //////////////////////////
@@ -187,13 +190,12 @@ contract SolidlyV3LiquidityAMO is
         if (toBoostAmount(usdAmountOut) <= boostAmountIn)
             revert InsufficientOutputAmount({outputAmount: toBoostAmount(usdAmountOut), minRequired: boostAmountIn});
 
-        dryPowderAmount = (usdAmountOut * delta) / FACTOR;
+        dryPowderAmount = (usdAmountOut * dryPowderRatio) / FACTOR;
         // Transfer the dry powder USD to the treasury
         IERC20Upgradeable(usd).safeTransfer(treasuryVault, dryPowderAmount);
 
         // Burn excessive boosts
-        if (boostAmount > boostAmountIn)
-            IBoostStablecoin(boost).burn(boostAmount - boostAmountIn);
+        if (boostAmount > boostAmountIn) IBoostStablecoin(boost).burn(boostAmount - boostAmountIn);
 
         // Emit events for minting BOOST tokens and executing the swap
         emit MintBoost(boostAmountIn);
@@ -242,8 +244,7 @@ contract SolidlyV3LiquidityAMO is
             revert InvalidRatioToAddLiquidity();
 
         // Burn excessive boosts
-        if (boostAmount > boostSpent)
-            IBoostStablecoin(boost).burn(boostAmount - boostSpent);
+        if (boostAmount > boostSpent) IBoostStablecoin(boost).burn(boostAmount - boostSpent);
 
         // Emit event for adding liquidity
         emit AddLiquidity(boostAmount, usdAmount, boostSpent, usdSpent, liquidity);
@@ -320,7 +321,8 @@ contract SolidlyV3LiquidityAMO is
         (uint256 boostCollected, uint256 usdCollected) = sortAmounts(amount0Collected, amount1Collected);
 
         // Ensure the BOOST amount is greater than or equal to the USD amount
-        if ((boostRemoved * epsilon) / FACTOR < toBoostAmount(usdRemoved)) revert InvalidRatioToRemoveLiquidity();
+        if ((boostRemoved * validRemovingRatio) / FACTOR < toBoostAmount(usdRemoved))
+            revert InvalidRatioToRemoveLiquidity();
 
         // Approve the transfer of usd tokens to the pool
         IERC20Upgradeable(usd).approve(pool, usdRemoved);
@@ -340,7 +342,7 @@ contract SolidlyV3LiquidityAMO is
         if (toUsdAmount(boostAmountOut) <= usdAmountIn)
             revert InsufficientOutputAmount({outputAmount: toUsdAmount(boostAmountOut), minRequired: usdAmountIn});
 
-        if (usdRemoved - usdAmountIn > 100 * 10 ** usdDecimals)
+        if ((FACTOR * usdAmountIn) / usdRemoved < usdUsageRatio)
             revert ExcessiveLiquidityRemoval({liquidity: liquidity, unusedUsdAmount: usdRemoved - usdAmountIn});
 
         // Burn the BOOST tokens received from burn liquidity, collect owed tokens and swap
