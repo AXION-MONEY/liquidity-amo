@@ -28,19 +28,20 @@ contract SolidlyV3PublicAMO is
     ISolidlyV3LiquidityAMO public amo;
     uint256 public boostLowerPriceSell; // Decimals: 6
     uint256 public boostUpperPriceBuy; // Decimals: 6
-    uint256 public boostSellRatio; // Decimals: 6
-    uint256 public usdBuyRatio; // Decimals: 6
     uint256 public boostToMintLimit;
     uint256 public liquidityToUnfarmLimit;
     uint256 public cooldownPeriod;
     mapping(address => uint256) public lastTxTimestamp;
 
+    ////////////////////////// CONSTANTS //////////////////////////
+    uint8 private constant DECIMALS = 6;
+
     ////////////////////////// ERRORS //////////////////////////
-    error PriceNotInRange();
-    error InvalidBoostAmount();
-    error InvalidLiquidityAmount();
+    error PriceNotInRange(uint256 price);
+    error InvalidBoostAmount(uint256 amount);
+    error InvalidLiquidityAmount(uint256 amount);
     error ZeroAddress();
-    error InvalidAmount();
+    error InvalidFactorValue();
     error CooldownNotFinished();
 
     ////////////////////////// INITIALIZER //////////////////////////
@@ -76,7 +77,8 @@ contract SolidlyV3PublicAMO is
             uint256 dryPowderAmount,
             uint256 boostSpent,
             uint256 usdSpent,
-            uint256 liquidity
+            uint256 liquidity,
+            uint256 newBoostPrice
         )
     {
         // Checks cooldown time
@@ -99,33 +101,44 @@ contract SolidlyV3PublicAMO is
         else boostAmount = uint256(amount1);
 
         // Set a high limit on boost amount to be minted, sold and farmed
-        if (boostAmount > boostToMintLimit) revert InvalidBoostAmount();
+        if (boostAmount > boostToMintLimit) revert InvalidBoostAmount(boostAmount);
 
         (boostAmountIn, usdAmountOut, dryPowderAmount, boostSpent, usdSpent, liquidity) = amo.mintSellFarm(
             boostAmount,
-            0, // minUsdAmountOut
-            0, // minBoostSpend
-            0, // minUsdSpend
+            1, // minUsdAmountOut
+            1, // minBoostSpend
+            1, // minUsdSpend
             block.timestamp + 1 // deadline
         );
 
-        uint256 boostPrice = amo.boostPrice();
+        newBoostPrice = amo.boostPrice();
 
         // Checks if the actual average price of boost when selling is greater than the boostLowerPriceSell
-        if (boostPrice < boostLowerPriceSell) revert PriceNotInRange();
+        if (newBoostPrice < boostLowerPriceSell) revert PriceNotInRange(newBoostPrice);
 
         emit MintSellFarmExecuted(boostAmountIn, usdAmountOut, liquidity);
     }
 
     /// @inheritdoc ISolidlyV3PublicAMO
-    function unfarmBuyBurn()
+    function unfarmBuyBurn(
+        uint24 liquidityFactor
+    )
         external
         whenNotPaused
-        returns (uint256 boostRemoved, uint256 usdRemoved, uint256 usdAmountIn, uint256 boostAmountOut)
+        returns (
+            uint256 boostRemoved,
+            uint256 usdRemoved,
+            uint256 usdAmountIn,
+            uint256 boostAmountOut,
+            uint256 newBoostPrice
+        )
     {
         // Checks cooldown time
         if (lastTxTimestamp[tx.origin] + cooldownPeriod > block.timestamp) revert CooldownNotFinished();
         lastTxTimestamp[tx.origin] = block.timestamp;
+
+        // Check liquidity factor
+        if (liquidityFactor > 10 ** DECIMALS) revert InvalidFactorValue();
 
         address pool = amo.pool();
         address boost = amo.boost();
@@ -136,25 +149,26 @@ contract SolidlyV3PublicAMO is
         uint8 boostDecimals = IERC20Metadata(boost).decimals();
         uint8 usdDecimals = IERC20Metadata(usd).decimals();
         usdBalance *= 10 ** (boostDecimals - usdDecimals);
-        if (boostBalance <= usdBalance) revert PriceNotInRange();
+        if (boostBalance <= usdBalance) revert PriceNotInRange(amo.boostPrice());
 
         uint256 liquidityToUnfarm = (liquidity * (boostBalance - usdBalance)) / (boostBalance + usdBalance);
+        liquidityToUnfarm = (liquidityToUnfarm * liquidityFactor) / 10 ** DECIMALS;
 
         // Set a high limit on liquidity amount to be unfarmed, bought and burned
-        if (liquidityToUnfarm > liquidityToUnfarmLimit) revert InvalidLiquidityAmount();
+        if (liquidityToUnfarm > liquidityToUnfarmLimit) revert InvalidLiquidityAmount(liquidityToUnfarm);
 
         (boostRemoved, usdRemoved, usdAmountIn, boostAmountOut) = amo.unfarmBuyBurn(
             liquidityToUnfarm,
-            0, // minBoostRemove
-            0, // minUsdRemove
-            0, // minBoostAmountOut
+            1, // minBoostRemove
+            1, // minUsdRemove
+            1, // minBoostAmountOut
             block.timestamp + 1 // deadline
         );
 
-        uint256 boostPrice = amo.boostPrice();
+        newBoostPrice = amo.boostPrice();
 
         // Checks if the actual average price of boost when buying is less than the boostUpperPriceBuy
-        if (boostPrice > boostUpperPriceBuy) revert PriceNotInRange();
+        if (newBoostPrice > boostUpperPriceBuy) revert PriceNotInRange(newBoostPrice);
 
         emit UnfarmBuyBurnExecuted(liquidityToUnfarm, boostRemoved, usdRemoved);
     }
@@ -188,17 +202,5 @@ contract SolidlyV3PublicAMO is
     function setCooldownPeriod(uint256 cooldownPeriod_) external onlyRole(SETTER_ROLE) {
         cooldownPeriod = cooldownPeriod_;
         emit CooldownPeriodSet(cooldownPeriod_);
-    }
-
-    /// @inheritdoc ISolidlyV3PublicAMO
-    function setBoostSellRatio(uint256 boostSellRatio_) external onlyRole(SETTER_ROLE) {
-        boostSellRatio = boostSellRatio_;
-        emit BoostSellRatioSet(boostSellRatio_);
-    }
-
-    /// @inheritdoc ISolidlyV3PublicAMO
-    function setUsdBuyRatio(uint256 usdBuyRatio_) external onlyRole(SETTER_ROLE) {
-        usdBuyRatio = usdBuyRatio_;
-        emit UsdBuyRatioSet(usdBuyRatio_);
     }
 }

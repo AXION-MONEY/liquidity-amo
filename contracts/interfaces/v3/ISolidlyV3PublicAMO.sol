@@ -35,6 +35,7 @@ interface ISolidlyV3PublicAMO {
     /// @return boostSpent The BOOST amount that is spent in add liquidity
     /// @return usdSpent The USD amount that is spent in add liquidity
     /// @return liquidity The liquidity Amount that received from add liquidity
+    /// @return newBoostPrice The BOOST new price after mintSellFarm()
     function mintSellFarm()
         external
         returns (
@@ -43,17 +44,28 @@ interface ISolidlyV3PublicAMO {
             uint256 dryPowderAmount,
             uint256 boostSpent,
             uint256 usdSpent,
-            uint256 liquidity
+            uint256 liquidity,
+            uint256 newBoostPrice
         );
 
     /// @notice Unfarms liquidity, buys BOOST tokens with USD, and burns them
+    /// @param liquidityFactor A coefficient for calculated liquidityToUnfarm to adjusting the liquidity amount
     /// @return boostRemoved The amount of BOOST removed from the pool
     /// @return usdRemoved The amount of USD removed from the pool
     /// @return usdAmountIn The amount of USD spent for buying
     /// @return boostAmountOut The amount of BOOST received from buying
-    function unfarmBuyBurn()
+    /// @return newBoostPrice The BOOST new price after unfarmBuyBurn()
+    function unfarmBuyBurn(
+        uint24 liquidityFactor
+    )
         external
-        returns (uint256 boostRemoved, uint256 usdRemoved, uint256 usdAmountIn, uint256 boostAmountOut);
+        returns (
+            uint256 boostRemoved,
+            uint256 usdRemoved,
+            uint256 usdAmountIn,
+            uint256 boostAmountOut,
+            uint256 newBoostPrice
+        );
 
     /// @notice Sets the limits for minting BOOST and unfarming liquidity
     /// @param boostLimitToMint_ The new limit for minting BOOST tokens
@@ -72,12 +84,4 @@ interface ISolidlyV3PublicAMO {
     /// @notice Sets the cooldown period for users
     /// @param cooldownPeriod_ The new cooldown period
     function setCooldownPeriod(uint256 cooldownPeriod_) external;
-
-    /// @notice Sets the BOOST sell ratio for mintSell
-    /// @param boostSellRatio_ The new BOOST sell ratio
-    function setBoostSellRatio(uint256 boostSellRatio_) external;
-
-    /// @notice Sets the USD buy ratio
-    /// @param usdBuyRatio_ The new USD buy ratio
-    function setUsdBuyRatio(uint256 usdBuyRatio_) external;
 }
