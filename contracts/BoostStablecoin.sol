@@ -21,13 +21,13 @@ contract BoostStablecoin is
         _disableInitializers();
     }
 
-    function initialize(address admin_) external initializer {
+    function initialize(address admin) external initializer {
         __ERC20_init("Boost", "BOOST");
         __ERC20Burnable_init();
         __Pausable_init();
         __AccessControl_init();
 
-        _grantRole(DEFAULT_ADMIN_ROLE, admin_);
+        _grantRole(DEFAULT_ADMIN_ROLE, admin);
     }
 
     function pause() public onlyRole(PAUSER_ROLE) {
@@ -38,11 +38,11 @@ contract BoostStablecoin is
         _unpause();
     }
 
-    function mint(address to_, uint256 amount_) public onlyRole(MINTER_ROLE) {
-        _mint(to_, amount_);
+    function mint(address to, uint256 amount) public onlyRole(MINTER_ROLE) {
+        _mint(to, amount);
     }
 
-    function _beforeTokenTransfer(address from_, address to_, uint256 amount_) internal override whenNotPaused {
-        super._beforeTokenTransfer(from_, to_, amount_);
+    function _beforeTokenTransfer(address from, address to, uint256 amount) internal override whenNotPaused {
+        super._beforeTokenTransfer(from, to, amount);
     }
 }
