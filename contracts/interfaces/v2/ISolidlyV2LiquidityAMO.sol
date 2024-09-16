@@ -65,7 +65,7 @@ interface ISolidlyV2LiquidityAMO {
      * @param tokens An array of reward token addresses
      * @param isWhitelisted The new whitelist status for the tokens
      */
-    function setRewardToken(address[] memory tokens, bool isWhitelisted) external;
+    function setRewardTokens(address[] memory tokens, bool isWhitelisted) external;
 
     /**
      * @notice This function mints BOOST tokens and sells them for USD

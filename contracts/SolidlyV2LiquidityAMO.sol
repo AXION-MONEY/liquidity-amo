@@ -28,11 +28,13 @@ contract SolidlyV2LiquidityAMO is
     error ZeroAddress();
     error InvalidRatioValue();
     error BoostAmountLimitExceeded(uint256 amount, uint256 limit);
-    error LiquidityAmountLimitExceeded(uint256 amount, uint256 limit);
+    error LpAmountLimitExceeded(uint256 amount, uint256 limit);
     error InsufficientOutputAmount(uint256 outputAmount, uint256 minRequired);
     error InvalidRatioToAddLiquidity();
     error InvalidRatioToRemoveLiquidity();
     error TokenNotWhitelisted(address token);
+    error UsdAmountOutMismatch(uint256 routerOutput, uint256 balanceChange);
+    error LpAmountOutMismatch(uint256 routerOutput, uint256 balanceChange);
 
     /* ========== ROLES ========== */
     bytes32 public constant SETTER_ROLE = keccak256("SETTER_ROLE");
@@ -141,7 +143,7 @@ contract SolidlyV2LiquidityAMO is
     }
 
     /// @inheritdoc ISolidlyV2LiquidityAMO
-    function setRewardToken(address[] memory tokens, bool isWhitelisted) external onlyRole(SETTER_ROLE) {
+    function setRewardTokens(address[] memory tokens, bool isWhitelisted) external onlyRole(SETTER_ROLE) {
         for (uint i = 0; i < tokens.length; i++) {
             whitelistedRewardTokens[tokens[i]] = isWhitelisted;
         }
@@ -167,18 +169,26 @@ contract SolidlyV2LiquidityAMO is
         ISolidlyRouter.route[] memory routes = new ISolidlyRouter.route[](1);
         routes[0] = ISolidlyRouter.route(boost, usd, true);
 
+        if (minUsdAmountOut < toUsdAmount(boostAmount)) minUsdAmountOut = toUsdAmount(boostAmount);
+
+        uint256 usdBalanceBefore = balanceOfToken(usd);
         // Execute the swap and store the amounts of tokens involved
         uint256[] memory amounts = ISolidlyRouter(router).swapExactTokensForTokens(
             boostAmount,
-            boostAmount / (10 ** (boostDecimals - usdDecimals)) > minUsdAmountOut
-                ? boostAmount / (10 ** (boostDecimals - usdDecimals))
-                : minUsdAmountOut,
+            minUsdAmountOut,
             routes,
             address(this),
             deadline
         );
+        uint256 usdBalanceAfter = balanceOfToken(usd);
         usdAmountOut = amounts[1];
-        dryPowderAmount = (usdAmountOut * dryPowderRatio) / (10 ** 6);
+
+        if (usdAmountOut != usdBalanceAfter - usdBalanceBefore)
+            revert UsdAmountOutMismatch(usdAmountOut, usdBalanceAfter - usdBalanceBefore);
+
+        if (usdAmountOut < minUsdAmountOut) revert InsufficientOutputAmount(usdAmountOut, minUsdAmountOut);
+
+        dryPowderAmount = (usdAmountOut * dryPowderRatio) / FACTOR;
         // Transfer the dry powder USD to the treasury
         IERC20Upgradeable(usd).safeTransfer(treasuryVault, dryPowderAmount);
 
@@ -197,12 +207,7 @@ contract SolidlyV2LiquidityAMO is
         uint256 deadline
     ) public onlyRole(AMO_ROLE) whenNotPaused returns (uint256 boostSpent, uint256 usdSpent, uint256 lpAmount) {
         // Mint the specified amount of BOOST tokens
-        uint256 boostAmount;
-        if (usdDecimals + 6 > boostDecimals) {
-            boostAmount = (usdAmount * boostMultiplier) / (10 ** (usdDecimals + 6 - boostDecimals));
-        } else {
-            boostAmount = usdAmount * boostMultiplier * (10 ** (boostDecimals - usdDecimals - 6));
-        }
+        uint256 boostAmount = (toBoostAmount(usdAmount) * boostMultiplier) / FACTOR;
 
         IMinter(boostMinter).protocolMint(address(this), boostAmount);
 
@@ -210,6 +215,7 @@ contract SolidlyV2LiquidityAMO is
         IERC20Upgradeable(boost).approve(router, boostAmount);
         IERC20Upgradeable(usd).approve(router, usdAmount);
 
+        uint256 lpBalanceBefore = balanceOfToken(pool);
         // Add liquidity to the BOOST-USD pool
         (boostSpent, usdSpent, lpAmount) = ISolidlyRouter(router).addLiquidity(
             boost,
@@ -217,21 +223,23 @@ contract SolidlyV2LiquidityAMO is
             true,
             boostAmount,
             usdAmount,
-            minUsdSpend * (10 ** (boostDecimals - usdDecimals)),
+            toBoostAmount(minUsdSpend),
             minUsdSpend,
             address(this),
             deadline
         );
+        uint256 lpBalanceAfter = balanceOfToken(pool);
+
+        if (lpAmount != lpBalanceAfter - lpBalanceBefore)
+            revert LpAmountOutMismatch(lpAmount, lpBalanceAfter - lpBalanceBefore);
 
         // Ensure the liquidity tokens minted are greater than or equal to the minimum required
         if (lpAmount < minLpAmount) revert InsufficientOutputAmount(lpAmount, minLpAmount);
 
         // Calculate the valid range for USD spent based on the BOOST spent and the validRangeRatio
-        uint256 validRange = (boostSpent * validRangeRatio) / 1e6;
-        if (
-            usdSpent * 10 ** (boostDecimals - usdDecimals) < boostSpent - validRange ||
-            usdSpent * 10 ** (boostDecimals - usdDecimals) > boostSpent + validRange
-        ) revert InvalidRatioToAddLiquidity();
+        uint256 validRange = (boostSpent * validRangeRatio) / FACTOR;
+        if (toBoostAmount(usdSpent) < boostSpent - validRange || toBoostAmount(usdSpent) > boostSpent + validRange)
+            revert InvalidRatioToAddLiquidity();
 
         // Approve the transfer of liquidity tokens to the gauge and deposit them
         IERC20Upgradeable(pool).approve(gauge, lpAmount);
@@ -265,7 +273,7 @@ contract SolidlyV2LiquidityAMO is
         returns (uint256 usdAmountOut, uint256 dryPowderAmount, uint256 boostSpent, uint256 usdSpent, uint256 lpAmount)
     {
         (usdAmountOut, dryPowderAmount) = mintAndSellBoost(boostAmount, minUsdAmountOut, deadline);
-        uint256 usdBalance = usdAmountOut - dryPowderAmount;
+        uint256 usdBalance = balanceOfToken(usd);
         (boostSpent, usdSpent, lpAmount) = addLiquidityAndDeposit(
             tokenId,
             useTokenId,
@@ -291,8 +299,8 @@ contract SolidlyV2LiquidityAMO is
     {
         // Ensure the LP amount does not exceed the allowed limit
         uint256 totalLp = totalLP();
-        if (lpAmount > lpAmountLimit) revert LiquidityAmountLimitExceeded(lpAmount, lpAmountLimit);
-        if (lpAmount > totalLp) revert LiquidityAmountLimitExceeded(lpAmount, totalLp);
+        if (lpAmount > lpAmountLimit) revert LpAmountLimitExceeded(lpAmount, lpAmountLimit);
+        if (lpAmount > totalLp) revert LpAmountLimitExceeded(lpAmount, totalLp);
         // Withdraw the specified amount of liquidity tokens from the gauge
         IGauge(gauge).withdraw(lpAmount);
 
@@ -322,12 +330,12 @@ contract SolidlyV2LiquidityAMO is
         // Approve the transfer of usd tokens to the router
         IERC20Upgradeable(usd).approve(router, usdRemoved);
 
+        if (minBoostAmountOut < toBoostAmount(usdRemoved)) minBoostAmountOut = toBoostAmount(usdRemoved);
+
         // Execute the swap and store the amounts of tokens involved
         uint256[] memory amounts = ISolidlyRouter(router).swapExactTokensForTokens(
             usdRemoved,
-            usdRemoved * (10 ** (boostDecimals - usdDecimals)) > minBoostAmountOut
-                ? usdRemoved * (10 ** (boostDecimals - usdDecimals))
-                : minBoostAmountOut,
+            minBoostAmountOut,
             routes,
             address(this),
             deadline
@@ -401,6 +409,10 @@ contract SolidlyV2LiquidityAMO is
 
     function toUsdAmount(uint256 boostAmount) internal view returns (uint256) {
         return boostAmount / 10 ** (boostDecimals - usdDecimals);
+    }
+
+    function balanceOfToken(address token) internal view returns (uint256) {
+        return IERC20Upgradeable(token).balanceOf(address(this));
     }
 
     ////////////////////////// View Functions //////////////////////////
