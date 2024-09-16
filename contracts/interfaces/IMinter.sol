@@ -9,9 +9,12 @@ interface IMinter {
 
     function treasury() external view returns (address);
 
+    function boostDecimals() external view returns (uint8);
+
+    function collateralDecimals() external view returns (uint8);
+
     // Events
-    event TokensAddressesUpdated(address indexed boostAddress, address indexed collateralAddress);
-    event CollateralRatioUpdated(uint256 newRatio);
+    event TokenAddressesUpdated(address indexed boostAddress, address indexed collateralAddress);
     event TreasuryUpdated(address newTreasury);
     event TokenMinted(address indexed user, address indexed to, uint256 amount);
     event TokenProtocolMinted(address indexed user, address indexed to, uint256 amount);
@@ -22,13 +25,13 @@ interface IMinter {
 
     function unpause() external;
 
-    function setTokens(address _boost, address _collateral) external;
+    function setTokens(address boost, address collateral) external;
 
-    function setTreasury(address _treasury) external;
+    function setTreasury(address treasury) external;
 
-    function mint(address _to, uint256 _amount) external;
+    function mint(address to, uint256 amount) external;
 
-    function protocolMint(address _to, uint256 _amount) external;
+    function protocolMint(address to, uint256 amount) external;
 
-    function withdrawToken(address _token, uint256 _amount) external;
+    function withdrawToken(address token, uint256 amount) external;
 }

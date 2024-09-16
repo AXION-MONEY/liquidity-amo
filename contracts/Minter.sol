@@ -12,17 +12,20 @@ import {IBoostStablecoin} from "./interfaces/IBoostStablecoin.sol";
 contract Minter is Initializable, AccessControlEnumerableUpgradeable, PausableUpgradeable, IMinter {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
-    address public boostAddress;
-    address public collateralAddress;
-    address public treasury;
-    uint256 public collateralDecimals;
+    address public override boostAddress;
+    address public override collateralAddress;
+    address public override treasury;
+    uint8 public override boostDecimals;
+    uint8 public override collateralDecimals;
 
-    bytes32 public constant WITHDRAW_TOKEN_ROLE = keccak256("WITHDRAW_TOKEN_ROLE");
+    bytes32 public constant WITHDRAWER_ROLE = keccak256("WITHDRAWER_ROLE");
     bytes32 public constant UNPAUSER_ROLE = keccak256("UNPAUSER_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant AMO_ROLE = keccak256("AMO_ROLE");
+
+    error ZeroAddress();
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -33,55 +36,55 @@ contract Minter is Initializable, AccessControlEnumerableUpgradeable, PausableUp
         __AccessControl_init();
         __Pausable_init();
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        require(boostAddress_ != address(0), "Zero address NOT allowed");
-        require(treasury_ != address(0), "Zero address NOT allowed");
-        treasury = treasury_;
+        if (boostAddress_ == address(0) || collateralAddress_ == address(0) || treasury_ == address(0))
+            revert ZeroAddress();
         boostAddress = boostAddress_;
         collateralAddress = collateralAddress_;
+        treasury = treasury_;
+        boostDecimals = IERC20Metadata(boostAddress).decimals();
         collateralDecimals = IERC20Metadata(collateralAddress).decimals();
     }
 
-    function pause() public onlyRole(PAUSER_ROLE) {
+    function pause() external onlyRole(PAUSER_ROLE) {
         _pause();
     }
 
-    function unpause() public onlyRole(UNPAUSER_ROLE) {
+    function unpause() external onlyRole(UNPAUSER_ROLE) {
         _unpause();
     }
 
-    function setTokens(address boostAddress_, address collateralAddress_) public onlyRole(ADMIN_ROLE) {
-        require(boostAddress_ != address(0), "Zero address NOT allowed");
+    function setTokens(address boostAddress_, address collateralAddress_) external onlyRole(ADMIN_ROLE) {
+        if (boostAddress_ == address(0) || collateralAddress_ == address(0)) revert ZeroAddress();
         boostAddress = boostAddress_;
         collateralAddress = collateralAddress_;
+        boostDecimals = IERC20Metadata(boostAddress).decimals();
         collateralDecimals = IERC20Metadata(collateralAddress).decimals();
-        emit TokensAddressesUpdated(boostAddress_, collateralAddress_);
+        emit TokenAddressesUpdated(boostAddress_, collateralAddress_);
     }
 
-    function setTreasury(address treasury_) public onlyRole(ADMIN_ROLE) {
-        require(treasury_ != address(0), "Zero address NOT allowed");
+    function setTreasury(address treasury_) external onlyRole(ADMIN_ROLE) {
+        if (treasury_ == address(0)) revert ZeroAddress();
         treasury = treasury_;
         emit TreasuryUpdated(treasury_);
     }
 
-    function mint(address to_, uint256 amount_) external whenNotPaused onlyRole(MINTER_ROLE) {
+    function mint(address to, uint256 amount) external whenNotPaused onlyRole(MINTER_ROLE) {
         IERC20Upgradeable(collateralAddress).safeTransferFrom(
             msg.sender,
             treasury,
-            amount_ / (10 ** (18 - collateralDecimals))
+            amount / (10 ** (boostDecimals - collateralDecimals))
         );
-
-        IBoostStablecoin(boostAddress).mint(to_, amount_);
-
-        emit TokenMinted(msg.sender, to_, amount_);
+        IBoostStablecoin(boostAddress).mint(to, amount);
+        emit TokenMinted(msg.sender, to, amount);
     }
 
-    function protocolMint(address to_, uint256 amount_) external whenNotPaused onlyRole(AMO_ROLE) {
-        IBoostStablecoin(boostAddress).mint(to_, amount_);
-        emit TokenProtocolMinted(msg.sender, to_, amount_);
+    function protocolMint(address to, uint256 amount) external whenNotPaused onlyRole(AMO_ROLE) {
+        IBoostStablecoin(boostAddress).mint(to, amount);
+        emit TokenProtocolMinted(msg.sender, to, amount);
     }
 
-    function withdrawToken(address token_, uint256 amount_) external onlyRole(WITHDRAW_TOKEN_ROLE) {
-        IERC20Upgradeable(token_).safeTransfer(treasury, amount_);
-        emit TokenWithdrawn(token_, amount_);
+    function withdrawToken(address token, uint256 amount) external onlyRole(WITHDRAWER_ROLE) {
+        IERC20Upgradeable(token).safeTransfer(treasury, amount);
+        emit TokenWithdrawn(token, amount);
     }
 }
