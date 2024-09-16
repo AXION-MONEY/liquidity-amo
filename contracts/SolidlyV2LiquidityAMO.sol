@@ -230,7 +230,8 @@ contract SolidlyV2LiquidityAMO is
         }
 
         // Burn excessive boosts
-        IBoostStablecoin(boost).burn(boostAmount - boostSpent);
+        if (boostAmount > boostSpent)
+            IBoostStablecoin(boost).burn(boostAmount - boostSpent);
 
         // Emit events for adding liquidity and depositing liquidity tokens
         emit AddLiquidity(usdAmount, boostAmount, usdSpent, boostSpent, lpAmount);

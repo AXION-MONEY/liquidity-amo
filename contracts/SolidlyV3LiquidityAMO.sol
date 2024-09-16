@@ -192,7 +192,8 @@ contract SolidlyV3LiquidityAMO is
         IERC20Upgradeable(usd).safeTransfer(treasuryVault, dryPowderAmount);
 
         // Burn excessive boosts
-        IBoostStablecoin(boost).burn(boostAmount - boostAmountIn);
+        if (boostAmount > boostAmountIn)
+            IBoostStablecoin(boost).burn(boostAmount - boostAmountIn);
 
         // Emit events for minting BOOST tokens and executing the swap
         emit MintBoost(boostAmountIn);
@@ -241,7 +242,8 @@ contract SolidlyV3LiquidityAMO is
             revert InvalidRatioToAddLiquidity();
 
         // Burn excessive boosts
-        IBoostStablecoin(boost).burn(boostAmount - boostSpent);
+        if (boostAmount > boostSpent)
+            IBoostStablecoin(boost).burn(boostAmount - boostSpent);
 
         // Emit event for adding liquidity
         emit AddLiquidity(boostAmount, usdAmount, boostSpent, usdSpent, liquidity);
