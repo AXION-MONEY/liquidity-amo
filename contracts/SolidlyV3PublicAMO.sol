@@ -32,8 +32,6 @@ contract SolidlyV3PublicAMO is
     uint256 public boostUpperPriceBuy; // Decimals: 6
     uint256 public boostToMintLimit;
     uint256 public liquidityToUnfarmLimit;
-    uint256 public cooldownPeriod;
-    mapping(address => uint256) public lastTxTimestamp;
 
     ////////////////////////// CONSTANTS //////////////////////////
     uint8 private constant DECIMALS = 6;
@@ -44,7 +42,6 @@ contract SolidlyV3PublicAMO is
     error InvalidLiquidityAmount(uint256 amount);
     error ZeroAddress();
     error InvalidFactorValue();
-    error CooldownNotFinished();
 
     ////////////////////////// INITIALIZER //////////////////////////
     /// @inheritdoc ISolidlyV3PublicAMO
@@ -84,10 +81,6 @@ contract SolidlyV3PublicAMO is
             uint256 newBoostPrice
         )
     {
-        // Checks cooldown time
-        if (lastTxTimestamp[tx.origin] + cooldownPeriod > block.timestamp) revert CooldownNotFinished();
-        lastTxTimestamp[tx.origin] = block.timestamp;
-
         address pool = amo.pool();
         uint160 targetSqrtPriceX96 = amo.targetSqrtPriceX96();
         uint256 boostAmountLimit = amo.boostAmountLimit();
@@ -137,10 +130,6 @@ contract SolidlyV3PublicAMO is
             uint256 newBoostPrice
         )
     {
-        // Checks cooldown time
-        if (lastTxTimestamp[tx.origin] + cooldownPeriod > block.timestamp) revert CooldownNotFinished();
-        lastTxTimestamp[tx.origin] = block.timestamp;
-
         // Check liquidity factor
         if (liquidityFactor > 10 ** DECIMALS) revert InvalidFactorValue();
 
@@ -200,11 +189,5 @@ contract SolidlyV3PublicAMO is
         if (amoAddress_ == address(0)) revert ZeroAddress();
         amo = ISolidlyV3LiquidityAMO(amoAddress_);
         emit AMOSet(amoAddress_);
-    }
-
-    /// @inheritdoc ISolidlyV3PublicAMO
-    function setCooldownPeriod(uint256 cooldownPeriod_) external onlyRole(SETTER_ROLE) {
-        cooldownPeriod = cooldownPeriod_;
-        emit CooldownPeriodSet(cooldownPeriod_);
     }
 }

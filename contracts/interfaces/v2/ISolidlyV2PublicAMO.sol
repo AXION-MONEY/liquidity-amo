@@ -16,7 +16,6 @@ interface ISolidlyV2PublicAMO {
         uint256 boostAmountOut,
         uint256 newBoostPrice
     );
-    event CooldownPeriodSet(uint256 cooldownPeriod);
     event TokenSet(uint256 indexed tokenId, bool useToken);
     event BoostSellRatioSet(uint256 boostSellRatio);
     event UsdBuyRatioSet(uint256 usdBuyRatio);
@@ -65,10 +64,6 @@ interface ISolidlyV2PublicAMO {
     /// @notice Sets the address of the AMO contract
     /// @param amoAddress_ The new address of the AMO contract
     function setAmo(address amoAddress_) external;
-
-    /// @notice Sets the cooldown period for users
-    /// @param cooldownPeriod_ The new cooldown period
-    function setCooldownPeriod(uint256 cooldownPeriod_) external;
 
     /// @notice Sets the token id for depositing in mintSellFarm
     /// @param tokenId_ The token id

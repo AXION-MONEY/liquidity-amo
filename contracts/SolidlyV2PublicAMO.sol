@@ -22,11 +22,7 @@ contract SolidlyV2PublicAMO is
     ReentrancyGuardUpgradeable
 {
     ////////////////////////// ROLES //////////////////////////
-    bytes32 public constant AMO_SETTER_ROLE = keccak256("AMO_SETTER_ROLE");
-    bytes32 public constant RATIO_SETTER_ROLE = keccak256("RATIO_SETTER_ROLE");
-    bytes32 public constant COOLDOWN_SETTER_ROLE = keccak256("COOLDOWN_SETTER_ROLE");
-    bytes32 public constant LIMIT_SETTER_ROLE = keccak256("LIMIT_SETTER_ROLE");
-    bytes32 public constant BOUND_SETTER_ROLE = keccak256("BOUND_SETTER_ROLE");
+    bytes32 public constant SETTER_ROLE = keccak256("SETTER_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
     bytes32 public constant UNPAUSER_ROLE = keccak256("UNPAUSER_ROLE");
 
@@ -38,10 +34,8 @@ contract SolidlyV2PublicAMO is
     uint256 public usdBuyRatio; // Decimals: 6
     uint256 public boostLimitToMint;
     uint256 public lpLimitToUnfarm;
-    uint256 public cooldownPeriod;
     uint256 public tokenId;
     bool public useToken;
-    mapping(address => uint256) public lastTxTimestamp;
 
     ////////////////////////// CONSTANTS //////////////////////////
     uint8 private constant DECIMALS = 6;
@@ -54,7 +48,6 @@ contract SolidlyV2PublicAMO is
     error InvalidLpAmount(uint256 amount);
     error ZeroAddress();
     error InvalidAmount();
-    error CooldownNotFinished();
 
     ////////////////////////// INITIALIZER //////////////////////////
     /// @inheritdoc ISolidlyV2PublicAMO
@@ -86,10 +79,6 @@ contract SolidlyV2PublicAMO is
         nonReentrant
         returns (uint256 boostAmountIn, uint256 usdAmountOut, uint256 lpAmount, uint256 newBoostPrice)
     {
-        // Checks cooldown time
-        if (lastTxTimestamp[tx.origin] + cooldownPeriod > block.timestamp) revert CooldownNotFinished();
-        lastTxTimestamp[tx.origin] = block.timestamp;
-
         address pool = ISolidlyV2LiquidityAMO(amoAddress).pool();
         address boost = ISolidlyV2LiquidityAMO(amoAddress).boost();
         uint8 boostDecimals = IERC20Metadata(boost).decimals();
@@ -138,10 +127,6 @@ contract SolidlyV2PublicAMO is
         nonReentrant
         returns (uint256 boostRemoved, uint256 usdRemoved, uint256 boostAmountOut, uint256 newBoostPrice)
     {
-        // Checks cooldown time
-        if (lastTxTimestamp[tx.origin] + cooldownPeriod > block.timestamp) revert CooldownNotFinished();
-        lastTxTimestamp[tx.origin] = block.timestamp;
-
         address pool = ISolidlyV2LiquidityAMO(amoAddress).pool();
         address boost = ISolidlyV2LiquidityAMO(amoAddress).boost();
         uint8 boostDecimals = IERC20Metadata(boost).decimals();
@@ -188,7 +173,7 @@ contract SolidlyV2PublicAMO is
 
     ////////////////////////// SETTER FUNCTIONS //////////////////////////
     /// @inheritdoc ISolidlyV2PublicAMO
-    function setLimits(uint256 boostLimitToMint_, uint256 lpLimitToUnfarm_) external onlyRole(LIMIT_SETTER_ROLE) {
+    function setLimits(uint256 boostLimitToMint_, uint256 lpLimitToUnfarm_) external onlyRole(SETTER_ROLE) {
         boostLimitToMint = boostLimitToMint_;
         lpLimitToUnfarm = lpLimitToUnfarm_;
         emit LimitsSet(boostLimitToMint_, lpLimitToUnfarm_);
@@ -198,40 +183,34 @@ contract SolidlyV2PublicAMO is
     function setBuyAndSellBound(
         uint256 boostUpperPriceBuy_,
         uint256 boostLowerPriceSell_
-    ) external onlyRole(BOUND_SETTER_ROLE) {
+    ) external onlyRole(SETTER_ROLE) {
         boostUpperPriceBuy = boostUpperPriceBuy_;
         boostLowerPriceSell = boostLowerPriceSell_;
         emit BuyAndSellBoundSet(boostUpperPriceBuy_, boostLowerPriceSell_);
     }
 
     /// @inheritdoc ISolidlyV2PublicAMO
-    function setAmo(address amoAddress_) external onlyRole(AMO_SETTER_ROLE) {
+    function setAmo(address amoAddress_) external onlyRole(SETTER_ROLE) {
         if (amoAddress_ == address(0)) revert ZeroAddress();
         amoAddress = amoAddress_;
         emit AMOSet(amoAddress_);
     }
 
     /// @inheritdoc ISolidlyV2PublicAMO
-    function setCooldownPeriod(uint256 cooldownPeriod_) external onlyRole(COOLDOWN_SETTER_ROLE) {
-        cooldownPeriod = cooldownPeriod_;
-        emit CooldownPeriodSet(cooldownPeriod_);
-    }
-
-    /// @inheritdoc ISolidlyV2PublicAMO
-    function setToken(uint256 tokenId_, bool useToken_) external onlyRole(COOLDOWN_SETTER_ROLE) {
+    function setToken(uint256 tokenId_, bool useToken_) external onlyRole(SETTER_ROLE) {
         tokenId = tokenId_;
         useToken = useToken_;
         emit TokenSet(tokenId_, useToken_);
     }
 
     /// @inheritdoc ISolidlyV2PublicAMO
-    function setBoostSellRatio(uint256 boostSellRatio_) external onlyRole(RATIO_SETTER_ROLE) {
+    function setBoostSellRatio(uint256 boostSellRatio_) external onlyRole(SETTER_ROLE) {
         boostSellRatio = boostSellRatio_;
         emit BoostSellRatioSet(boostSellRatio_);
     }
 
     /// @inheritdoc ISolidlyV2PublicAMO
-    function setUsdBuyRatio(uint256 usdBuyRatio_) external onlyRole(RATIO_SETTER_ROLE) {
+    function setUsdBuyRatio(uint256 usdBuyRatio_) external onlyRole(SETTER_ROLE) {
         usdBuyRatio = usdBuyRatio_;
         emit UsdBuyRatioSet(usdBuyRatio_);
     }

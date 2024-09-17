@@ -10,7 +10,6 @@ interface ISolidlyV3PublicAMO {
     event BuyAndSellBoundSet(uint256 boostUpperPriceBuy, uint256 boostLowerPriceSell);
     event MintSellFarmExecuted(uint256 boostAmountIn, uint256 usdAmountOut, uint256 liquidity);
     event UnfarmBuyBurnExecuted(uint256 liquidity, uint256 boostRemoved, uint256 usdRemoved);
-    event CooldownPeriodSet(uint256 cooldownPeriod);
     event TokenSet(uint256 indexed tokenId, bool useToken);
     event BoostSellRatioSet(uint256 boostSellRatio);
     event UsdBuyRatioSet(uint256 usdBuyRatio);
@@ -80,8 +79,4 @@ interface ISolidlyV3PublicAMO {
     /// @notice Sets the address of the AMO contract
     /// @param amoAddress_ The new address of the AMO contract
     function setAmo(address amoAddress_) external;
-
-    /// @notice Sets the cooldown period for users
-    /// @param cooldownPeriod_ The new cooldown period
-    function setCooldownPeriod(uint256 cooldownPeriod_) external;
 }
