@@ -13,6 +13,7 @@ import {IMinter} from "./interfaces/IMinter.sol";
 import {IBoostStablecoin} from "./interfaces/IBoostStablecoin.sol";
 import {IGauge} from "./interfaces/v2/IGauge.sol";
 import {ISolidlyRouter} from "./interfaces/v2/ISolidlyRouter.sol";
+import {IPair} from "./interfaces/v2/IPair.sol";
 
 /// @title Liquidity AMO for BOOST-USD Solidly pair
 /// @notice The LiquidityAMO contract is responsible for maintaining the BOOST-USD peg in Solidly pairs. It achieves this through minting and burning BOOST tokens, as well as adding and removing liquidity from the BOOST-USD pair.
@@ -273,15 +274,18 @@ contract SolidlyV2LiquidityAMO is
         returns (uint256 usdAmountOut, uint256 dryPowderAmount, uint256 boostSpent, uint256 usdSpent, uint256 lpAmount)
     {
         (usdAmountOut, dryPowderAmount) = mintAndSellBoost(boostAmount, minUsdAmountOut, deadline);
-        uint256 usdBalance = balanceOfToken(usd);
-        (boostSpent, usdSpent, lpAmount) = addLiquidityAndDeposit(
-            tokenId,
-            useTokenId,
-            usdBalance,
-            minUsdSpend,
-            minLpAmount,
-            deadline
-        );
+        uint256 price = boostPrice();
+        if (price > FACTOR - validRangeRatio && price < FACTOR + validRangeRatio) {
+            uint256 usdBalance = balanceOfToken(usd);
+            (boostSpent, usdSpent, lpAmount) = addLiquidityAndDeposit(
+                tokenId,
+                useTokenId,
+                usdBalance,
+                minUsdSpend,
+                minLpAmount,
+                deadline
+            );
+        }
     }
 
     /// @inheritdoc ISolidlyV2LiquidityAMO
@@ -421,5 +425,10 @@ contract SolidlyV2LiquidityAMO is
         uint256 freeLp = IERC20Upgradeable(pool).balanceOf(address(this));
         uint256 stakedLp = IGauge(gauge).balanceOf(address(this));
         return freeLp + stakedLp;
+    }
+
+    function boostPrice() public view returns (uint256 price) {
+        uint256 amountOut = IPair(pool).current(boost, 10 ** boostDecimals);
+        price = amountOut / 10 ** (usdDecimals - PRICE_DECIMALS);
     }
 }
