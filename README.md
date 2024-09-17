@@ -35,10 +35,10 @@ npx hardhat run scripts/deploy.ts
 
 # Description of contracts and components
 
-## Booststablecoin:
+## I) Booststablecoin:
 The BoostStablecoin contract implements an ERC-20 token called "BOOST," which serves as the foundation of the BOOST stablecoin project. This token is upgradable and includes several key features for managing and securing its functionality:
 
-### Main Functions
+### II) Main Functions
 * **Pause & Unpause**: These functions allow addresses with the PAUSER_ROLE to pause token transfers and UNPAUSER_ROLE to resume transfers. This can be useful in emergency scenarios.
 The pause function can be delegated to a security monitoring firms for automatic responses.
 * **Minting**: This function allows addresses with the MINTER_ROLE to mint new tokens (using the Minter.Sol contract) and send them to a specified address (to_).
@@ -58,15 +58,15 @@ This joint operation involves
 * USD is a generic name for a reference stable coin paired with BOOST in the AMO ( USDC and USDT are the first natural candidates )
 
 Below are the key functions that define the core logic of the contract:
-Main Functions:
-1. Initialize
+**Main Functions:**
+### 1. Initialize
 Purpose: The initialize function sets up the Liquidity AMO contract, defining the addresses of BOOST, USD, Minter, Solidly Pool and Treasury. Typically called when the contract is first deployed, this replaces a constructor in upgradeable contracts.
-2. setVault Function
+### 2. setVault Function
 This function sets or changes the treasury vault address. Only an account with the SETTER_ROLE can call it.
-3. setTickBounds
+### 3. setTickBounds
 Purpose: this function is only available in the main branch which relies on uniswap v3 tech. setTickBounds defines the price range (ticks) at which it provides liquidity in the BOOST-USD pool. The current tech, however, uses full-range liquidity.	
 
-4.  mintAndSellBoost
+### 4.  mintAndSellBoost
 			Purpose: Mints a specified amount of BOOST and sells it for USD in the pool. It also transfers a small part of the USD to the treasury as "dry powder” using this line:
  IERC20Upgradeable(usd).safeTransfer(treasuryVault, dryPowderAmount);
 Triggered: When the BOOST-USD price diverges from peg (e.g., BOOST is trading above $1), this function is triggered to mint additional BOOST and sell it for USD to bring the price back down to peg.
@@ -84,7 +84,7 @@ dryPowderAmount: The USD amount that transferred to the treasury as dry powder
 
 Logic and economic security: the function reverts if Boost is not sold above par, so this function can never induce a loss for the protocol.
 
-5. addLiquidity (solidly v3) and addLiquidityAndDeposit (solidly v2)
+### 5. addLiquidity (solidly v3) and addLiquidityAndDeposit (solidly v2)
 
 **Purpose (brief):** These addLiquidity functions add protocol-owned liquidity to the BOOST-USD pool, with minor implementation changes between the Solidly v3 (which “mints” positions) and Solidly v2 (which adds liquidity and stakes it).
 It involves free-minting BOOST tokens, pairing it with USDC backing, and after approving both BOOST and USD tokens for transfer to the pool, ading them as liquidity.
@@ -106,12 +106,12 @@ It involves free-minting BOOST tokens, pairing it with USDC backing, and after a
 * minUsdSpend (uint256): The minimum required amount of USD that must be contributed to the pool for the liquidity addition to be valid.
 * deadline (uint256): Timestamp representing the deadline for the operation to be executed. If the deadline is exceeded, the transaction will revert.
 
-**mintSellFarm**
-	Purpose (brief): The mintSellFarm essentially bundles the mintAndSell and the addLiquidity functions.
+### 6. mintSellFarm
+ Purpose (brief): The mintSellFarm essentially bundles the mintAndSell and the addLiquidity functions.
  
 
 
-7.unfarmBuyBurn
+### 7.unfarmBuyBurn
 	**Purpose (brief)**: The unfarmBuyBurn function is used to increase BOOST price back to peg and is symmetrical to the MintSellFarm function. 
 First it removes protocol owned liquidity, swaps the USD for Boost, then burns the BOOST
 
@@ -134,7 +134,7 @@ First it removes protocol owned liquidity, swaps the USD for Boost, then burns t
 * minBoostAmountOut (uint256): The minimum amount of BOOST tokens to be received after swapping USD tokens for BOOST.
 * deadline (uint256): The deadline by which the transaction must be completed. If this deadline is exceeded, the transaction will fail.
 
-## PublicAMO:
+## 3) PublicAMO:
 Purpose:The contract ensures decentralised security, 
 It lets any participant (even though the contract allows for whitelisting) rebalance the BOOST price permissionless. 
 It ensures that the health of the protocol does not depend on our team or any given (possibly centralised) infrastructure: it is permissionless.
