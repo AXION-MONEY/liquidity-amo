@@ -38,13 +38,13 @@ npx hardhat run scripts/deploy.ts
 ## I) Booststablecoin:
 The BoostStablecoin contract implements an ERC-20 token called "BOOST," which serves as the foundation of the BOOST stablecoin project. This token is upgradable and includes several key features for managing and securing its functionality:
 
-### II) Main Functions
+**Main Functions**
 * **Pause & Unpause**: These functions allow addresses with the PAUSER_ROLE to pause token transfers and UNPAUSER_ROLE to resume transfers. This can be useful in emergency scenarios.
 The pause function can be delegated to a security monitoring firms for automatic responses.
 * **Minting**: This function allows addresses with the MINTER_ROLE to mint new tokens (using the Minter.Sol contract) and send them to a specified address (to_).
 Token Transfer Guard: This ensures that token transfers are only allowed when the contract is not paused, adding an additional layer of security.
 
-## LiquidityAMO:
+## II) LiquidityAMO:
 The LiquidityAMO smart contract is designed for a dual purpose:
 * it maintains the BOOST peg to USD in Solidly pool.
 * It provides protocol-owned liquidity to the pools 
@@ -134,7 +134,7 @@ First it removes protocol owned liquidity, swaps the USD for Boost, then burns t
 * minBoostAmountOut (uint256): The minimum amount of BOOST tokens to be received after swapping USD tokens for BOOST.
 * deadline (uint256): The deadline by which the transaction must be completed. If this deadline is exceeded, the transaction will fail.
 
-## 3) PublicAMO:
+## III) PublicAMO:
 Purpose:The contract ensures decentralised security, 
 It lets any participant (even though the contract allows for whitelisting) rebalance the BOOST price permissionless. 
 It ensures that the health of the protocol does not depend on our team or any given (possibly centralised) infrastructure: it is permissionless.
