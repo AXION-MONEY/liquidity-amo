@@ -2,6 +2,87 @@
 pragma solidity 0.8.19;
 
 interface ISolidlyV2LiquidityAMO {
+    /* ========== ROLES ========== */
+    /// @notice Returns the identifier for the SETTER_ROLE
+    /// @dev This role allows calling setParams() and setRewardTokens() to modifying certain parameters of the contract
+    function SETTER_ROLE() external view returns (bytes32);
+
+    /// @notice Returns the identifier for the AMO_ROLE
+    /// @dev This role allows calling mintAndSellBoost(), addLiquidityAndDeposit(), mintSellFarm() and unfarmBuyBurn();
+    /// actions related to the AMO (Asset Management Operations)
+    function AMO_ROLE() external view returns (bytes32);
+
+    /// @notice Returns the identifier for the REWARD_COLLECTOR_ROLE
+    /// @dev This role allows calling getReward(), the collection of rewards
+    function REWARD_COLLECTOR_ROLE() external view returns (bytes32);
+
+    /// @notice Returns the identifier for the PAUSER_ROLE
+    /// @dev This role allows calling pause(), the pausing of the contract's critical functions
+    function PAUSER_ROLE() external view returns (bytes32);
+
+    /// @notice Returns the identifier for the UNPAUSER_ROLE
+    /// @dev This role allows calling unpause(), the unpausing of the contract's critical functions
+    function UNPAUSER_ROLE() external view returns (bytes32);
+
+    /// @notice Returns the identifier for the WITHDRAWER_ROLE
+    /// @dev This role allows calling withdrawERC20() and withdrawERC721() for withdrawing tokens from the contract
+    function WITHDRAWER_ROLE() external view returns (bytes32);
+
+    /* ========== VARIABLES ========== */
+    /// @notice Returns the address of the BOOST token
+    function boost() external view returns (address);
+
+    /// @notice Returns the address of the USD token
+    function usd() external view returns (address);
+
+    /// @notice Returns the address of the liquidity pool
+    function pool() external view returns (address);
+
+    /// @notice Returns the number of decimals used by the BOOST token
+    function boostDecimals() external view returns (uint256);
+
+    /// @notice Returns the number of decimals used by the USD token
+    function usdDecimals() external view returns (uint256);
+
+    /// @notice Returns the address of the BOOST Minter contract
+    function boostMinter() external view returns (address);
+
+    /// @notice Returns the address of the Solidly router
+    function router() external view returns (address);
+
+    /// @notice Returns the address of the Solidly gauge
+    function gauge() external view returns (address);
+
+    /// @notice Returns the address of the reward vault for collected rewards
+    function rewardVault() external view returns (address);
+
+    /// @notice Returns the address of the treasury vault for dry powder USD
+    function treasuryVault() external view returns (address);
+
+    /// @notice Returns the maximum allowable amount of BOOST tokens that can be pass to mintAndSellBoost() for minting
+    function boostAmountLimit() external view returns (uint256);
+
+    /// @notice Returns the maximum allowable amount of LP tokens that can be pass to unfarmBuyBurn() for unfarming
+    function lpAmountLimit() external view returns (uint256);
+
+    /// @notice Returns the multiplier for BOOST (in 6 decimals)
+    function boostMultiplier() external view returns (uint256);
+
+    /// @notice Returns the valid range ratio for adding liquidity (in 6 decimals)
+    function validRangeRatio() external view returns (uint24);
+
+    /// @notice Returns the valid removing liquidity ratio (in 6 decimals)
+    function validRemovingRatio() external view returns (uint24);
+
+    /// @notice Returns the dry powder ratio to send to the treasury vault (in 6 decimals)
+    function dryPowderRatio() external view returns (uint24);
+
+    /// @notice Returns whether the given token is a whitelisted reward token
+    /// @param token The address of the token to check
+    /// @return true if the token is whitelisted, false otherwise
+    function whitelistedRewardTokens(address token) external view returns (bool);
+
+    /* ========== EVENTS ========== */
     event AddLiquidity(
         uint256 requestedUsdcAmount,
         uint256 requestedBoostAmount,
@@ -27,16 +108,24 @@ interface ISolidlyV2LiquidityAMO {
 
     event GetReward(address[] tokens, uint256[] amounts);
 
-    function usdDecimals() external returns (uint256);
+    /* ========== FUNCTIONS ========== */
+    /**
+     * @notice Pauses the contract, disabling specific functionalities
+     * @dev Only an address with the PAUSER_ROLE can call this function
+     */
+    function pause() external;
 
-    function boostDecimals() external returns (uint256);
-
-    function pool() external returns (address);
+    /**
+     * @notice Unpauses the contract, re-enabling specific functionalities
+     * @dev Only an address with the UNPAUSER_ROLE can call this function
+     */
+    function unpause() external;
 
     /**
      * @notice This function sets the reward and buyback vault addresses
      * @dev Can only be called by an account with the SETTER_ROLE
      * @param rewardVault_ The address of the reward vault
+     * @param treasuryVault_ The address of the treasury vault
      */
     function setVaults(address rewardVault_, address treasuryVault_) external;
 
@@ -178,12 +267,14 @@ interface ISolidlyV2LiquidityAMO {
     function getReward(address[] memory tokens, bool passTokens) external;
 
     /**
-     * @notice This view function return the total LP amount owned and staked by AMO
+     * @notice This view function returns the total LP amount owned and staked by AMO
      * @return freeLp + stakedLp The total LP amount owned and staked by AMO
      */
     function totalLP() external view returns (uint256);
 
-    function boost() external view returns (address);
-
-    function usd() external view returns (address);
+    /**
+     * @notice This view function returns the current BOOST price with PRICE_DECIMALS = 6
+     * @return price the current BOOST price
+     */
+    function boostPrice() external view returns (uint256 price);
 }

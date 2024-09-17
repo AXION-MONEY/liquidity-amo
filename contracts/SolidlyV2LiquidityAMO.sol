@@ -38,32 +38,55 @@ contract SolidlyV2LiquidityAMO is
     error LpAmountOutMismatch(uint256 routerOutput, uint256 balanceChange);
 
     /* ========== ROLES ========== */
-    bytes32 public constant SETTER_ROLE = keccak256("SETTER_ROLE");
-    bytes32 public constant AMO_ROLE = keccak256("AMO_ROLE");
-    bytes32 public constant REWARD_COLLECTOR_ROLE = keccak256("REWARD_COLLECTOR_ROLE");
-    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
-    bytes32 public constant UNPAUSER_ROLE = keccak256("UNPAUSER_ROLE");
-    bytes32 public constant WITHDRAWER_ROLE = keccak256("WITHDRAWER_ROLE");
+    /// @inheritdoc ISolidlyV2LiquidityAMO
+    bytes32 public constant override SETTER_ROLE = keccak256("SETTER_ROLE");
+    /// @inheritdoc ISolidlyV2LiquidityAMO
+    bytes32 public constant override AMO_ROLE = keccak256("AMO_ROLE");
+    /// @inheritdoc ISolidlyV2LiquidityAMO
+    bytes32 public constant override REWARD_COLLECTOR_ROLE = keccak256("REWARD_COLLECTOR_ROLE");
+    /// @inheritdoc ISolidlyV2LiquidityAMO
+    bytes32 public constant override PAUSER_ROLE = keccak256("PAUSER_ROLE");
+    /// @inheritdoc ISolidlyV2LiquidityAMO
+    bytes32 public constant override UNPAUSER_ROLE = keccak256("UNPAUSER_ROLE");
+    /// @inheritdoc ISolidlyV2LiquidityAMO
+    bytes32 public constant override WITHDRAWER_ROLE = keccak256("WITHDRAWER_ROLE");
 
     /* ========== VARIABLES ========== */
-    address public boost;
-    address public usd;
-    address public pool;
-    uint256 public boostDecimals;
-    uint256 public usdDecimals;
-    address public boostMinter;
-    address public router;
-    address public gauge;
+    /// @inheritdoc ISolidlyV2LiquidityAMO
+    address public override boost;
+    /// @inheritdoc ISolidlyV2LiquidityAMO
+    address public override usd;
+    /// @inheritdoc ISolidlyV2LiquidityAMO
+    address public override pool;
+    /// @inheritdoc ISolidlyV2LiquidityAMO
+    uint256 public override boostDecimals;
+    /// @inheritdoc ISolidlyV2LiquidityAMO
+    uint256 public override usdDecimals;
+    /// @inheritdoc ISolidlyV2LiquidityAMO
+    address public override boostMinter;
+    /// @inheritdoc ISolidlyV2LiquidityAMO
+    address public override router;
+    /// @inheritdoc ISolidlyV2LiquidityAMO
+    address public override gauge;
 
-    address public rewardVault;
-    address public treasuryVault;
-    uint256 public boostAmountLimit;
-    uint256 public lpAmountLimit;
-    uint256 public boostMultiplier; // decimals 6
-    uint24 public validRangeRatio; // decimals 6
-    uint24 public validRemovingRatio; // decimals 6
-    uint24 public dryPowderRatio; // decimals 6
-    mapping(address => bool) public whitelistedRewardTokens;
+    /// @inheritdoc ISolidlyV2LiquidityAMO
+    address public override rewardVault;
+    /// @inheritdoc ISolidlyV2LiquidityAMO
+    address public override treasuryVault;
+    /// @inheritdoc ISolidlyV2LiquidityAMO
+    uint256 public override boostAmountLimit;
+    /// @inheritdoc ISolidlyV2LiquidityAMO
+    uint256 public override lpAmountLimit;
+    /// @inheritdoc ISolidlyV2LiquidityAMO
+    uint256 public override boostMultiplier;
+    /// @inheritdoc ISolidlyV2LiquidityAMO
+    uint24 public override validRangeRatio;
+    /// @inheritdoc ISolidlyV2LiquidityAMO
+    uint24 public override validRemovingRatio;
+    /// @inheritdoc ISolidlyV2LiquidityAMO
+    uint24 public override dryPowderRatio;
+    /// @inheritdoc ISolidlyV2LiquidityAMO
+    mapping(address => bool) public override whitelistedRewardTokens;
 
     /* ========== CONSTANTS ========== */
     uint8 internal constant PRICE_DECIMALS = 6;
@@ -108,17 +131,19 @@ contract SolidlyV2LiquidityAMO is
 
     ////////////////////////// PAUSE ACTIONS //////////////////////////
 
-    function pause() external onlyRole(PAUSER_ROLE) {
+    /// @inheritdoc ISolidlyV2LiquidityAMO
+    function pause() external override onlyRole(PAUSER_ROLE) {
         _pause();
     }
 
-    function unpause() external onlyRole(UNPAUSER_ROLE) {
+    /// @inheritdoc ISolidlyV2LiquidityAMO
+    function unpause() external override onlyRole(UNPAUSER_ROLE) {
         _unpause();
     }
 
     ////////////////////////// SETTER_ROLE ACTIONS //////////////////////////
     /// @inheritdoc ISolidlyV2LiquidityAMO
-    function setVaults(address rewardVault_, address treasuryVault_) external onlyRole(SETTER_ROLE) {
+    function setVaults(address rewardVault_, address treasuryVault_) external override onlyRole(SETTER_ROLE) {
         if (rewardVault_ == address(0) || treasuryVault_ == address(0)) revert ZeroAddress();
         rewardVault = rewardVault_;
         treasuryVault = treasuryVault_;
@@ -132,7 +157,7 @@ contract SolidlyV2LiquidityAMO is
         uint24 validRangeRatio_,
         uint24 validRemovingRatio_,
         uint24 dryPowderRatio_
-    ) external onlyRole(SETTER_ROLE) {
+    ) external override onlyRole(SETTER_ROLE) {
         if (validRangeRatio_ > FACTOR || validRemovingRatio_ > FACTOR || dryPowderRatio_ > FACTOR)
             revert InvalidRatioValue();
         boostAmountLimit = boostAmountLimit_;
@@ -144,7 +169,7 @@ contract SolidlyV2LiquidityAMO is
     }
 
     /// @inheritdoc ISolidlyV2LiquidityAMO
-    function setRewardTokens(address[] memory tokens, bool isWhitelisted) external onlyRole(SETTER_ROLE) {
+    function setRewardTokens(address[] memory tokens, bool isWhitelisted) external override onlyRole(SETTER_ROLE) {
         for (uint i = 0; i < tokens.length; i++) {
             whitelistedRewardTokens[tokens[i]] = isWhitelisted;
         }
@@ -156,7 +181,7 @@ contract SolidlyV2LiquidityAMO is
         uint256 boostAmount,
         uint256 minUsdAmountOut,
         uint256 deadline
-    ) public onlyRole(AMO_ROLE) whenNotPaused returns (uint256 usdAmountOut, uint256 dryPowderAmount) {
+    ) public override onlyRole(AMO_ROLE) whenNotPaused returns (uint256 usdAmountOut, uint256 dryPowderAmount) {
         // Ensure the BOOST amount does not exceed the allowed limit
         if (boostAmount > boostAmountLimit) revert BoostAmountLimitExceeded(boostAmount, boostAmountLimit);
 
@@ -206,7 +231,13 @@ contract SolidlyV2LiquidityAMO is
         uint256 minUsdSpend,
         uint256 minLpAmount,
         uint256 deadline
-    ) public onlyRole(AMO_ROLE) whenNotPaused returns (uint256 boostSpent, uint256 usdSpent, uint256 lpAmount) {
+    )
+        public
+        override
+        onlyRole(AMO_ROLE)
+        whenNotPaused
+        returns (uint256 boostSpent, uint256 usdSpent, uint256 lpAmount)
+    {
         // Mint the specified amount of BOOST tokens
         uint256 boostAmount = (toBoostAmount(usdAmount) * boostMultiplier) / FACTOR;
 
@@ -269,6 +300,7 @@ contract SolidlyV2LiquidityAMO is
         uint256 deadline
     )
         external
+        override
         onlyRole(AMO_ROLE)
         whenNotPaused
         returns (uint256 usdAmountOut, uint256 dryPowderAmount, uint256 boostSpent, uint256 usdSpent, uint256 lpAmount)
@@ -297,6 +329,7 @@ contract SolidlyV2LiquidityAMO is
         uint256 deadline
     )
         external
+        override
         onlyRole(AMO_ROLE)
         whenNotPaused
         returns (uint256 boostRemoved, uint256 usdRemoved, uint256 boostAmountOut)
@@ -362,18 +395,26 @@ contract SolidlyV2LiquidityAMO is
     function getReward(
         address[] memory tokens,
         bool passTokens
-    ) external onlyRole(REWARD_COLLECTOR_ROLE) whenNotPaused {
+    ) external override onlyRole(REWARD_COLLECTOR_ROLE) whenNotPaused {
         _getReward(tokens, passTokens);
     }
 
     ////////////////////////// Withdrawal functions //////////////////////////
     /// @inheritdoc ISolidlyV2LiquidityAMO
-    function withdrawERC20(address token, uint256 amount, address recipient) external onlyRole(WITHDRAWER_ROLE) {
+    function withdrawERC20(
+        address token,
+        uint256 amount,
+        address recipient
+    ) external override onlyRole(WITHDRAWER_ROLE) {
         IERC20Upgradeable(token).safeTransfer(recipient, amount);
     }
 
     /// @inheritdoc ISolidlyV2LiquidityAMO
-    function withdrawERC721(address token, uint256 tokenId, address recipient) external onlyRole(WITHDRAWER_ROLE) {
+    function withdrawERC721(
+        address token,
+        uint256 tokenId,
+        address recipient
+    ) external override onlyRole(WITHDRAWER_ROLE) {
         IERC721Upgradeable(token).safeTransferFrom(address(this), recipient, tokenId);
     }
 
@@ -421,13 +462,14 @@ contract SolidlyV2LiquidityAMO is
 
     ////////////////////////// View Functions //////////////////////////
     /// @inheritdoc ISolidlyV2LiquidityAMO
-    function totalLP() public view returns (uint256) {
+    function totalLP() public view override returns (uint256) {
         uint256 freeLp = IERC20Upgradeable(pool).balanceOf(address(this));
         uint256 stakedLp = IGauge(gauge).balanceOf(address(this));
         return freeLp + stakedLp;
     }
 
-    function boostPrice() public view returns (uint256 price) {
+    /// @inheritdoc ISolidlyV2LiquidityAMO
+    function boostPrice() public view override returns (uint256 price) {
         uint256 amountOut = IPair(pool).current(boost, 10 ** boostDecimals);
         price = amountOut / 10 ** (usdDecimals - PRICE_DECIMALS);
     }
