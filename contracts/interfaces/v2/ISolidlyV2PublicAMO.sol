@@ -6,7 +6,6 @@ pragma solidity 0.8.19;
 interface ISolidlyV2PublicAMO {
     ////////////////////////// EVENTS //////////////////////////
     event AMOSet(address indexed newAmoAddress);
-    event LimitsSet(uint256 boostLimitToMint, uint256 lpLimitToUnfarm);
     event BuyAndSellBoundSet(uint256 boostUpperPriceBuy, uint256 boostLowerPriceSell);
     event MintSellFarmExecuted(uint256 boostAmountIn, uint256 usdAmountOut, uint256 lpAmount, uint256 newBoostPrice);
     event UnfarmBuyBurnExecuted(
@@ -50,11 +49,6 @@ interface ISolidlyV2PublicAMO {
     function unfarmBuyBurn()
         external
         returns (uint256 boostRemoved, uint256 usdRemoved, uint256 boostAmountOut, uint256 newBoostPrice);
-
-    /// @notice Sets the limits for minting BOOST and unfarming LP tokens
-    /// @param boostLimitToMint_ The new limit for minting BOOST tokens
-    /// @param lpLimitToUnfarm_ The new limit for unfarming LP tokens
-    function setLimits(uint256 boostLimitToMint_, uint256 lpLimitToUnfarm_) external;
 
     /// @notice Sets the buy upper price and sell lower price bounds for BOOST tokens
     /// @param boostUpperPriceBuy_ The new upper price bound for buying BOOST

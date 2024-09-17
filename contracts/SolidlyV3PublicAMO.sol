@@ -30,8 +30,6 @@ contract SolidlyV3PublicAMO is
     ISolidlyV3LiquidityAMO public amo;
     uint256 public boostLowerPriceSell; // Decimals: 6
     uint256 public boostUpperPriceBuy; // Decimals: 6
-    uint256 public boostToMintLimit;
-    uint256 public liquidityToUnfarmLimit;
 
     ////////////////////////// CONSTANTS //////////////////////////
     uint8 private constant DECIMALS = 6;
@@ -96,9 +94,6 @@ contract SolidlyV3PublicAMO is
         if (zeroForOne) boostAmount = uint256(amount0);
         else boostAmount = uint256(amount1);
 
-        // Set a high limit on boost amount to be minted, sold and farmed
-        if (boostAmount > boostToMintLimit) revert InvalidBoostAmount(boostAmount);
-
         (boostAmountIn, usdAmountOut, dryPowderAmount, boostSpent, usdSpent, liquidity) = amo.mintSellFarm(
             boostAmount,
             1, // minUsdAmountOut
@@ -147,9 +142,6 @@ contract SolidlyV3PublicAMO is
         uint256 liquidityToUnfarm = (liquidity * (boostBalance - usdBalance)) / (boostBalance + usdBalance);
         liquidityToUnfarm = (liquidityToUnfarm * liquidityFactor) / 10 ** DECIMALS;
 
-        // Set a high limit on liquidity amount to be unfarmed, bought and burned
-        if (liquidityToUnfarm > liquidityToUnfarmLimit) revert InvalidLiquidityAmount(liquidityToUnfarm);
-
         (boostRemoved, usdRemoved, usdAmountIn, boostAmountOut) = amo.unfarmBuyBurn(
             liquidityToUnfarm,
             1, // minBoostRemove
@@ -167,13 +159,6 @@ contract SolidlyV3PublicAMO is
     }
 
     ////////////////////////// SETTER FUNCTIONS //////////////////////////
-    /// @inheritdoc ISolidlyV3PublicAMO
-    function setLimits(uint256 boostLimitToMint_, uint256 liquidityToUnfarmLimit_) external onlyRole(SETTER_ROLE) {
-        boostToMintLimit = boostLimitToMint_;
-        liquidityToUnfarmLimit = liquidityToUnfarmLimit_;
-        emit LimitsSet(boostLimitToMint_, liquidityToUnfarmLimit_);
-    }
-
     /// @inheritdoc ISolidlyV3PublicAMO
     function setBuyAndSellBound(
         uint256 boostUpperPriceBuy_,

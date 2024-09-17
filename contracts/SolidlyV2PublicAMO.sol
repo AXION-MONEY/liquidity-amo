@@ -32,8 +32,6 @@ contract SolidlyV2PublicAMO is
     uint256 public boostUpperPriceBuy; // Decimals: 6
     uint256 public boostSellRatio; // Decimals: 6
     uint256 public usdBuyRatio; // Decimals: 6
-    uint256 public boostLimitToMint;
-    uint256 public lpLimitToUnfarm;
     uint256 public tokenId;
     bool public useToken;
 
@@ -99,9 +97,6 @@ contract SolidlyV2PublicAMO is
 
         boostAmountIn = (((usdReserve - boostReserve) / 2) * boostSellRatio) / FACTOR;
 
-        // Set a high limit on boost amount to be minted, sold and farmed
-        if (boostAmountIn > boostLimitToMint) revert InvalidBoostAmount(boostAmountIn);
-
         (usdAmountOut, , , , lpAmount) = ISolidlyV2LiquidityAMO(amoAddress).mintSellFarm(
             boostAmountIn,
             boostAmountIn / (10 ** (boostDecimals - usdDecimals)), //minUsdAmountOut
@@ -152,9 +147,6 @@ contract SolidlyV2PublicAMO is
         // Readjust the LP amount and USD needed to balance price before removing LP
         lpAmount -= lpAmount ** 2 / totalLp;
 
-        // Set a high limit on LP amount to be unfarmed, bought and burned
-        if (lpAmount > lpLimitToUnfarm) revert InvalidLpAmount(lpAmount);
-
         (boostRemoved, usdRemoved, boostAmountOut) = ISolidlyV2LiquidityAMO(amoAddress).unfarmBuyBurn(
             lpAmount,
             (lpAmount * boostReserve) / totalLp, // minBoostRemove
@@ -172,13 +164,6 @@ contract SolidlyV2PublicAMO is
     }
 
     ////////////////////////// SETTER FUNCTIONS //////////////////////////
-    /// @inheritdoc ISolidlyV2PublicAMO
-    function setLimits(uint256 boostLimitToMint_, uint256 lpLimitToUnfarm_) external onlyRole(SETTER_ROLE) {
-        boostLimitToMint = boostLimitToMint_;
-        lpLimitToUnfarm = lpLimitToUnfarm_;
-        emit LimitsSet(boostLimitToMint_, lpLimitToUnfarm_);
-    }
-
     /// @inheritdoc ISolidlyV2PublicAMO
     function setBuyAndSellBound(
         uint256 boostUpperPriceBuy_,
