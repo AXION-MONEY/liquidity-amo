@@ -27,8 +27,6 @@ contract SolidlyV3LiquidityAMO is
     /* ========== ERRORS ========== */
     error ZeroAddress();
     error InvalidRatioValue();
-    error BoostAmountLimitExceeded(uint256 amount, uint256 limit);
-    error LiquidityAmountLimitExceeded(uint256 amount, uint256 limit);
     error InsufficientOutputAmount(uint256 outputAmount, uint256 minRequired);
     error InvalidRatioToAddLiquidity();
     error InvalidRatioToRemoveLiquidity();
@@ -50,8 +48,6 @@ contract SolidlyV3LiquidityAMO is
     address public override boostMinter;
 
     address public override treasuryVault;
-    uint256 public override boostAmountLimit;
-    uint256 public override liquidityAmountLimit;
     uint256 public override boostMultiplier; // decimals 6
     uint24 public override validRangeRatio; // decimals 6
     uint24 public override validRemovingRatio; // decimals 6
@@ -120,8 +116,6 @@ contract SolidlyV3LiquidityAMO is
 
     /// @inheritdoc ISolidlyV3LiquidityAMOActions
     function setParams(
-        uint256 boostAmountLimit_,
-        uint256 liquidityAmountLimit_,
         uint256 boostMultiplier_,
         uint24 validRangeRatio_,
         uint24 validRemovingRatio_,
@@ -134,8 +128,6 @@ contract SolidlyV3LiquidityAMO is
             dryPowderRatio_ > FACTOR ||
             usdUsageRatio_ > FACTOR
         ) revert InvalidRatioValue();
-        boostAmountLimit = boostAmountLimit_;
-        liquidityAmountLimit = liquidityAmountLimit_;
         boostMultiplier = boostMultiplier_;
         validRangeRatio = validRangeRatio_;
         validRemovingRatio = validRemovingRatio_;
@@ -166,9 +158,6 @@ contract SolidlyV3LiquidityAMO is
         whenNotPaused
         returns (uint256 boostAmountIn, uint256 usdAmountOut, uint256 dryPowderAmount)
     {
-        // Ensure the BOOST amount does not exceed the allowed limit
-        if (boostAmount > boostAmountLimit) revert BoostAmountLimitExceeded(boostAmount, boostAmountLimit);
-
         // Mint the specified amount of BOOST tokens
         IMinter(boostMinter).protocolMint(address(this), boostAmount);
 
@@ -184,6 +173,10 @@ contract SolidlyV3LiquidityAMO is
             minUsdAmountOut,
             deadline
         );
+
+        // Revoke approval from the pool
+        IERC20Upgradeable(boost).approve(pool, 0);
+
         (int256 boostDelta, int256 usdDelta) = sortAmounts(amount0, amount1);
         boostAmountIn = uint256(boostDelta);
         usdAmountOut = uint256(-usdDelta);
@@ -236,6 +229,11 @@ contract SolidlyV3LiquidityAMO is
             amount1Min,
             deadline
         );
+
+        // Revoke approval from the pool
+        IERC20Upgradeable(boost).approve(pool, 0);
+        IERC20Upgradeable(usd).approve(pool, 0);
+
         (boostSpent, usdSpent) = sortAmounts(amount0, amount1);
 
         // Calculate the valid range for USD spent based on the BOOST spent and the validRangeRatio
@@ -294,11 +292,6 @@ contract SolidlyV3LiquidityAMO is
         whenNotPaused
         returns (uint256 boostRemoved, uint256 usdRemoved, uint256 usdAmountIn, uint256 boostAmountOut)
     {
-        (uint256 totalLiquidity, , ) = position();
-        // Ensure the liquidity amount does not exceed the allowed limit
-        if (liquidity > liquidityAmountLimit) revert LiquidityAmountLimitExceeded(liquidity, liquidityAmountLimit);
-        if (liquidity > totalLiquidity) revert LiquidityAmountLimitExceeded(liquidity, totalLiquidity);
-
         (uint256 amount0Min, uint256 amount1Min) = sortAmounts(minBoostRemove, minUsdRemove);
         // Remove liquidity and store the amounts of USD and BOOST tokens received
         (
@@ -336,6 +329,10 @@ contract SolidlyV3LiquidityAMO is
             minBoostAmountOut,
             deadline
         );
+
+        // Revoke approval from the pool
+        IERC20Upgradeable(usd).approve(pool, 0);
+
         (int256 boostDelta, int256 usdDelta) = sortAmounts(amount0, amount1);
         usdAmountIn = uint256(usdDelta);
         boostAmountOut = uint256(-boostDelta);

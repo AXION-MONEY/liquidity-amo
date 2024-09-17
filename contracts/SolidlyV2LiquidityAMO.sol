@@ -28,8 +28,6 @@ contract SolidlyV2LiquidityAMO is
     /* ========== ERRORS ========== */
     error ZeroAddress();
     error InvalidRatioValue();
-    error BoostAmountLimitExceeded(uint256 amount, uint256 limit);
-    error LpAmountLimitExceeded(uint256 amount, uint256 limit);
     error InsufficientOutputAmount(uint256 outputAmount, uint256 minRequired);
     error InvalidRatioToAddLiquidity();
     error InvalidRatioToRemoveLiquidity();
@@ -73,10 +71,6 @@ contract SolidlyV2LiquidityAMO is
     address public override rewardVault;
     /// @inheritdoc ISolidlyV2LiquidityAMO
     address public override treasuryVault;
-    /// @inheritdoc ISolidlyV2LiquidityAMO
-    uint256 public override boostAmountLimit;
-    /// @inheritdoc ISolidlyV2LiquidityAMO
-    uint256 public override lpAmountLimit;
     /// @inheritdoc ISolidlyV2LiquidityAMO
     uint256 public override boostMultiplier;
     /// @inheritdoc ISolidlyV2LiquidityAMO
@@ -151,8 +145,6 @@ contract SolidlyV2LiquidityAMO is
 
     /// @inheritdoc ISolidlyV2LiquidityAMO
     function setParams(
-        uint256 boostAmountLimit_,
-        uint256 lpAmountLimit_,
         uint256 boostMultiplier_,
         uint24 validRangeRatio_,
         uint24 validRemovingRatio_,
@@ -160,8 +152,6 @@ contract SolidlyV2LiquidityAMO is
     ) external override onlyRole(SETTER_ROLE) {
         if (validRangeRatio_ > FACTOR || validRemovingRatio_ > FACTOR || dryPowderRatio_ > FACTOR)
             revert InvalidRatioValue();
-        boostAmountLimit = boostAmountLimit_;
-        lpAmountLimit = lpAmountLimit_;
         boostMultiplier = boostMultiplier_;
         validRangeRatio = validRangeRatio_;
         validRemovingRatio = validRemovingRatio_;
@@ -182,9 +172,6 @@ contract SolidlyV2LiquidityAMO is
         uint256 minUsdAmountOut,
         uint256 deadline
     ) public override onlyRole(AMO_ROLE) whenNotPaused returns (uint256 usdAmountOut, uint256 dryPowderAmount) {
-        // Ensure the BOOST amount does not exceed the allowed limit
-        if (boostAmount > boostAmountLimit) revert BoostAmountLimitExceeded(boostAmount, boostAmountLimit);
-
         // Mint the specified amount of BOOST tokens
         IMinter(boostMinter).protocolMint(address(this), boostAmount);
 
@@ -334,10 +321,6 @@ contract SolidlyV2LiquidityAMO is
         whenNotPaused
         returns (uint256 boostRemoved, uint256 usdRemoved, uint256 boostAmountOut)
     {
-        // Ensure the LP amount does not exceed the allowed limit
-        uint256 totalLp = totalLP();
-        if (lpAmount > lpAmountLimit) revert LpAmountLimitExceeded(lpAmount, lpAmountLimit);
-        if (lpAmount > totalLp) revert LpAmountLimitExceeded(lpAmount, totalLp);
         // Withdraw the specified amount of liquidity tokens from the gauge
         IGauge(gauge).withdraw(lpAmount);
 

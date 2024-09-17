@@ -6,10 +6,6 @@ pragma solidity >=0.5.0;
 interface ISolidlyV3LiquidityAMOVariables {
     function treasuryVault() external view returns (address);
 
-    function boostAmountLimit() external view returns (uint256);
-
-    function liquidityAmountLimit() external view returns (uint256);
-
     function boostMultiplier() external view returns (uint256);
 
     function validRangeRatio() external view returns (uint24);

@@ -79,15 +79,15 @@ contract SolidlyV3PublicAMO is
             uint256 newBoostPrice
         )
     {
-        address pool = amo.pool();
-        uint160 targetSqrtPriceX96 = amo.targetSqrtPriceX96();
-        uint256 boostAmountLimit = amo.boostAmountLimit();
         address boost = amo.boost();
         address usd = amo.usd();
+        address pool = amo.pool();
+        uint160 targetSqrtPriceX96 = amo.targetSqrtPriceX96();
+        uint256 maxBoostAmount = IERC20(boost).balanceOf(pool);
         bool zeroForOne = boost < usd;
         (int256 amount0, int256 amount1, , , ) = ISolidlyV3Pool(pool).quoteSwap(
             zeroForOne,
-            int256(boostAmountLimit),
+            int256(maxBoostAmount),
             targetSqrtPriceX96
         );
         uint256 boostAmount;

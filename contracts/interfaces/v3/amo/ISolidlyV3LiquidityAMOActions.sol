@@ -16,10 +16,8 @@ interface ISolidlyV3LiquidityAMOActions {
     function setVault(address treasuryVault_) external;
 
     /**
-     * @notice This function sets various limits for the contract
+     * @notice This function sets various params for the contract
      * @dev Can only be called by an account with the SETTER_ROLE
-     * @param boostAmountLimit_ The maximum amount of BOOST for mintAndSellBoost() and unfarmBuyBurn()
-     * @param liquidityAmountLimit_ The maximum amount of liquidity for unfarmBuyBurn()
      * @param boostMultiplier_ The multiplier used to calculate the amount of boost to mint in addLiquidity()
      * @param validRangeRatio_ The valid range ratio for addLiquidity()
      * @param validRemovingRatio_ Set the price (<1$) on which the unfarmBuyBurn() is allowed
@@ -27,8 +25,6 @@ interface ISolidlyV3LiquidityAMOActions {
      * @param usdUsageRatio_ The minimum valid ratio of usdAmountIn to usdRemoved in unfarmBuyBurn()
      */
     function setParams(
-        uint256 boostAmountLimit_,
-        uint256 liquidityAmountLimit_,
         uint256 boostMultiplier_,
         uint24 validRangeRatio_,
         uint24 validRemovingRatio_,

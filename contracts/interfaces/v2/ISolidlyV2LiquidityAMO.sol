@@ -59,12 +59,6 @@ interface ISolidlyV2LiquidityAMO {
     /// @notice Returns the address of the treasury vault for dry powder USD
     function treasuryVault() external view returns (address);
 
-    /// @notice Returns the maximum allowable amount of BOOST tokens that can be pass to mintAndSellBoost() for minting
-    function boostAmountLimit() external view returns (uint256);
-
-    /// @notice Returns the maximum allowable amount of LP tokens that can be pass to unfarmBuyBurn() for unfarming
-    function lpAmountLimit() external view returns (uint256);
-
     /// @notice Returns the multiplier for BOOST (in 6 decimals)
     function boostMultiplier() external view returns (uint256);
 
@@ -130,18 +124,14 @@ interface ISolidlyV2LiquidityAMO {
     function setVaults(address rewardVault_, address treasuryVault_) external;
 
     /**
-     * @notice This function sets various limits for the contract
+     * @notice This function sets various params for the contract
      * @dev Can only be called by an account with the SETTER_ROLE
-     * @param boostAmountLimit_ The maximum amount of BOOST for mintAndSellBoost() and unfarmBuyBurn()
-     * @param lpAmountLimit_ The maximum amount of LP tokens for unfarmBuyBurn()
      * @param boostMultiplier_ The multiplier used to calculate the amount of boost to mint in addLiquidityAndDeposit()
      * @param validRangeRatio_ The valid range ratio for addLiquidityAndDeposit()
      * @param validRemovingRatio_ Set the price (<1$) on which the unfarmBuyBurn() is allowed
      * @param dryPowderRatio_ The percent of collateral that transfer to treasuryVault in mintAndSellBoost() as dry powder
      */
     function setParams(
-        uint256 boostAmountLimit_,
-        uint256 lpAmountLimit_,
         uint256 boostMultiplier_,
         uint24 validRangeRatio_,
         uint24 validRemovingRatio_,
