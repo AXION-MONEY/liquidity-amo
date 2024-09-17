@@ -8,8 +8,14 @@ interface ISolidlyV2PublicAMO {
     event AMOSet(address indexed newAmoAddress);
     event LimitsSet(uint256 boostLimitToMint, uint256 lpLimitToUnfarm);
     event BuyAndSellBoundSet(uint256 boostUpperPriceBuy, uint256 boostLowerPriceSell);
-    event MintSellExecuted(uint256 boostAmountIn, uint256 usdAmountOut);
-    event UnfarmBuyBurnExecuted(uint256 lpAmount, uint256 boostRemoved, uint256 usdRemoved);
+    event MintSellFarmExecuted(uint256 boostAmountIn, uint256 usdAmountOut, uint256 lpAmount, uint256 newBoostPrice);
+    event UnfarmBuyBurnExecuted(
+        uint256 lpAmount,
+        uint256 boostRemoved,
+        uint256 usdRemoved,
+        uint256 boostAmountOut,
+        uint256 newBoostPrice
+    );
     event CooldownPeriodSet(uint256 cooldownPeriod);
     event TokenSet(uint256 indexed tokenId, bool useToken);
     event BoostSellRatioSet(uint256 boostSellRatio);
@@ -31,14 +37,20 @@ interface ISolidlyV2PublicAMO {
     /// @notice Mints BOOST tokens and sells them for USD
     /// @return boostAmountIn The amount of BOOST is used in selling BOOST
     /// @return usdAmountOut The amount of USD received from selling BOOST
-    /// @return dryPowderAmount The amount of USD kept as dry powder
-    function mintSell() external returns (uint256 boostAmountIn, uint256 usdAmountOut, uint256 dryPowderAmount);
+    /// @return lpAmount The LP Amount that received from add liquidity
+    /// @return newBoostPrice  The BOOST new price after mintSellFarm()
+    function mintSellFarm()
+        external
+        returns (uint256 boostAmountIn, uint256 usdAmountOut, uint256 lpAmount, uint256 newBoostPrice);
 
     /// @notice Unfarms liquidity, buys BOOST tokens with USD, and burns them
-    /// @return boostRemoved_ The amount of BOOST removed from the pool
-    /// @return usdRemoved_ The amount of USD removed from the pool
-    /// @return boostAmountOut_ The amount of BOOST received from buying
-    function unfarmBuyBurn() external returns (uint256 boostRemoved_, uint256 usdRemoved_, uint256 boostAmountOut_);
+    /// @return boostRemoved The amount of BOOST removed from the pool
+    /// @return usdRemoved The amount of USD removed from the pool
+    /// @return boostAmountOut The amount of BOOST received from buying
+    /// @return newBoostPrice  The BOOST new price after unfarmBuyBurn()
+    function unfarmBuyBurn()
+        external
+        returns (uint256 boostRemoved, uint256 usdRemoved, uint256 boostAmountOut, uint256 newBoostPrice);
 
     /// @notice Sets the limits for minting BOOST and unfarming LP tokens
     /// @param boostLimitToMint_ The new limit for minting BOOST tokens

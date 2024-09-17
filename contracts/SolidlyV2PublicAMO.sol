@@ -8,6 +8,7 @@ import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.
 import {IERC20, IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 import {ISolidlyV2LiquidityAMO} from "./interfaces/v2/ISolidlyV2LiquidityAMO.sol";
 import {ISolidlyV2PublicAMO} from "./interfaces/v2/ISolidlyV2PublicAMO.sol";
+import {IPair} from "./interfaces/v2/IPair.sol";
 
 /// @title A public wrapper for BOOST-USD LiquidityAMO
 /// @notice The PublicAMO contract is responsible for maintaining the BOOST-USD peg in Solidly pairs.
@@ -40,12 +41,17 @@ contract SolidlyV2PublicAMO is
     uint256 public cooldownPeriod;
     uint256 public tokenId;
     bool public useToken;
-    mapping(address => uint256) public userLastTx;
+    mapping(address => uint256) public lastTxTimestamp;
+
+    ////////////////////////// CONSTANTS //////////////////////////
+    uint8 private constant DECIMALS = 6;
+    uint256 private constant FACTOR = 10 ** DECIMALS;
 
     ////////////////////////// ERRORS //////////////////////////
-    error PriceNotInRange();
-    error InvalidBoostAmount();
-    error InvalidLpAmount();
+    error PriceNotInRange(uint256 price);
+    error InvalidReserveRatio(uint256 ratio);
+    error InvalidBoostAmount(uint256 amount);
+    error InvalidLpAmount(uint256 amount);
     error ZeroAddress();
     error InvalidAmount();
     error CooldownNotFinished();
@@ -74,45 +80,55 @@ contract SolidlyV2PublicAMO is
 
     ////////////////////////// PUBLIC FUNCTIONS //////////////////////////
     /// @inheritdoc ISolidlyV2PublicAMO
-    function mintSell()
+    function mintSellFarm()
         external
         whenNotPaused
         nonReentrant
-        returns (uint256 boostAmountIn, uint256 usdAmountOut, uint256 dryPowderAmount)
+        returns (uint256 boostAmountIn, uint256 usdAmountOut, uint256 lpAmount, uint256 newBoostPrice)
     {
         // Checks cooldown time
-        if (userLastTx[msg.sender] + cooldownPeriod > block.timestamp) revert CooldownNotFinished();
-        userLastTx[msg.sender] = block.timestamp;
+        if (lastTxTimestamp[tx.origin] + cooldownPeriod > block.timestamp) revert CooldownNotFinished();
+        lastTxTimestamp[tx.origin] = block.timestamp;
 
-        address lpAddress = ISolidlyV2LiquidityAMO(amoAddress).pool();
-        address boostAddress = ISolidlyV2LiquidityAMO(amoAddress).boost();
-        uint8 boostDecimals = IERC20Metadata(boostAddress).decimals();
-        // TODO: check the reserves
-        uint256 boostBalance = IERC20(boostAddress).balanceOf(lpAddress);
-        address usdAddress = ISolidlyV2LiquidityAMO(amoAddress).usd();
-        uint8 usdDecimals = IERC20Metadata(usdAddress).decimals();
-        uint256 usdBalance = IERC20(usdAddress).balanceOf(lpAddress);
-        boostAmountIn =
-            ((((boostBalance + (usdBalance * 10 ** (boostDecimals - usdDecimals))) / 2) - boostBalance) *
-                boostSellRatio) /
-            10 ** 6;
-        if (
-            boostAmountIn > boostLimitToMint || // Set a high limit on boost amount to be minted, sold and farmed
-            boostBalance < (usdBalance * 10 ** (boostDecimals - usdDecimals)) // Checks if the expected boost price is more than 1$
-        ) revert InvalidBoostAmount();
+        address pool = ISolidlyV2LiquidityAMO(amoAddress).pool();
+        address boost = ISolidlyV2LiquidityAMO(amoAddress).boost();
+        uint8 boostDecimals = IERC20Metadata(boost).decimals();
+        address usd = ISolidlyV2LiquidityAMO(amoAddress).usd();
+        uint8 usdDecimals = IERC20Metadata(usd).decimals();
+        (uint256 reserve0, uint256 reserve1, ) = IPair(pool).getReserves();
+        uint256 boostReserve;
+        uint256 usdReserve;
+        if (boost < usd) {
+            boostReserve = reserve0;
+            usdReserve = reserve1 * 10 ** (boostDecimals - usdDecimals); // scaled
+        } else {
+            boostReserve = reserve1;
+            usdReserve = reserve0 * 10 ** (boostDecimals - usdDecimals); // scaled
+        }
+        // Checks if the expected boost price is more than 1$
+        if (usdReserve <= boostReserve) revert InvalidReserveRatio({ratio: (FACTOR * usdReserve) / boostReserve});
 
-        (usdAmountOut, dryPowderAmount) = ISolidlyV2LiquidityAMO(amoAddress).mintAndSellBoost(
+        boostAmountIn = (((usdReserve - boostReserve) / 2) * boostSellRatio) / FACTOR;
+
+        // Set a high limit on boost amount to be minted, sold and farmed
+        if (boostAmountIn > boostLimitToMint) revert InvalidBoostAmount(boostAmountIn);
+
+        (usdAmountOut, , , , lpAmount) = ISolidlyV2LiquidityAMO(amoAddress).mintSellFarm(
             boostAmountIn,
             boostAmountIn / (10 ** (boostDecimals - usdDecimals)), //minUsdAmountOut
-            block.timestamp //deadline
+            tokenId,
+            useToken,
+            1, // minUsdSpend
+            1, // minLpAmount
+            block.timestamp + 1 // deadline
         );
 
-        uint256 boostPrice = (usdAmountOut * 10 ** (boostDecimals + 6 - usdDecimals)) / boostAmountIn;
+        newBoostPrice = ISolidlyV2LiquidityAMO(amoAddress).boostPrice();
 
-        // Checks if the actual average price of boost when selling is greater than the boostLowerPriceSell
-        if (boostPrice < boostLowerPriceSell) revert PriceNotInRange();
+        // Checks if the price of boost is greater than the boostLowerPriceSell
+        if (newBoostPrice < boostLowerPriceSell) revert PriceNotInRange(newBoostPrice);
 
-        emit MintSellExecuted(boostAmountIn, usdAmountOut);
+        emit MintSellFarmExecuted(boostAmountIn, usdAmountOut, lpAmount, newBoostPrice);
     }
 
     /// @inheritdoc ISolidlyV2PublicAMO
@@ -120,45 +136,54 @@ contract SolidlyV2PublicAMO is
         external
         whenNotPaused
         nonReentrant
-        returns (uint256 boostRemoved, uint256 usdRemoved, uint256 boostAmountOut)
+        returns (uint256 boostRemoved, uint256 usdRemoved, uint256 boostAmountOut, uint256 newBoostPrice)
     {
-        address lpAddress = ISolidlyV2LiquidityAMO(amoAddress).pool();
-        address boostAddress = ISolidlyV2LiquidityAMO(amoAddress).boost();
-        uint8 boostDecimals = IERC20Metadata(boostAddress).decimals();
-        // TODO: check the reserves
-        uint256 boostBalance = IERC20(boostAddress).balanceOf(lpAddress);
-        address usdAddress = ISolidlyV2LiquidityAMO(amoAddress).usd();
-        uint8 usdDecimals = IERC20Metadata(usdAddress).decimals();
-        uint256 usdBalance = IERC20(usdAddress).balanceOf(lpAddress);
-        uint256 totalLP = IERC20(lpAddress).totalSupply(); //  is the total amounts of LP in the contract
-        uint256 usdNeeded = (((((boostBalance / 10 ** (boostDecimals - usdDecimals)) + usdBalance) / 2) - usdBalance) *
-            usdBuyRatio) / 10 ** 6;
-        uint256 lpAmount = (usdNeeded * totalLP) / usdBalance;
+        // Checks cooldown time
+        if (lastTxTimestamp[tx.origin] + cooldownPeriod > block.timestamp) revert CooldownNotFinished();
+        lastTxTimestamp[tx.origin] = block.timestamp;
+
+        address pool = ISolidlyV2LiquidityAMO(amoAddress).pool();
+        address boost = ISolidlyV2LiquidityAMO(amoAddress).boost();
+        uint8 boostDecimals = IERC20Metadata(boost).decimals();
+        address usd = ISolidlyV2LiquidityAMO(amoAddress).usd();
+        uint8 usdDecimals = IERC20Metadata(usd).decimals();
+        (uint256 reserve0, uint256 reserve1, ) = IPair(pool).getReserves();
+        uint256 boostReserve;
+        uint256 usdReserve;
+        if (boost < usd) {
+            boostReserve = reserve0;
+            usdReserve = reserve1 * 10 ** (boostDecimals - usdDecimals); // scaled
+        } else {
+            boostReserve = reserve1;
+            usdReserve = reserve0 * 10 ** (boostDecimals - usdDecimals); // scaled
+        }
+
+        if (boostReserve <= usdReserve) revert InvalidReserveRatio({ratio: (FACTOR * usdReserve) / boostReserve});
+
+        uint256 usdNeeded = (((boostReserve - usdReserve) / 2) * usdBuyRatio) / FACTOR;
+        uint256 totalLp = IERC20(pool).totalSupply();
+        uint256 lpAmount = (usdNeeded * totalLp) / usdReserve;
 
         // Readjust the LP amount and USD needed to balance price before removing LP
-        lpAmount = (lpAmount - ((lpAmount ** 2) / totalLP));
-
-        // Checks cooldown time
-        if (userLastTx[msg.sender] + cooldownPeriod > block.timestamp) revert CooldownNotFinished();
-        userLastTx[msg.sender] = block.timestamp;
+        lpAmount -= lpAmount ** 2 / totalLp;
 
         // Set a high limit on LP amount to be unfarmed, bought and burned
-        if (lpAmount > lpLimitToUnfarm) revert InvalidLpAmount();
+        if (lpAmount > lpLimitToUnfarm) revert InvalidLpAmount(lpAmount);
 
         (boostRemoved, usdRemoved, boostAmountOut) = ISolidlyV2LiquidityAMO(amoAddress).unfarmBuyBurn(
             lpAmount,
-            (lpAmount * boostBalance) / IERC20(lpAddress).totalSupply(), // minBoostRemove
-            usdNeeded, // minUsdRemove
-            usdNeeded * (10 ** (boostDecimals - usdDecimals)), //minBoostAmountOut
-            block.timestamp //deadline
+            (lpAmount * boostReserve) / totalLp, // minBoostRemove
+            usdNeeded / 10 ** (boostDecimals - usdDecimals), // minUsdRemove
+            usdNeeded, // minBoostAmountOut
+            block.timestamp + 1 //deadline
         );
 
-        uint256 boostPrice = (usdRemoved * 10 ** (boostDecimals + 6 - usdDecimals)) / (boostAmountOut);
+        newBoostPrice = ISolidlyV2LiquidityAMO(amoAddress).boostPrice();
 
-        // Checks if the actual average price of boost when buying is less than the boostUpperPriceBuy
-        if (boostPrice > boostUpperPriceBuy) revert PriceNotInRange();
+        // Checks if the price of boost is less than the boostUpperPriceBuy
+        if (newBoostPrice > boostUpperPriceBuy) revert PriceNotInRange(newBoostPrice);
 
-        emit UnfarmBuyBurnExecuted(lpAmount, boostRemoved, usdRemoved);
+        emit UnfarmBuyBurnExecuted(lpAmount, boostRemoved, usdRemoved, boostAmountOut, newBoostPrice);
     }
 
     ////////////////////////// SETTER FUNCTIONS //////////////////////////
