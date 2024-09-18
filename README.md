@@ -135,11 +135,16 @@ First it removes protocol owned liquidity, swaps the USD for Boost, then burns t
 * deadline (uint256): The deadline by which the transaction must be completed. If this deadline is exceeded, the transaction will fail.
 
 ## III) PublicAMO:
-Purpose:The contract ensures decentralised security, 
+
+Purpose:
+
+1) The contract ensures decentralised security, 
 It lets any participant (even though the contract allows for whitelisting) rebalance the BOOST price permissionless. 
 It ensures that the health of the protocol does not depend on our team or any given (possibly centralised) infrastructure: it is permissionless.
+
 2) Mechanism: 
 Technically, it triggers the AMO mechanisms where the amount to mint, sell and farm, or unfarm and buy back, is computed onchain —— rather than by an off-chain bot.
+
 3) A user-friendly interface: 
 The PublicAMO contract provides a simpler interface for users or other contracts to interact with the underlying LiquidityAMO functionality, such as minting, selling, adding/removing liquidity, etc., without exposing all the internal difficulties of the LiquidityAMO contract.
 
