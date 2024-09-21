@@ -4,6 +4,7 @@ pragma solidity 0.8.19;
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol";
@@ -21,7 +22,8 @@ contract SolidlyV2LiquidityAMO is
     ISolidlyV2LiquidityAMO,
     Initializable,
     AccessControlEnumerableUpgradeable,
-    PausableUpgradeable
+    PausableUpgradeable,
+    ReentrancyGuardUpgradeable
 {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
@@ -34,6 +36,8 @@ contract SolidlyV2LiquidityAMO is
     error TokenNotWhitelisted(address token);
     error UsdAmountOutMismatch(uint256 routerOutput, uint256 balanceChange);
     error LpAmountOutMismatch(uint256 routerOutput, uint256 balanceChange);
+    error PriceNotInRange(uint256 price);
+    error InvalidReserveRatio(uint256 ratio);
 
     /* ========== ROLES ========== */
     /// @inheritdoc ISolidlyV2LiquidityAMO
@@ -81,6 +85,13 @@ contract SolidlyV2LiquidityAMO is
     uint24 public override dryPowderRatio;
     /// @inheritdoc ISolidlyV2LiquidityAMO
     mapping(address => bool) public override whitelistedRewardTokens;
+
+    uint256 public boostLowerPriceSell;
+    uint256 public boostUpperPriceBuy;
+    uint256 public boostSellRatio;
+    uint256 public usdBuyRatio;
+    uint256 public tokenId;
+    bool public useTokenId;
 
     /* ========== CONSTANTS ========== */
     uint8 internal constant PRICE_DECIMALS = 6;
@@ -165,13 +176,31 @@ contract SolidlyV2LiquidityAMO is
         }
     }
 
-    ////////////////////////// AMO_ROLE ACTIONS //////////////////////////
     /// @inheritdoc ISolidlyV2LiquidityAMO
-    function mintAndSellBoost(
+    function setTokenId(uint256 tokenId_, bool useTokenId_) external override onlyRole(SETTER_ROLE) {
+        tokenId = tokenId_;
+        useTokenId = useTokenId_;
+    }
+
+    /// @inheritdoc ISolidlyV2LiquidityAMO
+    function setPublicCheckParams(
+        uint256 boostLowerPriceSell_,
+        uint256 boostUpperPriceBuy_,
+        uint256 boostSellRatio_,
+        uint256 usdBuyRatio_
+    ) external override onlyRole(SETTER_ROLE) {
+        boostLowerPriceSell = boostLowerPriceSell_;
+        boostUpperPriceBuy = boostUpperPriceBuy_;
+        boostSellRatio = boostSellRatio_;
+        usdBuyRatio = usdBuyRatio_;
+    }
+
+    ////////////////////////// AMO_ROLE ACTIONS //////////////////////////
+    function _mintAndSellBoost(
         uint256 boostAmount,
         uint256 minUsdAmountOut,
         uint256 deadline
-    ) public override onlyRole(AMO_ROLE) whenNotPaused returns (uint256 usdAmountOut, uint256 dryPowderAmount) {
+    ) internal returns (uint256 usdAmountOut, uint256 dryPowderAmount) {
         // Mint the specified amount of BOOST tokens
         IMinter(boostMinter).protocolMint(address(this), boostAmount);
 
@@ -211,20 +240,29 @@ contract SolidlyV2LiquidityAMO is
     }
 
     /// @inheritdoc ISolidlyV2LiquidityAMO
-    function addLiquidityAndDeposit(
-        uint256 tokenId,
-        bool useTokenId,
+    function mintAndSellBoost(
+        uint256 boostAmount,
+        uint256 minUsdAmountOut,
+        uint256 deadline
+    )
+        external
+        override
+        onlyRole(AMO_ROLE)
+        whenNotPaused
+        nonReentrant
+        returns (uint256 usdAmountOut, uint256 dryPowderAmount)
+    {
+        (usdAmountOut, dryPowderAmount) = _mintAndSellBoost(boostAmount, minUsdAmountOut, deadline);
+    }
+
+    function _addLiquidityAndDeposit(
+        uint256 tokenId_,
+        bool useTokenId_,
         uint256 usdAmount,
         uint256 minUsdSpend,
         uint256 minLpAmount,
         uint256 deadline
-    )
-        public
-        override
-        onlyRole(AMO_ROLE)
-        whenNotPaused
-        returns (uint256 boostSpent, uint256 usdSpent, uint256 lpAmount)
-    {
+    ) internal returns (uint256 boostSpent, uint256 usdSpent, uint256 lpAmount) {
         // Mint the specified amount of BOOST tokens
         uint256 boostAmount = (toBoostAmount(usdAmount) * boostMultiplier) / FACTOR;
 
@@ -262,8 +300,8 @@ contract SolidlyV2LiquidityAMO is
 
         // Approve the transfer of liquidity tokens to the gauge and deposit them
         IERC20Upgradeable(pool).approve(gauge, lpAmount);
-        if (useTokenId) {
-            IGauge(gauge).deposit(lpAmount, tokenId);
+        if (useTokenId_) {
+            IGauge(gauge).deposit(lpAmount, tokenId_);
         } else {
             IGauge(gauge).deposit(lpAmount);
         }
@@ -273,15 +311,14 @@ contract SolidlyV2LiquidityAMO is
 
         // Emit events for adding liquidity and depositing liquidity tokens
         emit AddLiquidity(usdAmount, boostAmount, usdSpent, boostSpent, lpAmount);
-        emit DepositLP(lpAmount, tokenId);
+        emit DepositLP(lpAmount, tokenId_);
     }
 
     /// @inheritdoc ISolidlyV2LiquidityAMO
-    function mintSellFarm(
-        uint256 boostAmount,
-        uint256 minUsdAmountOut,
-        uint256 tokenId,
-        bool useTokenId,
+    function addLiquidityAndDeposit(
+        uint256 tokenId_,
+        bool useTokenId_,
+        uint256 usdAmount,
         uint256 minUsdSpend,
         uint256 minLpAmount,
         uint256 deadline
@@ -290,15 +327,38 @@ contract SolidlyV2LiquidityAMO is
         override
         onlyRole(AMO_ROLE)
         whenNotPaused
+        nonReentrant
+        returns (uint256 boostSpent, uint256 usdSpent, uint256 lpAmount)
+    {
+        (boostSpent, usdSpent, lpAmount) = _addLiquidityAndDeposit(
+            tokenId_,
+            useTokenId_,
+            usdAmount,
+            minUsdSpend,
+            minLpAmount,
+            deadline
+        );
+    }
+
+    function _mintSellFarm(
+        uint256 boostAmount,
+        uint256 minUsdAmountOut,
+        uint256 tokenId_,
+        bool useTokenId_,
+        uint256 minUsdSpend,
+        uint256 minLpAmount,
+        uint256 deadline
+    )
+        internal
         returns (uint256 usdAmountOut, uint256 dryPowderAmount, uint256 boostSpent, uint256 usdSpent, uint256 lpAmount)
     {
-        (usdAmountOut, dryPowderAmount) = mintAndSellBoost(boostAmount, minUsdAmountOut, deadline);
+        (usdAmountOut, dryPowderAmount) = _mintAndSellBoost(boostAmount, minUsdAmountOut, deadline);
         uint256 price = boostPrice();
         if (price > FACTOR - validRangeRatio && price < FACTOR + validRangeRatio) {
             uint256 usdBalance = balanceOfToken(usd);
-            (boostSpent, usdSpent, lpAmount) = addLiquidityAndDeposit(
-                tokenId,
-                useTokenId,
+            (boostSpent, usdSpent, lpAmount) = _addLiquidityAndDeposit(
+                tokenId_,
+                useTokenId_,
                 usdBalance,
                 minUsdSpend,
                 minLpAmount,
@@ -308,19 +368,40 @@ contract SolidlyV2LiquidityAMO is
     }
 
     /// @inheritdoc ISolidlyV2LiquidityAMO
-    function unfarmBuyBurn(
-        uint256 lpAmount,
-        uint256 minBoostRemove,
-        uint256 minUsdRemove,
-        uint256 minBoostAmountOut,
+    function mintSellFarm(
+        uint256 boostAmount,
+        uint256 minUsdAmountOut,
+        uint256 tokenId_,
+        bool useTokenId_,
+        uint256 minUsdSpend,
+        uint256 minLpAmount,
         uint256 deadline
     )
         external
         override
         onlyRole(AMO_ROLE)
         whenNotPaused
-        returns (uint256 boostRemoved, uint256 usdRemoved, uint256 boostAmountOut)
+        nonReentrant
+        returns (uint256 usdAmountOut, uint256 dryPowderAmount, uint256 boostSpent, uint256 usdSpent, uint256 lpAmount)
     {
+        (usdAmountOut, dryPowderAmount, boostSpent, usdSpent, lpAmount) = _mintSellFarm(
+            boostAmount,
+            minUsdAmountOut,
+            tokenId_,
+            useTokenId_,
+            minUsdSpend,
+            minLpAmount,
+            deadline
+        );
+    }
+
+    function _unfarmBuyBurn(
+        uint256 lpAmount,
+        uint256 minBoostRemove,
+        uint256 minUsdRemove,
+        uint256 minBoostAmountOut,
+        uint256 deadline
+    ) internal returns (uint256 boostRemoved, uint256 usdRemoved, uint256 boostAmountOut) {
         // Withdraw the specified amount of liquidity tokens from the gauge
         IGauge(gauge).withdraw(lpAmount);
 
@@ -373,6 +454,102 @@ contract SolidlyV2LiquidityAMO is
         emit BurnBoost(boostRemoved + boostAmountOut);
     }
 
+    /// @inheritdoc ISolidlyV2LiquidityAMO
+    function unfarmBuyBurn(
+        uint256 lpAmount,
+        uint256 minBoostRemove,
+        uint256 minUsdRemove,
+        uint256 minBoostAmountOut,
+        uint256 deadline
+    )
+        external
+        override
+        onlyRole(AMO_ROLE)
+        whenNotPaused
+        nonReentrant
+        returns (uint256 boostRemoved, uint256 usdRemoved, uint256 boostAmountOut)
+    {
+        (boostRemoved, usdRemoved, boostAmountOut) = _unfarmBuyBurn(
+            lpAmount,
+            minBoostRemove,
+            minUsdRemove,
+            minBoostAmountOut,
+            deadline
+        );
+    }
+
+    ////////////////////////// PUBLIC FUNCTIONS //////////////////////////
+    function mintSellFarm() external whenNotPaused nonReentrant returns (uint256 lpAmount, uint256 newBoostPrice) {
+        (uint256 reserve0, uint256 reserve1, ) = IPair(pool).getReserves();
+        uint256 boostReserve;
+        uint256 usdReserve;
+        if (boost < usd) {
+            boostReserve = reserve0;
+            usdReserve = toBoostAmount(reserve1); // scaled
+        } else {
+            boostReserve = reserve1;
+            usdReserve = toBoostAmount(reserve0); // scaled
+        }
+        // Checks if the expected boost price is more than 1$
+        if (usdReserve <= boostReserve) revert InvalidReserveRatio({ratio: (FACTOR * usdReserve) / boostReserve});
+
+        uint256 boostAmountIn = (((usdReserve - boostReserve) / 2) * boostSellRatio) / FACTOR;
+
+        (, , , , lpAmount) = _mintSellFarm(
+            boostAmountIn,
+            toUsdAmount(boostAmountIn), // minUsdAmountOut
+            tokenId,
+            useTokenId,
+            1, // minUsdSpend
+            1, // minLpAmount
+            block.timestamp + 1 // deadline
+        );
+
+        newBoostPrice = boostPrice();
+
+        // Checks if the price of boost is greater than the boostLowerPriceSell
+        if (newBoostPrice < boostLowerPriceSell) revert PriceNotInRange(newBoostPrice);
+
+        emit PublicMintSellFarmExecuted(lpAmount, newBoostPrice);
+    }
+
+    function unfarmBuyBurn() external whenNotPaused nonReentrant returns (uint256 lpAmount, uint256 newBoostPrice) {
+        (uint256 reserve0, uint256 reserve1, ) = IPair(pool).getReserves();
+        uint256 boostReserve;
+        uint256 usdReserve;
+        if (boost < usd) {
+            boostReserve = reserve0;
+            usdReserve = toBoostAmount(reserve1); // scaled
+        } else {
+            boostReserve = reserve1;
+            usdReserve = toBoostAmount(reserve0); // scaled
+        }
+
+        if (boostReserve <= usdReserve) revert InvalidReserveRatio({ratio: (FACTOR * usdReserve) / boostReserve});
+
+        uint256 usdNeeded = (((boostReserve - usdReserve) / 2) * usdBuyRatio) / FACTOR;
+        uint256 totalLp = IERC20Upgradeable(pool).totalSupply();
+        lpAmount = (usdNeeded * totalLp) / usdReserve;
+
+        // Readjust the LP amount and USD needed to balance price before removing LP
+        lpAmount -= lpAmount ** 2 / totalLp;
+
+        _unfarmBuyBurn(
+            lpAmount,
+            (lpAmount * boostReserve) / totalLp, // minBoostRemove
+            toUsdAmount(usdNeeded), // minUsdRemove
+            usdNeeded, // minBoostAmountOut
+            block.timestamp + 1 //deadline
+        );
+
+        newBoostPrice = boostPrice();
+
+        // Checks if the price of boost is less than the boostUpperPriceBuy
+        if (newBoostPrice > boostUpperPriceBuy) revert PriceNotInRange(newBoostPrice);
+
+        emit PublicUnfarmBuyBurnExecuted(lpAmount, newBoostPrice);
+    }
+
     ////////////////////////// REWARD_COLLECTOR_ROLE ACTIONS //////////////////////////
     /// @inheritdoc ISolidlyV2LiquidityAMO
     function getReward(
@@ -395,10 +572,10 @@ contract SolidlyV2LiquidityAMO is
     /// @inheritdoc ISolidlyV2LiquidityAMO
     function withdrawERC721(
         address token,
-        uint256 tokenId,
+        uint256 tokenId_,
         address recipient
     ) external override onlyRole(WITHDRAWER_ROLE) {
-        IERC721Upgradeable(token).safeTransferFrom(address(this), recipient, tokenId);
+        IERC721Upgradeable(token).safeTransferFrom(address(this), recipient, tokenId_);
     }
 
     ////////////////////////// Internal functions //////////////////////////

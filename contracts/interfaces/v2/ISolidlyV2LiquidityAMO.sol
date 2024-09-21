@@ -102,6 +102,9 @@ interface ISolidlyV2LiquidityAMO {
 
     event GetReward(address[] tokens, uint256[] amounts);
 
+    event PublicMintSellFarmExecuted(uint256 lpAmount, uint256 newBoostPrice);
+    event PublicUnfarmBuyBurnExecuted(uint256 lpAmount, uint256 newBoostPrice);
+
     /* ========== FUNCTIONS ========== */
     /**
      * @notice Pauses the contract, disabling specific functionalities
@@ -145,6 +148,27 @@ interface ISolidlyV2LiquidityAMO {
      * @param isWhitelisted The new whitelist status for the tokens
      */
     function setRewardTokens(address[] memory tokens, bool isWhitelisted) external;
+
+    /**
+     * @notice This function sets the token id for depositing in mintSellFarm()
+     * @param tokenId_ The token id
+     * @param useTokenId_ A boolean indicating use or not to use the token id
+     */
+    function setTokenId(uint256 tokenId_, bool useTokenId_) external;
+
+    /**
+     * @notice This function sets params for checking that related to public functions
+     * @param boostLowerPriceSell_ The new lower price bound for selling BOOST
+     * @param boostUpperPriceBuy_ The new upper price bound for buying BOOST
+     * @param boostSellRatio_ The new BOOST sell ratio
+     * @param usdBuyRatio_ The new USD buy ratio
+     */
+    function setPublicCheckParams(
+        uint256 boostLowerPriceSell_,
+        uint256 boostUpperPriceBuy_,
+        uint256 boostSellRatio_,
+        uint256 usdBuyRatio_
+    ) external;
 
     /**
      * @notice This function mints BOOST tokens and sells them for USD
@@ -229,6 +253,20 @@ interface ISolidlyV2LiquidityAMO {
         uint256 minBoostAmountOut,
         uint256 deadline
     ) external returns (uint256 boostRemoved, uint256 usdRemoved, uint256 boostAmountOut);
+
+    /**
+     * @notice Mints BOOST tokens and sells them for USD, adds liquidity and farm the LP
+     * @return lpAmount The LP amount that received from add liquidity
+     * @return newBoostPrice The BOOST new price after mintSellFarm()
+     */
+    function mintSellFarm() external returns (uint256 lpAmount, uint256 newBoostPrice);
+
+    /**
+     * @notice Unfarms liquidity, buys BOOST tokens with USD, and burns them
+     * @return lpAmount The LP amount that unfarmed for rebalancing the price
+     * @return newBoostPrice The BOOST new price after unfarmBuyBurn()
+     */
+    function unfarmBuyBurn() external returns (uint256 lpAmount, uint256 newBoostPrice);
 
     /**
      * @notice Withdraws ERC20 tokens from the contract
