@@ -80,6 +80,8 @@ contract SolidlyV3LiquidityAMO is
         address pool_,
         address boostMinter_,
         address treasuryVault_,
+        int24 tickLower_,
+        int24 tickUpper_,
         uint160 targetSqrtPriceX96_
     ) public initializer {
         __AccessControlEnumerable_init();
@@ -93,6 +95,7 @@ contract SolidlyV3LiquidityAMO is
             treasuryVault_ == address(0)
         ) revert ZeroAddress();
         if (targetSqrtPriceX96_ <= MIN_SQRT_RATIO || targetSqrtPriceX96_ >= MAX_SQRT_RATIO) revert InvalidRatioValue();
+
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         boost = boost_;
         usd = usd_;
@@ -101,7 +104,13 @@ contract SolidlyV3LiquidityAMO is
         usdDecimals = IERC20Metadata(usd).decimals();
         boostMinter = boostMinter_;
         treasuryVault = treasuryVault_;
+        tickLower = tickLower_;
+        tickUpper = tickUpper_;
         targetSqrtPriceX96 = targetSqrtPriceX96_;
+
+        emit VaultSet(treasuryVault);
+        emit TickBoundsSet(tickLower, tickUpper);
+        emit TargetSqrtPriceX96Set(targetSqrtPriceX96);
     }
 
     ////////////////////////// PAUSE ACTIONS //////////////////////////
@@ -116,18 +125,14 @@ contract SolidlyV3LiquidityAMO is
 
     ////////////////////////// SETTER_ROLE ACTIONS //////////////////////////
     /// @inheritdoc ISolidlyV3LiquidityAMOActions
-    function setVault(address treasuryVault_) external override onlyRole(SETTER_ROLE) {
-        if (treasuryVault_ == address(0)) revert ZeroAddress();
-        treasuryVault = treasuryVault_;
-    }
-
-    /// @inheritdoc ISolidlyV3LiquidityAMOActions
     function setParams(
         uint256 boostMultiplier_,
         uint24 validRangeRatio_,
         uint24 validRemovingRatio_,
         uint24 dryPowderRatio_,
-        uint24 usdUsageRatio_
+        uint24 usdUsageRatio_,
+        uint256 boostLowerPriceSell_,
+        uint256 boostUpperPriceBuy_
     ) external override onlyRole(SETTER_ROLE) {
         if (
             validRangeRatio_ > FACTOR ||
@@ -140,25 +145,36 @@ contract SolidlyV3LiquidityAMO is
         validRemovingRatio = validRemovingRatio_;
         dryPowderRatio = dryPowderRatio_;
         usdUsageRatio = usdUsageRatio_;
+        boostLowerPriceSell = boostLowerPriceSell_;
+        boostUpperPriceBuy = boostUpperPriceBuy_;
+        emit ParamsSet(
+            boostMultiplier,
+            validRangeRatio,
+            validRemovingRatio,
+            dryPowderRatio,
+            usdUsageRatio,
+            boostLowerPriceSell,
+            boostUpperPriceBuy
+        );
+    }
+
+    /// @inheritdoc ISolidlyV3LiquidityAMOActions
+    function setVault(address treasuryVault_) external override onlyRole(SETTER_ROLE) {
+        if (treasuryVault_ == address(0)) revert ZeroAddress();
+        treasuryVault = treasuryVault_;
+        emit VaultSet(treasuryVault);
     }
 
     function setTickBounds(int24 tickLower_, int24 tickUpper_) external override onlyRole(SETTER_ROLE) {
         tickLower = tickLower_;
         tickUpper = tickUpper_;
+        emit TickBoundsSet(tickLower, tickUpper);
     }
 
     function setTargetSqrtPriceX96(uint160 targetSqrtPriceX96_) external override onlyRole(SETTER_ROLE) {
         if (targetSqrtPriceX96_ <= MIN_SQRT_RATIO || targetSqrtPriceX96_ >= MAX_SQRT_RATIO) revert InvalidRatioValue();
         targetSqrtPriceX96 = targetSqrtPriceX96_;
-    }
-
-    /// @inheritdoc ISolidlyV3LiquidityAMOActions
-    function setPublicCheckParams(
-        uint256 boostLowerPriceSell_,
-        uint256 boostUpperPriceBuy_
-    ) external override onlyRole(SETTER_ROLE) {
-        boostLowerPriceSell = boostLowerPriceSell_;
-        boostUpperPriceBuy = boostUpperPriceBuy_;
+        emit TargetSqrtPriceX96Set(targetSqrtPriceX96);
     }
 
     ////////////////////////// AMO_ROLE ACTIONS //////////////////////////

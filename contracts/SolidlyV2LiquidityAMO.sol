@@ -121,6 +121,7 @@ contract SolidlyV2LiquidityAMO is
             rewardVault_ == address(0) ||
             treasuryVault_ == address(0)
         ) revert ZeroAddress();
+
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         boost = boost_;
         usd = usd_;
@@ -132,6 +133,8 @@ contract SolidlyV2LiquidityAMO is
         gauge = gauge_;
         rewardVault = rewardVault_;
         treasuryVault = treasuryVault_;
+
+        emit VaultsSet(rewardVault, treasuryVault);
     }
 
     ////////////////////////// PAUSE ACTIONS //////////////////////////
@@ -152,6 +155,7 @@ contract SolidlyV2LiquidityAMO is
         if (rewardVault_ == address(0) || treasuryVault_ == address(0)) revert ZeroAddress();
         rewardVault = rewardVault_;
         treasuryVault = treasuryVault_;
+        emit VaultsSet(rewardVault, treasuryVault);
     }
 
     /// @inheritdoc ISolidlyV2LiquidityAMO
@@ -159,7 +163,11 @@ contract SolidlyV2LiquidityAMO is
         uint256 boostMultiplier_,
         uint24 validRangeRatio_,
         uint24 validRemovingRatio_,
-        uint24 dryPowderRatio_
+        uint24 dryPowderRatio_,
+        uint256 boostLowerPriceSell_,
+        uint256 boostUpperPriceBuy_,
+        uint256 boostSellRatio_,
+        uint256 usdBuyRatio_
     ) external override onlyRole(SETTER_ROLE) {
         if (validRangeRatio_ > FACTOR || validRemovingRatio_ > FACTOR || dryPowderRatio_ > FACTOR)
             revert InvalidRatioValue();
@@ -167,6 +175,20 @@ contract SolidlyV2LiquidityAMO is
         validRangeRatio = validRangeRatio_;
         validRemovingRatio = validRemovingRatio_;
         dryPowderRatio = dryPowderRatio_;
+        boostLowerPriceSell = boostLowerPriceSell_;
+        boostUpperPriceBuy = boostUpperPriceBuy_;
+        boostSellRatio = boostSellRatio_;
+        usdBuyRatio = usdBuyRatio_;
+        emit ParamsSet(
+            boostMultiplier,
+            validRangeRatio,
+            validRemovingRatio,
+            dryPowderRatio,
+            boostLowerPriceSell,
+            boostUpperPriceBuy,
+            boostSellRatio,
+            usdBuyRatio
+        );
     }
 
     /// @inheritdoc ISolidlyV2LiquidityAMO
@@ -174,25 +196,14 @@ contract SolidlyV2LiquidityAMO is
         for (uint i = 0; i < tokens.length; i++) {
             whitelistedRewardTokens[tokens[i]] = isWhitelisted;
         }
+        emit RewardTokensSet(tokens, isWhitelisted);
     }
 
     /// @inheritdoc ISolidlyV2LiquidityAMO
     function setTokenId(uint256 tokenId_, bool useTokenId_) external override onlyRole(SETTER_ROLE) {
         tokenId = tokenId_;
         useTokenId = useTokenId_;
-    }
-
-    /// @inheritdoc ISolidlyV2LiquidityAMO
-    function setPublicCheckParams(
-        uint256 boostLowerPriceSell_,
-        uint256 boostUpperPriceBuy_,
-        uint256 boostSellRatio_,
-        uint256 usdBuyRatio_
-    ) external override onlyRole(SETTER_ROLE) {
-        boostLowerPriceSell = boostLowerPriceSell_;
-        boostUpperPriceBuy = boostUpperPriceBuy_;
-        boostSellRatio = boostSellRatio_;
-        usdBuyRatio = usdBuyRatio_;
+        emit TokenIdSet(tokenId, useTokenId);
     }
 
     ////////////////////////// AMO_ROLE ACTIONS //////////////////////////

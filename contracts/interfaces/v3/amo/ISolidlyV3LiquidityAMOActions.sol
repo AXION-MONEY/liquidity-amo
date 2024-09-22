@@ -23,25 +23,22 @@ interface ISolidlyV3LiquidityAMOActions {
      * @param validRemovingRatio_ Set the price (<1$) on which the unfarmBuyBurn() is allowed
      * @param dryPowderRatio_ The percent of collateral that transfer to treasuryVault in mintAndSellBoost() as dry powder
      * @param usdUsageRatio_ The minimum valid ratio of usdAmountIn to usdRemoved in unfarmBuyBurn()
+     * @param boostLowerPriceSell_ The new lower price bound for selling BOOST
+     * @param boostUpperPriceBuy_ The new upper price bound for buying BOOST
      */
     function setParams(
         uint256 boostMultiplier_,
         uint24 validRangeRatio_,
         uint24 validRemovingRatio_,
         uint24 dryPowderRatio_,
-        uint24 usdUsageRatio_
+        uint24 usdUsageRatio_,
+        uint256 boostLowerPriceSell_,
+        uint256 boostUpperPriceBuy_
     ) external;
 
     function setTickBounds(int24 tickLower_, int24 tickUpper_) external;
 
     function setTargetSqrtPriceX96(uint160 targetSqrtPriceX96_) external;
-
-    /**
-     * @notice This function sets params for checking that related to public functions
-     * @param boostLowerPriceSell_ The new lower price bound for selling BOOST
-     * @param boostUpperPriceBuy_ The new upper price bound for buying BOOST
-     */
-    function setPublicCheckParams(uint256 boostLowerPriceSell_, uint256 boostUpperPriceBuy_) external;
 
     /**
      * @notice This function mints BOOST tokens and sells them for USD

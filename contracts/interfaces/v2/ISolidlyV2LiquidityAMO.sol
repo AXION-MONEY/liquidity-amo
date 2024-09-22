@@ -105,6 +105,20 @@ interface ISolidlyV2LiquidityAMO {
     event PublicMintSellFarmExecuted(uint256 lpAmount, uint256 newBoostPrice);
     event PublicUnfarmBuyBurnExecuted(uint256 lpAmount, uint256 newBoostPrice);
 
+    event VaultsSet(address rewardVault, address treasuryVault);
+    event ParamsSet(
+        uint256 boostMultiplier,
+        uint24 validRangeRatio,
+        uint24 validRemovingRatio,
+        uint24 dryPowderRatio,
+        uint256 boostLowerPriceSell,
+        uint256 boostUpperPriceBuy,
+        uint256 boostSellRatio,
+        uint256 usdBuyRatio
+    );
+    event RewardTokensSet(address[] tokens, bool isWhitelisted);
+    event TokenIdSet(uint256 tokenId, bool useTokenId);
+
     /* ========== FUNCTIONS ========== */
     /**
      * @notice Pauses the contract, disabling specific functionalities
@@ -133,12 +147,20 @@ interface ISolidlyV2LiquidityAMO {
      * @param validRangeRatio_ The valid range ratio for addLiquidityAndDeposit()
      * @param validRemovingRatio_ Set the price (<1$) on which the unfarmBuyBurn() is allowed
      * @param dryPowderRatio_ The percent of collateral that transfer to treasuryVault in mintAndSellBoost() as dry powder
+     * @param boostLowerPriceSell_ The new lower price bound for selling BOOST
+     * @param boostUpperPriceBuy_ The new upper price bound for buying BOOST
+     * @param boostSellRatio_ The new BOOST sell ratio
+     * @param usdBuyRatio_ The new USD buy ratio
      */
     function setParams(
         uint256 boostMultiplier_,
         uint24 validRangeRatio_,
         uint24 validRemovingRatio_,
-        uint24 dryPowderRatio_
+        uint24 dryPowderRatio_,
+        uint256 boostLowerPriceSell_,
+        uint256 boostUpperPriceBuy_,
+        uint256 boostSellRatio_,
+        uint256 usdBuyRatio_
     ) external;
 
     /**
@@ -155,20 +177,6 @@ interface ISolidlyV2LiquidityAMO {
      * @param useTokenId_ A boolean indicating use or not to use the token id
      */
     function setTokenId(uint256 tokenId_, bool useTokenId_) external;
-
-    /**
-     * @notice This function sets params for checking that related to public functions
-     * @param boostLowerPriceSell_ The new lower price bound for selling BOOST
-     * @param boostUpperPriceBuy_ The new upper price bound for buying BOOST
-     * @param boostSellRatio_ The new BOOST sell ratio
-     * @param usdBuyRatio_ The new USD buy ratio
-     */
-    function setPublicCheckParams(
-        uint256 boostLowerPriceSell_,
-        uint256 boostUpperPriceBuy_,
-        uint256 boostSellRatio_,
-        uint256 usdBuyRatio_
-    ) external;
 
     /**
      * @notice This function mints BOOST tokens and sells them for USD
