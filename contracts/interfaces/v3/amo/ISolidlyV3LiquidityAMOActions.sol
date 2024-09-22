@@ -37,6 +37,13 @@ interface ISolidlyV3LiquidityAMOActions {
     function setTargetSqrtPriceX96(uint160 targetSqrtPriceX96_) external;
 
     /**
+     * @notice This function sets params for checking that related to public functions
+     * @param boostLowerPriceSell_ The new lower price bound for selling BOOST
+     * @param boostUpperPriceBuy_ The new upper price bound for buying BOOST
+     */
+    function setPublicCheckParams(uint256 boostLowerPriceSell_, uint256 boostUpperPriceBuy_) external;
+
+    /**
      * @notice This function mints BOOST tokens and sells them for USD
      * @dev Can only be called by an account with the AMO_ROLE when the contract is not paused
      * @param boostAmount The amount of BOOST tokens to be minted and sold
@@ -122,6 +129,21 @@ interface ISolidlyV3LiquidityAMOActions {
         uint256 minBoostAmountOut,
         uint256 deadline
     ) external returns (uint256 boostRemoved, uint256 usdRemoved, uint256 usdAmountIn, uint256 boostAmountOut);
+
+    /**
+     * @notice Mints BOOST tokens and sells them for USD
+     * @return liquidity The liquidity Amount that received from add liquidity
+     * @return newBoostPrice The BOOST new price after mintSellFarm()
+     */
+    function mintSellFarm() external returns (uint256 liquidity, uint256 newBoostPrice);
+
+    /**
+     * @notice Unfarms liquidity, buys BOOST tokens with USD, and burns them
+     * @param liquidityFactor A coefficient for calculated liquidityToUnfarm to adjusting the liquidity amount
+     * @return liquidity The liquidity Amount that unfarmed from add liquidity
+     * @return newBoostPrice The BOOST new price after unfarmBuyBurn()
+     */
+    function unfarmBuyBurn(uint24 liquidityFactor) external returns (uint256 liquidity, uint256 newBoostPrice);
 
     /**
      * @notice Withdraws ERC20 tokens from the contract

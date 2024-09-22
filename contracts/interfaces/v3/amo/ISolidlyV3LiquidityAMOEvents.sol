@@ -24,4 +24,7 @@ interface ISolidlyV3LiquidityAMOEvents {
     event BurnBoost(uint256 amount);
 
     event Swap(address indexed from, address indexed to, uint256 amountFrom, uint256 amountTo);
+
+    event PublicMintSellFarmExecuted(uint256 liquidity, uint256 newBoostPrice);
+    event PublicUnfarmBuyBurnExecuted(uint256 liquidity, uint256 newBoostPrice);
 }
