@@ -453,7 +453,7 @@ contract SolidlyV2LiquidityAMO is
         uint256 usdBalanceAfter = balanceOfToken(usd);
 
         if (usdRemoved != usdBalanceAfter - usdBalanceBefore)
-            revert UsdAmountOutMismatch(usdAmountOut, usdBalanceAfter - usdBalanceBefore);
+            revert UsdAmountOutMismatch(usdRemoved, usdBalanceAfter - usdBalanceBefore);
 
         // Ensure the BOOST amount is greater than or equal to the USD amount
         if ((boostRemoved * validRemovingRatio) / FACTOR < toBoostAmount(usdRemoved))
