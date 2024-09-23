@@ -610,11 +610,10 @@ contract SolidlyV2LiquidityAMO is
             IGauge(gauge).getReward();
         }
         // Calculate the reward amounts and transfer them to the reward vault
-        uint256 totalLp = totalLP();
         for (uint i = 0; i < tokens.length; i++) {
             if (!whitelistedRewardTokens[tokens[i]]) revert TokenNotWhitelisted(tokens[i]);
             rewardsAmounts[i] = IERC20Upgradeable(tokens[i]).balanceOf(address(this));
-            IERC20Upgradeable(tokens[i]).safeTransfer(rewardVault, (rewardsAmounts[i] * totalLp) / totalLp);
+            IERC20Upgradeable(tokens[i]).safeTransfer(rewardVault, rewardsAmounts[i]);
         }
         // Emit an event for collecting rewards
         emit GetReward(tokens, rewardsAmounts);
@@ -644,7 +643,7 @@ contract SolidlyV2LiquidityAMO is
 
     ////////////////////////// View Functions //////////////////////////
     /// @inheritdoc ISolidlyV2LiquidityAMO
-    function totalLP() public view override returns (uint256) {
+    function totalLP() external view override returns (uint256) {
         uint256 freeLp = IERC20Upgradeable(pool).balanceOf(address(this));
         uint256 stakedLp = IGauge(gauge).balanceOf(address(this));
         return freeLp + stakedLp;
