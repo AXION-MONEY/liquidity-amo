@@ -318,6 +318,10 @@ contract SolidlyV2LiquidityAMO is
         if (lpAmount != lpBalanceAfter - lpBalanceBefore)
             revert LpAmountOutMismatch(lpAmount, lpBalanceAfter - lpBalanceBefore);
 
+        // Revoke approval from the router
+        IERC20Upgradeable(boost).approve(router, 0);
+        IERC20Upgradeable(usd).approve(router, 0);
+
         // Ensure the liquidity tokens minted are greater than or equal to the minimum required
         if (lpAmount < minLpAmount) revert InsufficientOutputAmount(lpAmount, minLpAmount);
 
@@ -434,6 +438,7 @@ contract SolidlyV2LiquidityAMO is
         // Approve the transfer of liquidity tokens to the router for removal
         IERC20Upgradeable(pool).approve(router, lpAmount);
 
+        uint256 usdBalanceBefore = balanceOfToken(usd);
         // Remove liquidity and store the amounts of USD and BOOST tokens received
         (boostRemoved, usdRemoved) = ISolidlyRouter(router).removeLiquidity(
             boost,
@@ -445,6 +450,10 @@ contract SolidlyV2LiquidityAMO is
             address(this),
             deadline
         );
+        uint256 usdBalanceAfter = balanceOfToken(usd);
+
+        if (usdRemoved != usdBalanceAfter - usdBalanceBefore)
+            revert UsdAmountOutMismatch(usdAmountOut, usdBalanceAfter - usdBalanceBefore);
 
         // Ensure the BOOST amount is greater than or equal to the USD amount
         if ((boostRemoved * validRemovingRatio) / FACTOR < toBoostAmount(usdRemoved))
