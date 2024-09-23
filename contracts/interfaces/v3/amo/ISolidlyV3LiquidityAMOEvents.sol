@@ -4,26 +4,17 @@ pragma solidity >=0.5.0;
 /// @title Events emitted by SolidlyV3LiquidityAMO
 /// @notice Contains all events emitted by SolidlyV3LiquidityAMO
 interface ISolidlyV3LiquidityAMOEvents {
-    event AddLiquidity(
-        uint256 requestedBoostAmount,
-        uint256 requestedUsdAmount,
-        uint256 boostSpent,
-        uint256 usdSpent,
-        uint256 liquidity
+    event MintSell(uint256 boostAmountIn, uint256 usdAmountOut, uint256 dryPowderAmount);
+    event AddLiquidity(uint256 boostSpent, uint256 usdSpent, uint256 liquidity);
+    event UnfarmBuyBurn(
+        uint256 boostRemoved,
+        uint256 usdRemoved,
+        uint256 liquidity,
+        uint256 usdAmountIn,
+        uint256 boostAmountOut,
+        uint256 boostCollectedFee,
+        uint256 usdCollectedFee
     );
-    event RemoveLiquidity(
-        uint256 requestedBoostAmount,
-        uint256 requestedUsdAmount,
-        uint256 boostGet,
-        uint256 usdGet,
-        uint256 liquidity
-    );
-    event CollectOwedTokens(uint256 boostCollected, uint256 usdCollected);
-
-    event MintBoost(uint256 amount);
-    event BurnBoost(uint256 amount);
-
-    event Swap(address indexed from, address indexed to, uint256 amountFrom, uint256 amountTo);
 
     event PublicMintSellFarmExecuted(uint256 liquidity, uint256 newBoostPrice);
     event PublicUnfarmBuyBurnExecuted(uint256 liquidity, uint256 newBoostPrice);

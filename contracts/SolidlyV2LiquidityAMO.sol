@@ -264,9 +264,7 @@ contract SolidlyV2LiquidityAMO is
         // Transfer the dry powder USD to the treasury
         IERC20Upgradeable(usd).safeTransfer(treasuryVault, dryPowderAmount);
 
-        // Emit events for minting BOOST tokens and executing the swap
-        emit MintBoost(boostAmount);
-        emit Swap(boost, usd, boostAmount, usdAmountOut);
+        emit MintSell(boostAmount, usdAmountOut, dryPowderAmount);
     }
 
     /// @inheritdoc ISolidlyV2LiquidityAMO
@@ -339,9 +337,7 @@ contract SolidlyV2LiquidityAMO is
         // Burn excessive boosts
         if (boostAmount > boostSpent) IBoostStablecoin(boost).burn(boostAmount - boostSpent);
 
-        // Emit events for adding liquidity and depositing liquidity tokens
-        emit AddLiquidity(usdAmount, boostAmount, usdSpent, boostSpent, lpAmount);
-        emit DepositLP(lpAmount, tokenId_);
+        emit AddLiquidityAndDeposit(boostSpent, usdSpent, lpAmount, tokenId_);
     }
 
     /// @inheritdoc ISolidlyV2LiquidityAMO
@@ -477,11 +473,7 @@ contract SolidlyV2LiquidityAMO is
         boostAmountOut = amounts[1];
         IBoostStablecoin(boost).burn(boostRemoved + boostAmountOut);
 
-        // Emit events for withdrawing liquidity tokens, removing liquidity, burning BOOST tokens, and executing the swap
-        emit WithdrawLP(lpAmount);
-        emit RemoveLiquidity(minUsdRemove, minBoostRemove, usdRemoved, boostRemoved, lpAmount);
-        emit Swap(usd, boost, usdRemoved, boostAmountOut);
-        emit BurnBoost(boostRemoved + boostAmountOut);
+        emit UnfarmBuyBurn(boostRemoved, usdRemoved, lpAmount, boostAmountOut);
     }
 
     /// @inheritdoc ISolidlyV2LiquidityAMO

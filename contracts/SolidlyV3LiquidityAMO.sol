@@ -227,9 +227,7 @@ contract SolidlyV3LiquidityAMO is
         // Burn excessive boosts
         if (boostAmount > boostAmountIn) IBoostStablecoin(boost).burn(boostAmount - boostAmountIn);
 
-        // Emit events for minting BOOST tokens and executing the swap
-        emit MintBoost(boostAmountIn);
-        emit Swap(boost, usd, boostAmountIn, usdAmountOut);
+        emit MintSell(boostAmountIn, usdAmountOut, dryPowderAmount);
     }
 
     /// @inheritdoc ISolidlyV3LiquidityAMOActions
@@ -290,8 +288,7 @@ contract SolidlyV3LiquidityAMO is
         // Burn excessive boosts
         if (boostAmount > boostSpent) IBoostStablecoin(boost).burn(boostAmount - boostSpent);
 
-        // Emit event for adding liquidity
-        emit AddLiquidity(boostAmount, usdAmount, boostSpent, usdSpent, liquidity);
+        emit AddLiquidity(boostSpent, usdSpent, liquidity);
     }
 
     /// @inheritdoc ISolidlyV3LiquidityAMOActions
@@ -428,11 +425,15 @@ contract SolidlyV3LiquidityAMO is
         // Burn the BOOST tokens received from burn liquidity, collect owed tokens and swap
         IBoostStablecoin(boost).burn(boostCollected + boostAmountOut);
 
-        // Emit events for removing liquidity, burning BOOST tokens, and executing the swap
-        emit RemoveLiquidity(minBoostRemove, minUsdRemove, boostRemoved, usdRemoved, liquidity);
-        emit CollectOwedTokens(boostCollected - boostRemoved, usdCollected - usdRemoved);
-        emit Swap(usd, boost, usdAmountIn, boostAmountOut);
-        emit BurnBoost(boostCollected + boostAmountOut);
+        emit UnfarmBuyBurn(
+            boostRemoved,
+            usdRemoved,
+            liquidity,
+            usdAmountIn,
+            boostAmountOut,
+            boostCollected - boostRemoved, // boostCollectedFee
+            usdCollected - usdRemoved // usdCollectedFee
+        );
     }
 
     /// @inheritdoc ISolidlyV3LiquidityAMOActions

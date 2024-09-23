@@ -77,28 +77,9 @@ interface ISolidlyV2LiquidityAMO {
     function whitelistedRewardTokens(address token) external view returns (bool);
 
     /* ========== EVENTS ========== */
-    event AddLiquidity(
-        uint256 requestedUsdcAmount,
-        uint256 requestedBoostAmount,
-        uint256 usdcSpent,
-        uint256 boostSpent,
-        uint256 lpAmount
-    );
-    event RemoveLiquidity(
-        uint256 requestedUsdcAmount,
-        uint256 requestedBoostAmount,
-        uint256 usdcGet,
-        uint256 boostGet,
-        uint256 lpAmount
-    );
-
-    event DepositLP(uint256 lpAmount, uint256 indexed tokenId);
-    event WithdrawLP(uint256 lpAmount);
-
-    event MintBoost(uint256 amount);
-    event BurnBoost(uint256 amount);
-
-    event Swap(address indexed from, address indexed to, uint256 amountFrom, uint256 amountTo);
+    event MintSell(uint256 boostAmount, uint256 usdAmountOut, uint256 dryPowderAmount);
+    event AddLiquidityAndDeposit(uint256 boostSpent, uint256 usdSpent, uint256 lpAmount, uint256 indexed tokenId);
+    event UnfarmBuyBurn(uint256 boostRemoved, uint256 usdRemoved, uint256 lpAmount, uint256 boostAmountOut);
 
     event GetReward(address[] tokens, uint256[] amounts);
 
