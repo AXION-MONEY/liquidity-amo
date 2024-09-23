@@ -107,7 +107,17 @@ contract SolidlyV2LiquidityAMO is
         address router_,
         address gauge_,
         address rewardVault_,
-        address treasuryVault_
+        address treasuryVault_,
+        uint256 tokenId_,
+        bool useTokenId_,
+        uint256 boostMultiplier_,
+        uint24 validRangeRatio_,
+        uint24 validRemovingRatio_,
+        uint24 dryPowderRatio_,
+        uint256 boostLowerPriceSell_,
+        uint256 boostUpperPriceBuy_,
+        uint256 boostSellRatio_,
+        uint256 usdBuyRatio_
     ) public initializer {
         __AccessControlEnumerable_init();
         __Pausable_init();
@@ -117,9 +127,7 @@ contract SolidlyV2LiquidityAMO is
             usd_ == address(0) ||
             boostMinter_ == address(0) ||
             router_ == address(0) ||
-            gauge_ == address(0) ||
-            rewardVault_ == address(0) ||
-            treasuryVault_ == address(0)
+            gauge_ == address(0)
         ) revert ZeroAddress();
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
@@ -131,10 +139,21 @@ contract SolidlyV2LiquidityAMO is
         boostMinter = boostMinter_;
         router = router_;
         gauge = gauge_;
-        rewardVault = rewardVault_;
-        treasuryVault = treasuryVault_;
 
-        emit VaultsSet(rewardVault, treasuryVault);
+        _grantRole(SETTER_ROLE, address(this));
+        this.setVaults(rewardVault_, treasuryVault_);
+        this.setTokenId(tokenId_, useTokenId_);
+        this.setParams(
+            boostMultiplier_,
+            validRangeRatio_,
+            validRemovingRatio_,
+            dryPowderRatio_,
+            boostLowerPriceSell_,
+            boostUpperPriceBuy_,
+            boostSellRatio_,
+            usdBuyRatio_
+        );
+        _revokeRole(SETTER_ROLE, address(this));
     }
 
     ////////////////////////// PAUSE ACTIONS //////////////////////////

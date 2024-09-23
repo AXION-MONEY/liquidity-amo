@@ -82,7 +82,14 @@ contract SolidlyV3LiquidityAMO is
         address treasuryVault_,
         int24 tickLower_,
         int24 tickUpper_,
-        uint160 targetSqrtPriceX96_
+        uint160 targetSqrtPriceX96_,
+        uint256 boostMultiplier_,
+        uint24 validRangeRatio_,
+        uint24 validRemovingRatio_,
+        uint24 dryPowderRatio_,
+        uint24 usdUsageRatio_,
+        uint256 boostLowerPriceSell_,
+        uint256 boostUpperPriceBuy_
     ) public initializer {
         __AccessControlEnumerable_init();
         __Pausable_init();
@@ -91,10 +98,8 @@ contract SolidlyV3LiquidityAMO is
             boost_ == address(0) ||
             usd_ == address(0) ||
             pool_ == address(0) ||
-            boostMinter_ == address(0) ||
-            treasuryVault_ == address(0)
+            boostMinter_ == address(0)
         ) revert ZeroAddress();
-        if (targetSqrtPriceX96_ <= MIN_SQRT_RATIO || targetSqrtPriceX96_ >= MAX_SQRT_RATIO) revert InvalidRatioValue();
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         boost = boost_;
@@ -103,14 +108,21 @@ contract SolidlyV3LiquidityAMO is
         boostDecimals = IERC20Metadata(boost).decimals();
         usdDecimals = IERC20Metadata(usd).decimals();
         boostMinter = boostMinter_;
-        treasuryVault = treasuryVault_;
-        tickLower = tickLower_;
-        tickUpper = tickUpper_;
-        targetSqrtPriceX96 = targetSqrtPriceX96_;
 
-        emit VaultSet(treasuryVault);
-        emit TickBoundsSet(tickLower, tickUpper);
-        emit TargetSqrtPriceX96Set(targetSqrtPriceX96);
+        _grantRole(SETTER_ROLE, address(this));
+        this.setVault(treasuryVault_);
+        this.setTickBounds(tickLower_, tickUpper_);
+        this.setTargetSqrtPriceX96(targetSqrtPriceX96_);
+        this.setParams(
+            boostMultiplier_,
+            validRangeRatio_,
+            validRemovingRatio_,
+            dryPowderRatio_,
+            usdUsageRatio_,
+            boostLowerPriceSell_,
+            boostUpperPriceBuy_
+        );
+        _revokeRole(SETTER_ROLE, address(this));
     }
 
     ////////////////////////// PAUSE ACTIONS //////////////////////////
