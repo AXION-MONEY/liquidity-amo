@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 interface ISolidlyV2LiquidityAMO {
     /* ========== ROLES ========== */
     /// @notice Returns the identifier for the SETTER_ROLE
-    /// @dev This role allows calling setParams() and setRewardTokens() to modifying certain parameters of the contract
+    /// @dev This role allows calling setParams() and setWhitelistedTokens() to modifying certain parameters of the contract
     function SETTER_ROLE() external view returns (bytes32);
 
     /// @notice Returns the identifier for the AMO_ROLE
@@ -150,7 +150,7 @@ interface ISolidlyV2LiquidityAMO {
      * @param tokens An array of reward token addresses
      * @param isWhitelisted The new whitelist status for the tokens
      */
-    function setRewardTokens(address[] memory tokens, bool isWhitelisted) external;
+    function setWhitelistedTokens(address[] memory tokens, bool isWhitelisted) external;
 
     /**
      * @notice This function sets the token id for depositing in mintSellFarm()

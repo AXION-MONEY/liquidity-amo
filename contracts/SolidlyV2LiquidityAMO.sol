@@ -211,7 +211,7 @@ contract SolidlyV2LiquidityAMO is
     }
 
     /// @inheritdoc ISolidlyV2LiquidityAMO
-    function setRewardTokens(address[] memory tokens, bool isWhitelisted) external override onlyRole(SETTER_ROLE) {
+    function setWhitelistedTokens(address[] memory tokens, bool isWhitelisted) external override onlyRole(SETTER_ROLE) {
         for (uint i = 0; i < tokens.length; i++) {
             whitelistedRewardTokens[tokens[i]] = isWhitelisted;
         }
