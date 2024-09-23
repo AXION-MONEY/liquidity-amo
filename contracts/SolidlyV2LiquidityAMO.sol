@@ -577,7 +577,7 @@ contract SolidlyV2LiquidityAMO is
     function getReward(
         address[] memory tokens,
         bool passTokens
-    ) external override onlyRole(REWARD_COLLECTOR_ROLE) whenNotPaused {
+    ) external override onlyRole(REWARD_COLLECTOR_ROLE) whenNotPaused nonReentrant {
         _getReward(tokens, passTokens);
     }
 
