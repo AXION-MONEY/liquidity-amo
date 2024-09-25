@@ -210,7 +210,7 @@ abstract contract MasterAMO is
 
     function unfarmBuyBurn() external virtual returns (uint256 liquidity, uint256 newBoostPrice);
 
-    ////////////////////////// Withdrawal functions //////////////////////////
+    ////////////////////////// WITHDRAWAL FUNCTIONS //////////////////////////
     function withdrawERC20(address token, uint256 amount, address recipient) external onlyRole(WITHDRAWER_ROLE) {
         if (recipient == address(0)) revert ZeroAddress();
         IERC20Upgradeable(token).safeTransfer(recipient, amount);
@@ -221,7 +221,7 @@ abstract contract MasterAMO is
         IERC721Upgradeable(token).safeTransferFrom(address(this), recipient, tokenId_);
     }
 
-    ////////////////////////// Internal functions //////////////////////////
+    ////////////////////////// INTERNAL FUNCTIONS //////////////////////////
     function sortAmounts(uint256 amount0, uint256 amount1) internal view returns (uint256, uint256) {
         if (boost < usd) return (amount0, amount1);
         return (amount1, amount0);
@@ -244,6 +244,6 @@ abstract contract MasterAMO is
         return IERC20Upgradeable(token).balanceOf(address(this));
     }
 
-    ////////////////////////// View Functions //////////////////////////
+    ////////////////////////// VIEW FUNCTIONS //////////////////////////
     function boostPrice() public view virtual returns (uint256 price);
 }

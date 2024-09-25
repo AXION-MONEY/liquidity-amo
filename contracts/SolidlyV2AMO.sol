@@ -390,7 +390,7 @@ contract SolidlyV2AMO is MasterAMO {
         emit PublicUnfarmBuyBurnExecuted(liquidity, newBoostPrice);
     }
 
-    ////////////////////////// View Functions //////////////////////////
+    ////////////////////////// VIEW FUNCTIONS //////////////////////////
     function boostPrice() public view override returns (uint256 price) {
         uint256 amountOut = IPair(pool).current(boost, 10 ** boostDecimals);
         price = amountOut / 10 ** (usdDecimals - PRICE_DECIMALS);
