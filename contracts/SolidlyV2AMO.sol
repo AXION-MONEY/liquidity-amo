@@ -1,0 +1,398 @@
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.19;
+
+import "./MasterAMO.sol";
+import {IGauge} from "./interfaces/v2/IGauge.sol";
+import {ISolidlyRouter} from "./interfaces/v2/ISolidlyRouter.sol";
+import {IPair} from "./interfaces/v2/IPair.sol";
+
+contract SolidlyV2AMO is MasterAMO {
+    using SafeERC20Upgradeable for IERC20Upgradeable;
+
+    /* ========== ERRORS ========== */
+    error TokenNotWhitelisted(address token);
+    error UsdAmountOutMismatch(uint256 routerOutput, uint256 balanceChange);
+    error LpAmountOutMismatch(uint256 routerOutput, uint256 balanceChange);
+    error InvalidReserveRatio(uint256 ratio);
+
+    /* ========== EVENTS ========== */
+    event AddLiquidityAndDeposit(uint256 boostSpent, uint256 usdSpent, uint256 liquidity, uint256 indexed tokenId);
+    event UnfarmBuyBurn(uint256 boostRemoved, uint256 usdRemoved, uint256 liquidity, uint256 boostAmountOut);
+
+    event GetReward(address[] tokens, uint256[] amounts);
+
+    event VaultSet(address rewardVault);
+    event TokenIdSet(uint256 tokenId, bool useTokenId);
+    event ParamsSet(
+        uint256 boostMultiplier,
+        uint24 validRangeRatio,
+        uint24 validRemovingRatio,
+        uint256 boostLowerPriceSell,
+        uint256 boostUpperPriceBuy,
+        uint256 boostSellRatio,
+        uint256 usdBuyRatio
+    );
+    event RewardTokensSet(address[] tokens, bool isWhitelisted);
+
+    /* ========== ROLES ========== */
+    bytes32 public constant REWARD_COLLECTOR_ROLE = keccak256("REWARD_COLLECTOR_ROLE");
+
+    /* ========== VARIABLES ========== */
+    address public router;
+    address public gauge;
+
+    address public rewardVault;
+    mapping(address => bool) public whitelistedRewardTokens;
+    uint256 public boostSellRatio;
+    uint256 public usdBuyRatio;
+    uint256 public tokenId;
+    bool public useTokenId;
+
+    /* ========== FUNCTIONS ========== */
+    function initialize(
+        address admin,
+        address boost_,
+        address usd_,
+        address boostMinter_,
+        address router_,
+        address gauge_,
+        address rewardVault_,
+        uint256 tokenId_,
+        bool useTokenId_,
+        uint256 boostMultiplier_,
+        uint24 validRangeRatio_,
+        uint24 validRemovingRatio_,
+        uint256 boostLowerPriceSell_,
+        uint256 boostUpperPriceBuy_,
+        uint256 boostSellRatio_,
+        uint256 usdBuyRatio_
+    ) public initializer {
+        if (router_ == address(0) || gauge_ == address(0)) revert ZeroAddress();
+
+        address pool_ = ISolidlyRouter(router_).pairFor(usd, boost, true);
+        super.initialize(admin, boost_, usd_, pool_, boostMinter_);
+
+        router = router_;
+        gauge = gauge_;
+
+        _grantRole(SETTER_ROLE, address(this));
+        this.setVault(rewardVault_);
+        this.setTokenId(tokenId_, useTokenId_);
+        this.setParams(
+            boostMultiplier_,
+            validRangeRatio_,
+            validRemovingRatio_,
+            boostLowerPriceSell_,
+            boostUpperPriceBuy_,
+            boostSellRatio_,
+            usdBuyRatio_
+        );
+        _revokeRole(SETTER_ROLE, address(this));
+    }
+
+    ////////////////////////// SETTER_ROLE ACTIONS //////////////////////////
+    function setVault(address rewardVault_) external onlyRole(SETTER_ROLE) {
+        if (rewardVault_ == address(0)) revert ZeroAddress();
+        rewardVault = rewardVault_;
+        emit VaultSet(rewardVault);
+    }
+
+    function setTokenId(uint256 tokenId_, bool useTokenId_) external onlyRole(SETTER_ROLE) {
+        tokenId = tokenId_;
+        useTokenId = useTokenId_;
+        emit TokenIdSet(tokenId, useTokenId);
+    }
+
+    function setParams(
+        uint256 boostMultiplier_,
+        uint24 validRangeRatio_,
+        uint24 validRemovingRatio_,
+        uint256 boostLowerPriceSell_,
+        uint256 boostUpperPriceBuy_,
+        uint256 boostSellRatio_,
+        uint256 usdBuyRatio_
+    ) external onlyRole(SETTER_ROLE) {
+        if (validRangeRatio_ > FACTOR || validRemovingRatio_ > FACTOR) revert InvalidRatioValue();
+        boostMultiplier = boostMultiplier_;
+        validRangeRatio = validRangeRatio_;
+        validRemovingRatio = validRemovingRatio_;
+        boostLowerPriceSell = boostLowerPriceSell_;
+        boostUpperPriceBuy = boostUpperPriceBuy_;
+        boostSellRatio = boostSellRatio_;
+        usdBuyRatio = usdBuyRatio_;
+        emit ParamsSet(
+            boostMultiplier,
+            validRangeRatio,
+            validRemovingRatio,
+            boostLowerPriceSell,
+            boostUpperPriceBuy,
+            boostSellRatio,
+            usdBuyRatio
+        );
+    }
+
+    function setWhitelistedTokens(address[] memory tokens, bool isWhitelisted) external onlyRole(SETTER_ROLE) {
+        for (uint i = 0; i < tokens.length; i++) {
+            whitelistedRewardTokens[tokens[i]] = isWhitelisted;
+        }
+        emit RewardTokensSet(tokens, isWhitelisted);
+    }
+
+    ////////////////////////// AMO_ROLE ACTIONS //////////////////////////
+    function _mintAndSellBoost(
+        uint256 boostAmount,
+        uint256 minUsdAmountOut,
+        uint256 deadline
+    ) internal override returns (uint256 boostAmountIn, uint256 usdAmountOut) {
+        // Mint the specified amount of BOOST tokens
+        IMinter(boostMinter).protocolMint(address(this), boostAmount);
+
+        // Approve the transfer of BOOST tokens to the router
+        IERC20Upgradeable(boost).approve(router, boostAmount);
+
+        // Define the route to swap BOOST tokens for USD tokens
+        ISolidlyRouter.route[] memory routes = new ISolidlyRouter.route[](1);
+        routes[0] = ISolidlyRouter.route(boost, usd, true);
+
+        if (minUsdAmountOut < toUsdAmount(boostAmount)) minUsdAmountOut = toUsdAmount(boostAmount);
+
+        uint256 usdBalanceBefore = balanceOfToken(usd);
+        // Execute the swap and store the amounts of tokens involved
+        uint256[] memory amounts = ISolidlyRouter(router).swapExactTokensForTokens(
+            boostAmount,
+            minUsdAmountOut,
+            routes,
+            address(this),
+            deadline
+        );
+        uint256 usdBalanceAfter = balanceOfToken(usd);
+        boostAmountIn = amounts[0];
+        usdAmountOut = amounts[1];
+
+        if (usdAmountOut != usdBalanceAfter - usdBalanceBefore)
+            revert UsdAmountOutMismatch(usdAmountOut, usdBalanceAfter - usdBalanceBefore);
+
+        if (usdAmountOut < minUsdAmountOut) revert InsufficientOutputAmount(usdAmountOut, minUsdAmountOut);
+
+        emit MintSell(boostAmount, usdAmountOut);
+    }
+
+    function _addLiquidity(
+        uint256 usdAmount,
+        uint256 minBoostSpend,
+        uint256 minUsdSpend,
+        uint256 deadline
+    ) internal override returns (uint256 boostSpent, uint256 usdSpent, uint256 liquidity) {
+        // Mint the specified amount of BOOST tokens
+        uint256 boostAmount = (toBoostAmount(usdAmount) * boostMultiplier) / FACTOR;
+
+        IMinter(boostMinter).protocolMint(address(this), boostAmount);
+
+        // Approve the transfer of BOOST and USD tokens to the router
+        IERC20Upgradeable(boost).approve(router, boostAmount);
+        IERC20Upgradeable(usd).approve(router, usdAmount);
+
+        uint256 lpBalanceBefore = balanceOfToken(pool);
+        // Add liquidity to the BOOST-USD pool
+        (boostSpent, usdSpent, liquidity) = ISolidlyRouter(router).addLiquidity(
+            boost,
+            usd,
+            true,
+            boostAmount,
+            usdAmount,
+            minBoostSpend,
+            minUsdSpend,
+            address(this),
+            deadline
+        );
+        uint256 lpBalanceAfter = balanceOfToken(pool);
+
+        if (liquidity != lpBalanceAfter - lpBalanceBefore)
+            revert LpAmountOutMismatch(liquidity, lpBalanceAfter - lpBalanceBefore);
+
+        // Revoke approval from the router
+        IERC20Upgradeable(boost).approve(router, 0);
+        IERC20Upgradeable(usd).approve(router, 0);
+
+        // Calculate the valid range for USD spent based on the BOOST spent and the validRangeRatio
+        uint256 validRange = (boostSpent * validRangeRatio) / FACTOR;
+        if (toBoostAmount(usdSpent) < boostSpent - validRange || toBoostAmount(usdSpent) > boostSpent + validRange)
+            revert InvalidRatioToAddLiquidity();
+
+        // Approve the transfer of liquidity tokens to the gauge and deposit them
+        IERC20Upgradeable(pool).approve(gauge, liquidity);
+        if (useTokenId) {
+            IGauge(gauge).deposit(liquidity, tokenId);
+        } else {
+            IGauge(gauge).deposit(liquidity);
+        }
+
+        // Burn excessive boosts
+        if (boostAmount > boostSpent) IBoostStablecoin(boost).burn(boostAmount - boostSpent);
+
+        emit AddLiquidityAndDeposit(boostSpent, usdSpent, liquidity, tokenId);
+    }
+
+    function _unfarmBuyBurn(
+        uint256 liquidity,
+        uint256 minBoostRemove,
+        uint256 minUsdRemove,
+        uint256 minBoostAmountOut,
+        uint256 deadline
+    )
+        internal
+        override
+        returns (uint256 boostRemoved, uint256 usdRemoved, uint256 usdAmountIn, uint256 boostAmountOut)
+    {
+        // Withdraw the specified amount of liquidity tokens from the gauge
+        IGauge(gauge).withdraw(liquidity);
+
+        // Approve the transfer of liquidity tokens to the router for removal
+        IERC20Upgradeable(pool).approve(router, liquidity);
+
+        uint256 usdBalanceBefore = balanceOfToken(usd);
+        // Remove liquidity and store the amounts of USD and BOOST tokens received
+        (boostRemoved, usdRemoved) = ISolidlyRouter(router).removeLiquidity(
+            boost,
+            usd,
+            true,
+            liquidity,
+            minBoostRemove,
+            minUsdRemove,
+            address(this),
+            deadline
+        );
+        uint256 usdBalanceAfter = balanceOfToken(usd);
+
+        if (usdRemoved != usdBalanceAfter - usdBalanceBefore)
+            revert UsdAmountOutMismatch(usdRemoved, usdBalanceAfter - usdBalanceBefore);
+
+        // Ensure the BOOST amount is greater than or equal to the USD amount
+        if ((boostRemoved * validRemovingRatio) / FACTOR < toBoostAmount(usdRemoved))
+            revert InvalidRatioToRemoveLiquidity();
+
+        // Define the route to swap USD tokens for BOOST tokens
+        ISolidlyRouter.route[] memory routes = new ISolidlyRouter.route[](1);
+        routes[0] = ISolidlyRouter.route(usd, boost, true);
+
+        // Approve the transfer of usd tokens to the router
+        IERC20Upgradeable(usd).approve(router, usdRemoved);
+
+        if (minBoostAmountOut < toBoostAmount(usdRemoved)) minBoostAmountOut = toBoostAmount(usdRemoved);
+
+        // Execute the swap and store the amounts of tokens involved
+        uint256[] memory amounts = ISolidlyRouter(router).swapExactTokensForTokens(
+            usdRemoved,
+            minBoostAmountOut,
+            routes,
+            address(this),
+            deadline
+        );
+
+        // Burn the BOOST tokens received from the liquidity
+        // Burn the BOOST tokens received from the swap
+        usdAmountIn = amounts[0];
+        boostAmountOut = amounts[1];
+        IBoostStablecoin(boost).burn(boostRemoved + boostAmountOut);
+
+        emit UnfarmBuyBurn(boostRemoved, usdRemoved, liquidity, boostAmountOut);
+    }
+
+    ////////////////////////// REWARD_COLLECTOR_ROLE ACTIONS //////////////////////////
+    function getReward(
+        address[] memory tokens,
+        bool passTokens
+    ) external onlyRole(REWARD_COLLECTOR_ROLE) whenNotPaused nonReentrant {
+        uint256[] memory rewardsAmounts = new uint256[](tokens.length);
+        // Collect the rewards
+        if (passTokens) {
+            IGauge(gauge).getReward(address(this), tokens);
+        } else {
+            IGauge(gauge).getReward();
+        }
+        // Calculate the reward amounts and transfer them to the reward vault
+        for (uint i = 0; i < tokens.length; i++) {
+            if (!whitelistedRewardTokens[tokens[i]]) revert TokenNotWhitelisted(tokens[i]);
+            rewardsAmounts[i] = IERC20Upgradeable(tokens[i]).balanceOf(address(this));
+            IERC20Upgradeable(tokens[i]).safeTransfer(rewardVault, rewardsAmounts[i]);
+        }
+        // Emit an event for collecting rewards
+        emit GetReward(tokens, rewardsAmounts);
+    }
+
+    ////////////////////////// PUBLIC FUNCTIONS //////////////////////////
+    function mintSellFarm() external override returns (uint256 liquidity, uint256 newBoostPrice) {
+        (uint256 reserve0, uint256 reserve1, ) = IPair(pool).getReserves();
+        uint256 boostReserve;
+        uint256 usdReserve;
+        if (boost < usd) {
+            boostReserve = reserve0;
+            usdReserve = toBoostAmount(reserve1); // scaled
+        } else {
+            boostReserve = reserve1;
+            usdReserve = toBoostAmount(reserve0); // scaled
+        }
+        // Checks if the expected boost price is more than 1$
+        if (usdReserve <= boostReserve) revert InvalidReserveRatio({ratio: (FACTOR * usdReserve) / boostReserve});
+
+        uint256 boostAmountIn = (((usdReserve - boostReserve) / 2) * boostSellRatio) / FACTOR;
+
+        (, , , , liquidity) = _mintSellFarm(
+            boostAmountIn,
+            toUsdAmount(boostAmountIn), // minUsdAmountOut
+            1, // minBoostSpend
+            1, // minUsdSpend
+            block.timestamp + 1 // deadline
+        );
+
+        newBoostPrice = boostPrice();
+
+        // Checks if the price of boost is greater than the boostLowerPriceSell
+        if (newBoostPrice < boostLowerPriceSell) revert PriceNotInRange(newBoostPrice);
+
+        emit PublicMintSellFarmExecuted(liquidity, newBoostPrice);
+    }
+
+    function unfarmBuyBurn() external override returns (uint256 liquidity, uint256 newBoostPrice) {
+        (uint256 reserve0, uint256 reserve1, ) = IPair(pool).getReserves();
+        uint256 boostReserve;
+        uint256 usdReserve;
+        if (boost < usd) {
+            boostReserve = reserve0;
+            usdReserve = toBoostAmount(reserve1); // scaled
+        } else {
+            boostReserve = reserve1;
+            usdReserve = toBoostAmount(reserve0); // scaled
+        }
+
+        if (boostReserve <= usdReserve) revert InvalidReserveRatio({ratio: (FACTOR * usdReserve) / boostReserve});
+
+        uint256 usdNeeded = (((boostReserve - usdReserve) / 2) * usdBuyRatio) / FACTOR;
+        uint256 totalLp = IERC20Upgradeable(pool).totalSupply();
+        liquidity = (usdNeeded * totalLp) / usdReserve;
+
+        // Readjust the LP amount and USD needed to balance price before removing LP
+        liquidity -= liquidity ** 2 / totalLp;
+
+        _unfarmBuyBurn(
+            liquidity,
+            (liquidity * boostReserve) / totalLp, // minBoostRemove
+            toUsdAmount(usdNeeded), // minUsdRemove
+            usdNeeded, // minBoostAmountOut
+            block.timestamp + 1 //deadline
+        );
+
+        newBoostPrice = boostPrice();
+
+        // Checks if the price of boost is less than the boostUpperPriceBuy
+        if (newBoostPrice > boostUpperPriceBuy) revert PriceNotInRange(newBoostPrice);
+
+        emit PublicUnfarmBuyBurnExecuted(liquidity, newBoostPrice);
+    }
+
+    ////////////////////////// View Functions //////////////////////////
+    function boostPrice() public view override returns (uint256 price) {
+        uint256 amountOut = IPair(pool).current(boost, 10 ** boostDecimals);
+        price = amountOut / 10 ** (usdDecimals - PRICE_DECIMALS);
+    }
+}

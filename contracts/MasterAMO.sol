@@ -9,6 +9,8 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
+import {IMinter} from "./interfaces/IMinter.sol";
+import {IBoostStablecoin} from "./interfaces/IBoostStablecoin.sol";
 
 abstract contract MasterAMO is
     Initializable,
@@ -20,6 +22,16 @@ abstract contract MasterAMO is
 
     /* ========== ERRORS ========== */
     error ZeroAddress();
+    error InvalidRatioValue();
+    error InsufficientOutputAmount(uint256 outputAmount, uint256 minRequired);
+    error InvalidRatioToAddLiquidity();
+    error InvalidRatioToRemoveLiquidity();
+    error PriceNotInRange(uint256 price);
+
+    /* ========== EVENTS ========== */
+    event MintSell(uint256 boostAmountIn, uint256 usdAmountOut);
+    event PublicMintSellFarmExecuted(uint256 liquidity, uint256 newBoostPrice);
+    event PublicUnfarmBuyBurnExecuted(uint256 liquidity, uint256 newBoostPrice);
 
     /* ========== ROLES ========== */
     bytes32 public constant SETTER_ROLE = keccak256("SETTER_ROLE");
