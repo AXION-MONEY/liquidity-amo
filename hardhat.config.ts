@@ -60,7 +60,7 @@ const config: HardhatUserConfig = {
             accounts: accounts,
         },
         polygon: {
-            url: "https://polygon-rpc.com/",
+            url: "https://polygon-rpc.com",
             accounts: accounts,
         },
         arbitrum: {
