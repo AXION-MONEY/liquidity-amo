@@ -133,7 +133,7 @@ contract SolidlyV2LiquidityAMO is
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         boost = boost_;
         usd = usd_;
-        pool = ISolidlyRouter(router).pairFor(usd, boost, true);
+        pool = ISolidlyRouter(router_).pairFor(usd, boost, true);
         boostDecimals = IERC20Metadata(boost).decimals();
         usdDecimals = IERC20Metadata(usd).decimals();
         boostMinter = boostMinter_;
