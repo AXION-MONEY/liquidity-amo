@@ -5,8 +5,9 @@ import "./MasterAMO.sol";
 import {IGauge} from "./interfaces/v2/IGauge.sol";
 import {ISolidlyRouter} from "./interfaces/v2/ISolidlyRouter.sol";
 import {IPair} from "./interfaces/v2/IPair.sol";
+import {ISolidlyV2AMO} from "./interfaces/v2/ISolidlyV2AMO.sol";
 
-contract SolidlyV2AMO is MasterAMO {
+contract SolidlyV2AMO is ISolidlyV2AMO, MasterAMO {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
     /* ========== ERRORS ========== */
@@ -35,18 +36,27 @@ contract SolidlyV2AMO is MasterAMO {
     event RewardTokensSet(address[] tokens, bool isWhitelisted);
 
     /* ========== ROLES ========== */
-    bytes32 public constant REWARD_COLLECTOR_ROLE = keccak256("REWARD_COLLECTOR_ROLE");
+    /// @inheritdoc ISolidlyV2AMO
+    bytes32 public constant override REWARD_COLLECTOR_ROLE = keccak256("REWARD_COLLECTOR_ROLE");
 
     /* ========== VARIABLES ========== */
-    address public router;
-    address public gauge;
+    /// @inheritdoc ISolidlyV2AMO
+    address public override router;
+    /// @inheritdoc ISolidlyV2AMO
+    address public override gauge;
 
-    address public rewardVault;
-    mapping(address => bool) public whitelistedRewardTokens;
-    uint256 public boostSellRatio;
-    uint256 public usdBuyRatio;
-    uint256 public tokenId;
-    bool public useTokenId;
+    /// @inheritdoc ISolidlyV2AMO
+    address public override rewardVault;
+    /// @inheritdoc ISolidlyV2AMO
+    mapping(address => bool) public override whitelistedRewardTokens;
+    /// @inheritdoc ISolidlyV2AMO
+    uint256 public override boostSellRatio;
+    /// @inheritdoc ISolidlyV2AMO
+    uint256 public override usdBuyRatio;
+    /// @inheritdoc ISolidlyV2AMO
+    uint256 public override tokenId;
+    /// @inheritdoc ISolidlyV2AMO
+    bool public override useTokenId;
 
     /* ========== FUNCTIONS ========== */
     function initialize(
@@ -91,18 +101,21 @@ contract SolidlyV2AMO is MasterAMO {
     }
 
     ////////////////////////// SETTER_ROLE ACTIONS //////////////////////////
-    function setVault(address rewardVault_) external onlyRole(SETTER_ROLE) {
+    /// @inheritdoc ISolidlyV2AMO
+    function setVault(address rewardVault_) external override onlyRole(SETTER_ROLE) {
         if (rewardVault_ == address(0)) revert ZeroAddress();
         rewardVault = rewardVault_;
         emit VaultSet(rewardVault);
     }
 
-    function setTokenId(uint256 tokenId_, bool useTokenId_) external onlyRole(SETTER_ROLE) {
+    /// @inheritdoc ISolidlyV2AMO
+    function setTokenId(uint256 tokenId_, bool useTokenId_) external override onlyRole(SETTER_ROLE) {
         tokenId = tokenId_;
         useTokenId = useTokenId_;
         emit TokenIdSet(tokenId, useTokenId);
     }
 
+    /// @inheritdoc ISolidlyV2AMO
     function setParams(
         uint256 boostMultiplier_,
         uint24 validRangeRatio_,
@@ -111,7 +124,7 @@ contract SolidlyV2AMO is MasterAMO {
         uint256 boostUpperPriceBuy_,
         uint256 boostSellRatio_,
         uint256 usdBuyRatio_
-    ) external onlyRole(SETTER_ROLE) {
+    ) external override onlyRole(SETTER_ROLE) {
         if (validRangeRatio_ > FACTOR || validRemovingRatio_ > FACTOR) revert InvalidRatioValue();
         boostMultiplier = boostMultiplier_;
         validRangeRatio = validRangeRatio_;
@@ -131,7 +144,8 @@ contract SolidlyV2AMO is MasterAMO {
         );
     }
 
-    function setWhitelistedTokens(address[] memory tokens, bool isWhitelisted) external onlyRole(SETTER_ROLE) {
+    /// @inheritdoc ISolidlyV2AMO
+    function setWhitelistedTokens(address[] memory tokens, bool isWhitelisted) external override onlyRole(SETTER_ROLE) {
         for (uint i = 0; i < tokens.length; i++) {
             whitelistedRewardTokens[tokens[i]] = isWhitelisted;
         }
@@ -299,10 +313,11 @@ contract SolidlyV2AMO is MasterAMO {
     }
 
     ////////////////////////// REWARD_COLLECTOR_ROLE ACTIONS //////////////////////////
+    /// @inheritdoc ISolidlyV2AMO
     function getReward(
         address[] memory tokens,
         bool passTokens
-    ) external onlyRole(REWARD_COLLECTOR_ROLE) whenNotPaused nonReentrant {
+    ) external override onlyRole(REWARD_COLLECTOR_ROLE) whenNotPaused nonReentrant {
         uint256[] memory rewardsAmounts = new uint256[](tokens.length);
         // Collect the rewards
         if (passTokens) {
@@ -321,6 +336,7 @@ contract SolidlyV2AMO is MasterAMO {
     }
 
     ////////////////////////// PUBLIC FUNCTIONS //////////////////////////
+    /// @inheritdoc IMasterAMO
     function mintSellFarm() external override returns (uint256 liquidity, uint256 newBoostPrice) {
         (uint256 reserve0, uint256 reserve1, ) = IPair(pool).getReserves();
         uint256 boostReserve;
@@ -353,6 +369,7 @@ contract SolidlyV2AMO is MasterAMO {
         emit PublicMintSellFarmExecuted(liquidity, newBoostPrice);
     }
 
+    /// @inheritdoc IMasterAMO
     function unfarmBuyBurn() external override returns (uint256 liquidity, uint256 newBoostPrice) {
         (uint256 reserve0, uint256 reserve1, ) = IPair(pool).getReserves();
         uint256 boostReserve;
@@ -391,6 +408,7 @@ contract SolidlyV2AMO is MasterAMO {
     }
 
     ////////////////////////// VIEW FUNCTIONS //////////////////////////
+    /// @inheritdoc IMasterAMO
     function boostPrice() public view override returns (uint256 price) {
         uint256 amountOut = IPair(pool).current(boost, 10 ** boostDecimals);
         price = amountOut / 10 ** (usdDecimals - PRICE_DECIMALS);
