@@ -3,8 +3,9 @@ pragma solidity 0.8.19;
 
 import "./MasterAMO.sol";
 import {ISolidlyV3Pool} from "./interfaces/v3/ISolidlyV3Pool.sol";
+import {ISolidlyV3AMO} from "./interfaces/v3/ISolidlyV3AMO.sol";
 
-contract SolidlyV3AMO is MasterAMO {
+contract SolidlyV3AMO is ISolidlyV3AMO, MasterAMO {
     /* ========== ERRORS ========== */
     error ExcessiveLiquidityRemoval(uint256 liquidity, uint256 unusedUsdAmount);
 
@@ -32,10 +33,14 @@ contract SolidlyV3AMO is MasterAMO {
     );
 
     /* ========== VARIABLES ========== */
-    uint24 public usdUsageRatio; // decimals 6
-    int24 public tickLower;
-    int24 public tickUpper;
-    uint160 public targetSqrtPriceX96;
+    /// @inheritdoc ISolidlyV3AMO
+    uint24 public override usdUsageRatio;
+    /// @inheritdoc ISolidlyV3AMO
+    int24 public override tickLower;
+    /// @inheritdoc ISolidlyV3AMO
+    int24 public override tickUpper;
+    /// @inheritdoc ISolidlyV3AMO
+    uint160 public override targetSqrtPriceX96;
 
     /* ========== CONSTANTS ========== */
     uint160 internal constant MIN_SQRT_RATIO = 4295128739;
@@ -76,18 +81,21 @@ contract SolidlyV3AMO is MasterAMO {
     }
 
     ////////////////////////// SETTER_ROLE ACTIONS //////////////////////////
-    function setTickBounds(int24 tickLower_, int24 tickUpper_) external onlyRole(SETTER_ROLE) {
+    /// @inheritdoc ISolidlyV3AMO
+    function setTickBounds(int24 tickLower_, int24 tickUpper_) external override onlyRole(SETTER_ROLE) {
         tickLower = tickLower_;
         tickUpper = tickUpper_;
         emit TickBoundsSet(tickLower, tickUpper);
     }
 
-    function setTargetSqrtPriceX96(uint160 targetSqrtPriceX96_) external onlyRole(SETTER_ROLE) {
+    /// @inheritdoc ISolidlyV3AMO
+    function setTargetSqrtPriceX96(uint160 targetSqrtPriceX96_) external override onlyRole(SETTER_ROLE) {
         if (targetSqrtPriceX96_ <= MIN_SQRT_RATIO || targetSqrtPriceX96_ >= MAX_SQRT_RATIO) revert InvalidRatioValue();
         targetSqrtPriceX96 = targetSqrtPriceX96_;
         emit TargetSqrtPriceX96Set(targetSqrtPriceX96);
     }
 
+    /// @inheritdoc ISolidlyV3AMO
     function setParams(
         uint256 boostMultiplier_,
         uint24 validRangeRatio_,
@@ -95,7 +103,7 @@ contract SolidlyV3AMO is MasterAMO {
         uint24 usdUsageRatio_,
         uint256 boostLowerPriceSell_,
         uint256 boostUpperPriceBuy_
-    ) external onlyRole(SETTER_ROLE) {
+    ) external override onlyRole(SETTER_ROLE) {
         if (validRangeRatio_ > FACTOR || validRemovingRatio_ > FACTOR || usdUsageRatio_ > FACTOR)
             revert InvalidRatioValue();
         boostMultiplier = boostMultiplier_;
@@ -272,6 +280,7 @@ contract SolidlyV3AMO is MasterAMO {
     }
 
     ////////////////////////// PUBLIC FUNCTIONS //////////////////////////
+    /// @inheritdoc IMasterAMO
     function mintSellFarm() external override returns (uint256 liquidity, uint256 newBoostPrice) {
         uint256 maxBoostAmount = IERC20Upgradeable(boost).balanceOf(pool);
         bool zeroForOne = boost < usd;
@@ -300,6 +309,7 @@ contract SolidlyV3AMO is MasterAMO {
         emit PublicMintSellFarmExecuted(liquidity, newBoostPrice);
     }
 
+    /// @inheritdoc IMasterAMO
     function unfarmBuyBurn() external override returns (uint256 liquidity, uint256 newBoostPrice) {
         uint256 totalLiquidity = ISolidlyV3Pool(pool).liquidity();
         uint256 boostBalance = IERC20Upgradeable(boost).balanceOf(pool);
@@ -327,6 +337,7 @@ contract SolidlyV3AMO is MasterAMO {
     }
 
     ////////////////////////// VIEW FUNCTIONS //////////////////////////
+    /// @inheritdoc IMasterAMO
     function boostPrice() public view override returns (uint256 price) {
         (uint160 sqrtPriceX96, , , ) = ISolidlyV3Pool(pool).slot0();
         if (boost < usd) {
@@ -336,12 +347,14 @@ contract SolidlyV3AMO is MasterAMO {
         }
     }
 
-    function liquidityForUsd(uint256 usdAmount) public view returns (uint256 liquidityAmount) {
+    /// @inheritdoc ISolidlyV3AMO
+    function liquidityForUsd(uint256 usdAmount) public view override returns (uint256 liquidityAmount) {
         uint128 currentLiquidity = ISolidlyV3Pool(pool).liquidity();
         return (usdAmount * currentLiquidity) / IERC20Upgradeable(usd).balanceOf(pool);
     }
 
-    function liquidityForBoost(uint256 boostAmount) public view returns (uint256 liquidityAmount) {
+    /// @inheritdoc ISolidlyV3AMO
+    function liquidityForBoost(uint256 boostAmount) public view override returns (uint256 liquidityAmount) {
         uint128 currentLiquidity = ISolidlyV3Pool(pool).liquidity();
         return (boostAmount * currentLiquidity) / IERC20Upgradeable(boost).balanceOf(pool);
     }
