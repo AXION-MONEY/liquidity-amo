@@ -66,10 +66,10 @@ contract SolidlyV3AMO is ISolidlyV3AMO, MasterAMO {
     ) public initializer {
         super.initialize(admin, boost_, usd_, pool_, boostMinter_);
 
-        _grantRole(SETTER_ROLE, address(this));
-        this.setTickBounds(tickLower_, tickUpper_);
-        this.setTargetSqrtPriceX96(targetSqrtPriceX96_);
-        this.setParams(
+        _grantRole(SETTER_ROLE, msg.sender);
+        setTickBounds(tickLower_, tickUpper_);
+        setTargetSqrtPriceX96(targetSqrtPriceX96_);
+        setParams(
             boostMultiplier_,
             validRangeRatio_,
             validRemovingRatio_,
@@ -77,19 +77,19 @@ contract SolidlyV3AMO is ISolidlyV3AMO, MasterAMO {
             boostLowerPriceSell_,
             boostUpperPriceBuy_
         );
-        _revokeRole(SETTER_ROLE, address(this));
+        _revokeRole(SETTER_ROLE, msg.sender);
     }
 
     ////////////////////////// SETTER_ROLE ACTIONS //////////////////////////
     /// @inheritdoc ISolidlyV3AMO
-    function setTickBounds(int24 tickLower_, int24 tickUpper_) external override onlyRole(SETTER_ROLE) {
+    function setTickBounds(int24 tickLower_, int24 tickUpper_) public override onlyRole(SETTER_ROLE) {
         tickLower = tickLower_;
         tickUpper = tickUpper_;
         emit TickBoundsSet(tickLower, tickUpper);
     }
 
     /// @inheritdoc ISolidlyV3AMO
-    function setTargetSqrtPriceX96(uint160 targetSqrtPriceX96_) external override onlyRole(SETTER_ROLE) {
+    function setTargetSqrtPriceX96(uint160 targetSqrtPriceX96_) public override onlyRole(SETTER_ROLE) {
         if (targetSqrtPriceX96_ <= MIN_SQRT_RATIO || targetSqrtPriceX96_ >= MAX_SQRT_RATIO) revert InvalidRatioValue();
         targetSqrtPriceX96 = targetSqrtPriceX96_;
         emit TargetSqrtPriceX96Set(targetSqrtPriceX96);
@@ -103,7 +103,7 @@ contract SolidlyV3AMO is ISolidlyV3AMO, MasterAMO {
         uint24 usdUsageRatio_,
         uint256 boostLowerPriceSell_,
         uint256 boostUpperPriceBuy_
-    ) external override onlyRole(SETTER_ROLE) {
+    ) public override onlyRole(SETTER_ROLE) {
         if (validRangeRatio_ > FACTOR || validRemovingRatio_ > FACTOR || usdUsageRatio_ > FACTOR)
             revert InvalidRatioValue();
         boostMultiplier = boostMultiplier_;

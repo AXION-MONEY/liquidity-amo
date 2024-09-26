@@ -85,10 +85,10 @@ contract SolidlyV2AMO is ISolidlyV2AMO, MasterAMO {
         router = router_;
         gauge = gauge_;
 
-        _grantRole(SETTER_ROLE, address(this));
-        this.setVault(rewardVault_);
-        this.setTokenId(tokenId_, useTokenId_);
-        this.setParams(
+        _grantRole(SETTER_ROLE, msg.sender);
+        setVault(rewardVault_);
+        setTokenId(tokenId_, useTokenId_);
+        setParams(
             boostMultiplier_,
             validRangeRatio_,
             validRemovingRatio_,
@@ -97,19 +97,19 @@ contract SolidlyV2AMO is ISolidlyV2AMO, MasterAMO {
             boostSellRatio_,
             usdBuyRatio_
         );
-        _revokeRole(SETTER_ROLE, address(this));
+        _revokeRole(SETTER_ROLE, msg.sender);
     }
 
     ////////////////////////// SETTER_ROLE ACTIONS //////////////////////////
     /// @inheritdoc ISolidlyV2AMO
-    function setVault(address rewardVault_) external override onlyRole(SETTER_ROLE) {
+    function setVault(address rewardVault_) public override onlyRole(SETTER_ROLE) {
         if (rewardVault_ == address(0)) revert ZeroAddress();
         rewardVault = rewardVault_;
         emit VaultSet(rewardVault);
     }
 
     /// @inheritdoc ISolidlyV2AMO
-    function setTokenId(uint256 tokenId_, bool useTokenId_) external override onlyRole(SETTER_ROLE) {
+    function setTokenId(uint256 tokenId_, bool useTokenId_) public override onlyRole(SETTER_ROLE) {
         tokenId = tokenId_;
         useTokenId = useTokenId_;
         emit TokenIdSet(tokenId, useTokenId);
@@ -124,7 +124,7 @@ contract SolidlyV2AMO is ISolidlyV2AMO, MasterAMO {
         uint256 boostUpperPriceBuy_,
         uint256 boostSellRatio_,
         uint256 usdBuyRatio_
-    ) external override onlyRole(SETTER_ROLE) {
+    ) public override onlyRole(SETTER_ROLE) {
         if (validRangeRatio_ > FACTOR || validRemovingRatio_ > FACTOR) revert InvalidRatioValue();
         boostMultiplier = boostMultiplier_;
         validRangeRatio = validRangeRatio_;
