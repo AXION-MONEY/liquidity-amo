@@ -11,8 +11,10 @@ import "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol"
 import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 import {IMinter} from "./interfaces/IMinter.sol";
 import {IBoostStablecoin} from "./interfaces/IBoostStablecoin.sol";
+import {IMasterAMO} from "./interfaces/IMasterAMO.sol";
 
 abstract contract MasterAMO is
+    IMasterAMO,
     Initializable,
     AccessControlEnumerableUpgradeable,
     PausableUpgradeable,
@@ -34,26 +36,42 @@ abstract contract MasterAMO is
     event PublicUnfarmBuyBurnExecuted(uint256 liquidity, uint256 newBoostPrice);
 
     /* ========== ROLES ========== */
-    bytes32 public constant SETTER_ROLE = keccak256("SETTER_ROLE");
-    bytes32 public constant AMO_ROLE = keccak256("AMO_ROLE");
-    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
-    bytes32 public constant UNPAUSER_ROLE = keccak256("UNPAUSER_ROLE");
-    bytes32 public constant WITHDRAWER_ROLE = keccak256("WITHDRAWER_ROLE");
+    /// @inheritdoc IMasterAMO
+    bytes32 public constant override SETTER_ROLE = keccak256("SETTER_ROLE");
+    /// @inheritdoc IMasterAMO
+    bytes32 public constant override AMO_ROLE = keccak256("AMO_ROLE");
+    /// @inheritdoc IMasterAMO
+    bytes32 public constant override PAUSER_ROLE = keccak256("PAUSER_ROLE");
+    /// @inheritdoc IMasterAMO
+    bytes32 public constant override UNPAUSER_ROLE = keccak256("UNPAUSER_ROLE");
+    /// @inheritdoc IMasterAMO
+    bytes32 public constant override WITHDRAWER_ROLE = keccak256("WITHDRAWER_ROLE");
 
     /* ========== VARIABLES ========== */
-    address public boost;
-    address public usd;
-    address public pool;
-    uint8 public boostDecimals;
-    uint8 public usdDecimals;
-    address public boostMinter;
+    /// @inheritdoc IMasterAMO
+    address public override boost;
+    /// @inheritdoc IMasterAMO
+    address public override usd;
+    /// @inheritdoc IMasterAMO
+    address public override pool;
+    /// @inheritdoc IMasterAMO
+    uint8 public override boostDecimals;
+    /// @inheritdoc IMasterAMO
+    uint8 public override usdDecimals;
+    /// @inheritdoc IMasterAMO
+    address public override boostMinter;
 
-    uint256 public boostMultiplier; // decimals 6
-    uint24 public validRangeRatio; // decimals 6
-    uint24 public validRemovingRatio; // decimals 6
+    /// @inheritdoc IMasterAMO
+    uint256 public override boostMultiplier;
+    /// @inheritdoc IMasterAMO
+    uint24 public override validRangeRatio;
+    /// @inheritdoc IMasterAMO
+    uint24 public override validRemovingRatio;
 
-    uint256 public boostLowerPriceSell; // decimals 6
-    uint256 public boostUpperPriceBuy; // decimals 6
+    /// @inheritdoc IMasterAMO
+    uint256 public override boostLowerPriceSell;
+    /// @inheritdoc IMasterAMO
+    uint256 public override boostUpperPriceBuy;
 
     /* ========== CONSTANTS ========== */
     uint8 internal constant PRICE_DECIMALS = 6;
@@ -88,12 +106,13 @@ abstract contract MasterAMO is
     }
 
     ////////////////////////// PAUSE ACTIONS //////////////////////////
-
-    function pause() external onlyRole(PAUSER_ROLE) {
+    /// @inheritdoc IMasterAMO
+    function pause() external override onlyRole(PAUSER_ROLE) {
         _pause();
     }
 
-    function unpause() external onlyRole(UNPAUSER_ROLE) {
+    /// @inheritdoc IMasterAMO
+    function unpause() external override onlyRole(UNPAUSER_ROLE) {
         _unpause();
     }
 
@@ -104,11 +123,19 @@ abstract contract MasterAMO is
         uint256 deadline
     ) internal virtual returns (uint256 boostAmountIn, uint256 usdAmountOut);
 
+    /// @inheritdoc IMasterAMO
     function mintAndSellBoost(
         uint256 boostAmount,
         uint256 minUsdAmountOut,
         uint256 deadline
-    ) external onlyRole(AMO_ROLE) whenNotPaused nonReentrant returns (uint256 boostAmountIn, uint256 usdAmountOut) {
+    )
+        external
+        override
+        onlyRole(AMO_ROLE)
+        whenNotPaused
+        nonReentrant
+        returns (uint256 boostAmountIn, uint256 usdAmountOut)
+    {
         (boostAmountIn, usdAmountOut) = _mintAndSellBoost(boostAmount, minUsdAmountOut, deadline);
     }
 
@@ -119,6 +146,7 @@ abstract contract MasterAMO is
         uint256 deadline
     ) internal virtual returns (uint256 boostSpent, uint256 usdSpent, uint256 liquidity);
 
+    /// @inheritdoc IMasterAMO
     function addLiquidity(
         uint256 usdAmount,
         uint256 minBoostSpend,
@@ -126,6 +154,7 @@ abstract contract MasterAMO is
         uint256 deadline
     )
         external
+        override
         onlyRole(AMO_ROLE)
         whenNotPaused
         nonReentrant
@@ -153,6 +182,7 @@ abstract contract MasterAMO is
         }
     }
 
+    /// @inheritdoc IMasterAMO
     function mintSellFarm(
         uint256 boostAmount,
         uint256 minUsdAmountOut,
@@ -161,6 +191,7 @@ abstract contract MasterAMO is
         uint256 deadline
     )
         external
+        override
         onlyRole(AMO_ROLE)
         whenNotPaused
         nonReentrant
@@ -183,6 +214,7 @@ abstract contract MasterAMO is
         uint256 deadline
     ) internal virtual returns (uint256 boostRemoved, uint256 usdRemoved, uint256 usdAmountIn, uint256 boostAmountOut);
 
+    /// @inheritdoc IMasterAMO
     function unfarmBuyBurn(
         uint256 liquidity,
         uint256 minBoostRemove,
@@ -191,6 +223,7 @@ abstract contract MasterAMO is
         uint256 deadline
     )
         external
+        override
         onlyRole(AMO_ROLE)
         whenNotPaused
         nonReentrant
@@ -211,12 +244,22 @@ abstract contract MasterAMO is
     function unfarmBuyBurn() external virtual returns (uint256 liquidity, uint256 newBoostPrice);
 
     ////////////////////////// WITHDRAWAL FUNCTIONS //////////////////////////
-    function withdrawERC20(address token, uint256 amount, address recipient) external onlyRole(WITHDRAWER_ROLE) {
+    /// @inheritdoc IMasterAMO
+    function withdrawERC20(
+        address token,
+        uint256 amount,
+        address recipient
+    ) external override onlyRole(WITHDRAWER_ROLE) {
         if (recipient == address(0)) revert ZeroAddress();
         IERC20Upgradeable(token).safeTransfer(recipient, amount);
     }
 
-    function withdrawERC721(address token, uint256 tokenId_, address recipient) external onlyRole(WITHDRAWER_ROLE) {
+    /// @inheritdoc IMasterAMO
+    function withdrawERC721(
+        address token,
+        uint256 tokenId_,
+        address recipient
+    ) external override onlyRole(WITHDRAWER_ROLE) {
         if (recipient == address(0)) revert ZeroAddress();
         IERC721Upgradeable(token).safeTransferFrom(address(this), recipient, tokenId_);
     }
