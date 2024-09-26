@@ -140,10 +140,10 @@ contract SolidlyV2LiquidityAMO is
         router = router_;
         gauge = gauge_;
 
-        _grantRole(SETTER_ROLE, address(this));
-        this.setVaults(rewardVault_, treasuryVault_);
-        this.setTokenId(tokenId_, useTokenId_);
-        this.setParams(
+        _grantRole(SETTER_ROLE, msg.sender);
+        setVaults(rewardVault_, treasuryVault_);
+        setTokenId(tokenId_, useTokenId_);
+        setParams(
             boostMultiplier_,
             validRangeRatio_,
             validRemovingRatio_,
@@ -153,7 +153,7 @@ contract SolidlyV2LiquidityAMO is
             boostSellRatio_,
             usdBuyRatio_
         );
-        _revokeRole(SETTER_ROLE, address(this));
+        _revokeRole(SETTER_ROLE, msg.sender);
     }
 
     ////////////////////////// PAUSE ACTIONS //////////////////////////
@@ -170,7 +170,7 @@ contract SolidlyV2LiquidityAMO is
 
     ////////////////////////// SETTER_ROLE ACTIONS //////////////////////////
     /// @inheritdoc ISolidlyV2LiquidityAMO
-    function setVaults(address rewardVault_, address treasuryVault_) external override onlyRole(SETTER_ROLE) {
+    function setVaults(address rewardVault_, address treasuryVault_) public override onlyRole(SETTER_ROLE) {
         if (rewardVault_ == address(0) || treasuryVault_ == address(0)) revert ZeroAddress();
         rewardVault = rewardVault_;
         treasuryVault = treasuryVault_;
@@ -187,7 +187,7 @@ contract SolidlyV2LiquidityAMO is
         uint256 boostUpperPriceBuy_,
         uint256 boostSellRatio_,
         uint256 usdBuyRatio_
-    ) external override onlyRole(SETTER_ROLE) {
+    ) public override onlyRole(SETTER_ROLE) {
         if (validRangeRatio_ > FACTOR || validRemovingRatio_ > FACTOR || dryPowderRatio_ > FACTOR)
             revert InvalidRatioValue();
         boostMultiplier = boostMultiplier_;
@@ -211,7 +211,7 @@ contract SolidlyV2LiquidityAMO is
     }
 
     /// @inheritdoc ISolidlyV2LiquidityAMO
-    function setWhitelistedTokens(address[] memory tokens, bool isWhitelisted) external override onlyRole(SETTER_ROLE) {
+    function setWhitelistedTokens(address[] memory tokens, bool isWhitelisted) public override onlyRole(SETTER_ROLE) {
         for (uint i = 0; i < tokens.length; i++) {
             whitelistedRewardTokens[tokens[i]] = isWhitelisted;
         }
@@ -219,7 +219,7 @@ contract SolidlyV2LiquidityAMO is
     }
 
     /// @inheritdoc ISolidlyV2LiquidityAMO
-    function setTokenId(uint256 tokenId_, bool useTokenId_) external override onlyRole(SETTER_ROLE) {
+    function setTokenId(uint256 tokenId_, bool useTokenId_) public override onlyRole(SETTER_ROLE) {
         tokenId = tokenId_;
         useTokenId = useTokenId_;
         emit TokenIdSet(tokenId, useTokenId);

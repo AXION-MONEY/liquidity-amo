@@ -109,11 +109,11 @@ contract SolidlyV3LiquidityAMO is
         usdDecimals = IERC20Metadata(usd).decimals();
         boostMinter = boostMinter_;
 
-        _grantRole(SETTER_ROLE, address(this));
-        this.setVault(treasuryVault_);
-        this.setTickBounds(tickLower_, tickUpper_);
-        this.setTargetSqrtPriceX96(targetSqrtPriceX96_);
-        this.setParams(
+        _grantRole(SETTER_ROLE, msg.sender);
+        setVault(treasuryVault_);
+        setTickBounds(tickLower_, tickUpper_);
+        setTargetSqrtPriceX96(targetSqrtPriceX96_);
+        setParams(
             boostMultiplier_,
             validRangeRatio_,
             validRemovingRatio_,
@@ -122,7 +122,7 @@ contract SolidlyV3LiquidityAMO is
             boostLowerPriceSell_,
             boostUpperPriceBuy_
         );
-        _revokeRole(SETTER_ROLE, address(this));
+        _revokeRole(SETTER_ROLE, msg.sender);
     }
 
     ////////////////////////// PAUSE ACTIONS //////////////////////////
@@ -145,7 +145,7 @@ contract SolidlyV3LiquidityAMO is
         uint24 usdUsageRatio_,
         uint256 boostLowerPriceSell_,
         uint256 boostUpperPriceBuy_
-    ) external override onlyRole(SETTER_ROLE) {
+    ) public override onlyRole(SETTER_ROLE) {
         if (
             validRangeRatio_ > FACTOR ||
             validRemovingRatio_ > FACTOR ||
@@ -171,19 +171,19 @@ contract SolidlyV3LiquidityAMO is
     }
 
     /// @inheritdoc ISolidlyV3LiquidityAMOActions
-    function setVault(address treasuryVault_) external override onlyRole(SETTER_ROLE) {
+    function setVault(address treasuryVault_) public override onlyRole(SETTER_ROLE) {
         if (treasuryVault_ == address(0)) revert ZeroAddress();
         treasuryVault = treasuryVault_;
         emit VaultSet(treasuryVault);
     }
 
-    function setTickBounds(int24 tickLower_, int24 tickUpper_) external override onlyRole(SETTER_ROLE) {
+    function setTickBounds(int24 tickLower_, int24 tickUpper_) public override onlyRole(SETTER_ROLE) {
         tickLower = tickLower_;
         tickUpper = tickUpper_;
         emit TickBoundsSet(tickLower, tickUpper);
     }
 
-    function setTargetSqrtPriceX96(uint160 targetSqrtPriceX96_) external override onlyRole(SETTER_ROLE) {
+    function setTargetSqrtPriceX96(uint160 targetSqrtPriceX96_) public override onlyRole(SETTER_ROLE) {
         if (targetSqrtPriceX96_ <= MIN_SQRT_RATIO || targetSqrtPriceX96_ >= MAX_SQRT_RATIO) revert InvalidRatioValue();
         targetSqrtPriceX96 = targetSqrtPriceX96_;
         emit TargetSqrtPriceX96Set(targetSqrtPriceX96);
