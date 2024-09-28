@@ -80,11 +80,13 @@ abstract contract MasterAMO is
 
     /* ========== FUNCTIONS ========== */
     function initialize(
-        address admin,
-        address boost_,
-        address usd_,
-        address pool_,
-        address boostMinter_
+        address admin,       // -> use etc XXX
+        address boost_,      // the stable coin
+        address usd_,        // generic name for $1 collateral ( typically USDC or USDT )
+        address pool_,       // the AMO logic appliues on a given Boost-USD pool 
+        // on each chain where boost is deployed, there will be one stable Boost-USD pool which guarantees BOOST's peg
+        // there can be multiple Boost-Usd pool (which each it's AMO) if two major Dexes on one chain, peg is guaranteed independently on the two pools
+        address boostMinter_ // the minter conrtact
     ) public initializer {
         __AccessControlEnumerable_init();
         __Pausable_init();
