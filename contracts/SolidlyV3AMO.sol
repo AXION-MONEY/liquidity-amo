@@ -175,7 +175,10 @@ contract SolidlyV3AMO is ISolidlyV3AMO, MasterAMO {
         IERC20Upgradeable(usd).approve(pool, usdAmount);
 
         (uint256 amount0Min, uint256 amount1Min) = sortAmounts(minBoostSpend, minUsdSpend);
-        liquidity = liquidityForUsd(usdAmount);
+
+        uint128 currentLiquidity = ISolidlyV3Pool(pool).liquidity();
+        liquidity = (usdAmount * currentLiquidity) / IERC20Upgradeable(usd).balanceOf(pool);
+
         // Add liquidity to the BOOST-USD pool
         (uint256 amount0, uint256 amount1) = ISolidlyV3Pool(pool).mint(
             address(this),
@@ -350,17 +353,5 @@ contract SolidlyV3AMO is ISolidlyV3AMO, MasterAMO {
                 price = (10 ** (boostDecimals - usdDecimals + PRICE_DECIMALS) * Q96 ** 2) / sqrtPriceX96 ** 2;
             }
         }
-    }
-
-    /// @inheritdoc ISolidlyV3AMO
-    function liquidityForUsd(uint256 usdAmount) public view override returns (uint256 liquidityAmount) {
-        uint128 currentLiquidity = ISolidlyV3Pool(pool).liquidity();
-        return (usdAmount * currentLiquidity) / IERC20Upgradeable(usd).balanceOf(pool);
-    }
-
-    /// @inheritdoc ISolidlyV3AMO
-    function liquidityForBoost(uint256 boostAmount) public view override returns (uint256 liquidityAmount) {
-        uint128 currentLiquidity = ISolidlyV3Pool(pool).liquidity();
-        return (boostAmount * currentLiquidity) / IERC20Upgradeable(boost).balanceOf(pool);
     }
 }

@@ -49,18 +49,4 @@ interface ISolidlyV3AMO {
         uint256 boostLowerPriceSell_,
         uint256 boostUpperPriceBuy_
     ) external;
-
-    /**
-     * @notice This view function calculates how much liquidity needs to mint to spend all the given USD amount
-     * @param usdAmount The USD amount
-     * @return liquidityAmount The calculated liquidity amount to mint
-     */
-    function liquidityForUsd(uint256 usdAmount) external view returns (uint256 liquidityAmount);
-
-    /**
-     * @notice This view function calculates how much liquidity needs to mint to spend all the given BOOST amount
-     * @param boostAmount The BOOST amount
-     * @return liquidityAmount The calculated liquidity amount to mint
-     */
-    function liquidityForBoost(uint256 boostAmount) external view returns (uint256 liquidityAmount);
 }
