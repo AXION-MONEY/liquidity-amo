@@ -579,7 +579,8 @@ contract SolidlyV3LiquidityAMO is
     }
 
     function boostPrice() public view returns (uint256 price) {
-        (uint160 sqrtPriceX96, , , ) = ISolidlyV3Pool(pool).slot0();
+        (uint160 _sqrtPriceX96, , , ) = ISolidlyV3Pool(pool).slot0();
+        uint256 sqrtPriceX96 = uint256(_sqrtPriceX96);
         if (boost < usd) {
             price = (10 ** (boostDecimals - usdDecimals + PRICE_DECIMALS) * sqrtPriceX96 ** 2) / Q96 ** 2;
         } else {
