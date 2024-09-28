@@ -26,6 +26,12 @@ contract Minter is Initializable, AccessControlEnumerableUpgradeable, PausableUp
     bytes32 public constant AMO_ROLE = keccak256("AMO_ROLE");
 
     error ZeroAddress();
+    error NonContractSender();
+
+    modifier onlyContract() {
+        if (msg.sender.code.length == 0) revert NonContractSender();
+        _;
+    }
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -68,7 +74,7 @@ contract Minter is Initializable, AccessControlEnumerableUpgradeable, PausableUp
         emit TreasuryUpdated(treasury_);
     }
 
-    function mint(address to, uint256 amount) external whenNotPaused onlyRole(MINTER_ROLE) {
+    function mint(address to, uint256 amount) external whenNotPaused onlyContract onlyRole(MINTER_ROLE) {
         IERC20Upgradeable(collateralAddress).safeTransferFrom(
             msg.sender,
             treasury,
@@ -78,7 +84,7 @@ contract Minter is Initializable, AccessControlEnumerableUpgradeable, PausableUp
         emit TokenMinted(msg.sender, to, amount);
     }
 
-    function protocolMint(address to, uint256 amount) external whenNotPaused onlyRole(AMO_ROLE) {
+    function protocolMint(address to, uint256 amount) external whenNotPaused onlyContract onlyRole(AMO_ROLE) {
         IBoostStablecoin(boostAddress).mint(to, amount);
         emit TokenProtocolMinted(msg.sender, to, amount);
     }
