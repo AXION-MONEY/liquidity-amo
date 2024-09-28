@@ -181,10 +181,13 @@ describe("SolidlyV3AMO", function () {
 
     it("should only allow AMO_ROLE to call mintAndSellBoost", async function () {
         let limitSqrtPriceX96: bigint;
-        if ((await boost.getAddress()).toLowerCase() < (await testUSD.getAddress()).toLowerCase()) {
-            limitSqrtPriceX96 = BigInt(Math.floor(Math.sqrt(Number((BigInt("2") * BigInt(2 ** 192)) / BigInt(10 ** 12)))));
+        const boostAddress = (await boost.getAddress()).toLowerCase();
+        const testUSDAddress = (await testUSD.getAddress()).toLowerCase();
+        const zeroForOne = boostAddress > testUSDAddress;
+        if (zeroForOne) {
+            limitSqrtPriceX96 = MIN_SQRT_RATIO + BigInt(10);
         } else {
-            limitSqrtPriceX96 = BigInt(Math.floor(Math.sqrt(Number((BigInt("2") * BigInt(2 ** 192)) * BigInt(10 ** 12)))));
+            limitSqrtPriceX96 = MAX_SQRT_RATIO - BigInt(10);
         }
         const usdToBuy = ethers.parseUnits("1000000", 6);
         await testUSD.connect(admin).mint(user.address, usdToBuy);
@@ -278,8 +281,6 @@ describe("SolidlyV3AMO", function () {
         const boostAddress = (await boost.getAddress()).toLowerCase();
         const testUSDAddress = (await testUSD.getAddress()).toLowerCase();
         const zeroForOne = boostAddress > testUSDAddress;
-        const slot0 = await pool.slot0();
-        const currentSqrtPriceX96 = slot0.sqrtPriceX96;
         if (zeroForOne) {
             limitSqrtPriceX96 = MIN_SQRT_RATIO + BigInt(10);
         } else {
