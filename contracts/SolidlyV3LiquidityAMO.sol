@@ -583,7 +583,11 @@ contract SolidlyV3LiquidityAMO is
         if (boost < usd) {
             price = (10 ** (boostDecimals - usdDecimals + PRICE_DECIMALS) * sqrtPriceX96 ** 2) / Q96 ** 2;
         } else {
-            price = ((sqrtPriceX96 ** 2 / Q96 ** 2) * 10 ** PRICE_DECIMALS) / 10 ** (boostDecimals - usdDecimals);
+            if (sqrtPriceX96 >= Q96) {
+                price = 10 ** (boostDecimals - usdDecimals + PRICE_DECIMALS) / (sqrtPriceX96 ** 2 / Q96 ** 2);
+            } else {
+                price = (10 ** (boostDecimals - usdDecimals + PRICE_DECIMALS) * Q96 ** 2) / sqrtPriceX96 ** 2;
+            }
         }
     }
 }
