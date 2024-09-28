@@ -13,6 +13,12 @@ import {IMinter} from "./interfaces/IMinter.sol";
 import {IBoostStablecoin} from "./interfaces/IBoostStablecoin.sol";
 import {IMasterAMO} from "./interfaces/IMasterAMO.sol";
 
+/**
+* the contracts are upgradable but behind a time lock. This is because we plan further improvements to the AMO logic ( we could for instance deploy an AMO cotract for concentrated liquidity).
+* in future versions, upgrades could be strictly tied to a governance vote (where upgrade can only be passed with testified governance vote approval)
+* the contracts are pausable — also governance-unpausable to ensure decentralisation
+**/
+
 abstract contract MasterAMO is
     IMasterAMO,
     Initializable,
@@ -80,7 +86,7 @@ abstract contract MasterAMO is
 
     /* ========== FUNCTIONS ========== */
     function initialize(
-        address admin,       // -> use etc XXX
+        address admin,       // admin role given is given to multisig exclusively
         address boost_,      // the stable coin
         address usd_,        // generic name for $1 collateral ( typically USDC or USDT )
         address pool_,       // the AMO logic appliues on a given Boost-USD pool 
@@ -96,7 +102,7 @@ abstract contract MasterAMO is
             usd_ == address(0) ||
             pool_ == address(0) ||
             boostMinter_ == address(0)
-        ) revert ZeroAddress();
+        ) revert ZeroAddress(); //zero-address error checks
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         boost = boost_;
@@ -119,16 +125,28 @@ abstract contract MasterAMO is
     }
 
     ////////////////////////// AMO_ROLE ACTIONS //////////////////////////
+/**
+* I) When Boost is over peg (in the AMOed pool)
+* 1.a) Boost can minted and sold for USD — this is the mintAndSellBoost() function
+* 1.b) When peg is restored, the USD 'Backing" (we received from (a) ) is paired with free-minted Boost — it is added farmed with the addLiquidity function
+* II) When Boost is under peg
+* 2.a) the algo
+* 2.b) 
+* Implementation: the actions to maintain peg ( I and II ) can be triggered permissionlessly
+**/
+
+
     function _mintAndSellBoost(
         uint256 boostAmount,
-        uint256 minUsdAmountOut,
+        uint256 minUsdAmountOut, //  boost is only sold over peg ( checked performed whatever minUsdAmountOut is inputted to this function —— this variable can sometimes be omited )
+        // the price check is always performed in the implementation contracts XXX TBD could be in the master too
         uint256 deadline
     ) internal virtual returns (uint256 boostAmountIn, uint256 usdAmountOut);
 
     /// @inheritdoc IMasterAMO
     function mintAndSellBoost(
         uint256 boostAmount,
-        uint256 minUsdAmountOut,
+        uint256 minUsdAmountOut, 
         uint256 deadline
     )
         external
@@ -143,16 +161,16 @@ abstract contract MasterAMO is
 
     function _addLiquidity(
         uint256 usdAmount,
-        uint256 minBoostSpend,
-        uint256 minUsdSpend,
+        uint256 minBoostSpend,  // xxx
+        uint256 minUsdSpend,    // xxx
         uint256 deadline
     ) internal virtual returns (uint256 boostSpent, uint256 usdSpent, uint256 liquidity);
 
     /// @inheritdoc IMasterAMO
     function addLiquidity(
         uint256 usdAmount,
-        uint256 minBoostSpend,
-        uint256 minUsdSpend,
+        uint256 minBoostSpend,    // xxx
+        uint256 minUsdSpend,      // xxx
         uint256 deadline
     )
         external
@@ -165,7 +183,12 @@ abstract contract MasterAMO is
         (boostSpent, usdSpent, liquidity) = _addLiquidity(usdAmount, minBoostSpend, minUsdSpend, deadline);
     }
 
-    function _mintSellFarm(
+    function _mintSellFarm( 
+    /**
+    * combines MintAndSell and addLiquidity
+    * addLiquidity only can be performed when price is close to peg (within range)
+    * mintAndSell will be looped as long as price remains too far above peg
+    **/
         uint256 boostAmount,
         uint256 minUsdAmountOut,
         uint256 minBoostSpend,
