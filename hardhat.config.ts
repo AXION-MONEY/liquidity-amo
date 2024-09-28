@@ -36,6 +36,12 @@ const config: HardhatUserConfig = {
         ],
     },
     networks: {
+        hardhat: {
+            forking: {
+                url: "https://rpc.ftm.tools",
+                blockNumber: 92000000, // Optional: you can specify a block number if needed
+            },
+        },
         localhost: {
             accounts: accounts,
         },

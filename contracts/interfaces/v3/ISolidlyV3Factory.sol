@@ -4,6 +4,12 @@ pragma solidity >=0.5.0;
 /// @title The interface for the Solidly V3 Factory
 /// @notice The Solidly V3 Factory facilitates creation of Solidly V3 pools and control over the protocol fees
 interface ISolidlyV3Factory {
+    /// @notice Returns the tick spacing for a given fee amount, if enabled, or 0 if not enabled
+    /// @dev A fee amount can never be removed, so this value should be hard coded or cached in the calling context
+    /// @param fee The enabled fee, denominated in hundredths of a bip. Returns 0 in case of unenabled fee
+    /// @return The tick spacing
+    function feeAmountTickSpacing(uint24 fee) external view returns (int24);
+
     /// @notice Returns the pool address for a given pair of tokens and a tick spacing value, or address 0 if it does not exist
     /// @dev tokenA and tokenB may be passed in either token0/token1 or token1/token0 order
     /// @param tokenA The contract address of either token0 or token1
