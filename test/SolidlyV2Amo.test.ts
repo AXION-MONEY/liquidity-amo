@@ -9,7 +9,8 @@ import {
   ISolidlyV3Pool,
   ISolidlyRouter,
   SolidlyV2AMO,
-  IV2Voter
+  IV2Voter,
+  IFactory
 } from "../typechain-types";
 
 before(async () => {
@@ -31,9 +32,9 @@ describe("SolidlyV2LiqAMO", function() {
   let boost: BoostStablecoin;
   let testUSD: MockERC20;
   let minter: Minter;
-  let pool: ISolidlyV3Pool;
   let v2Router: ISolidlyRouter;
   let v2Voter: IV2Voter;
+  let factory: IFactory;
   let admin: SignerWithAddress;
   let treasuryVault: SignerWithAddress;
   let setter: SignerWithAddress;
@@ -44,6 +45,7 @@ describe("SolidlyV2LiqAMO", function() {
   let boostMinter: SignerWithAddress;
   let user: SignerWithAddress;
 
+
   let setterRole: any;
   let amoRole: any;
   let withdrawerRole: any;
@@ -52,6 +54,7 @@ describe("SolidlyV2LiqAMO", function() {
 
   const V2_ROUTER = "0x1A05EB736873485655F29a37DEf8a0AA87F5a447"; // Equalizer router addresses
   const V2_VOTER = "0x4bebEB8188aEF8287f9a7d1E4f01d76cBE060d5b";// Equalizer voter addresses
+  const V2_FACTORY="0xc6366EFD0AF1d09171fe0EBF32c7943BB310832a";
   const MIN_SQRT_RATIO = BigInt("4295128739"); // Minimum sqrt price ratio
   const MAX_SQRT_RATIO = BigInt("1461446703485210103287273052203988822378723970342"); // Maximum sqrt price ratio
   let sqrtPriceX96: bigint;
@@ -67,7 +70,6 @@ describe("SolidlyV2LiqAMO", function() {
 
   beforeEach(async function() {
     [admin, treasuryVault, setter, amo, withdrawer, pauser, unpauser, boostMinter, user] = await ethers.getSigners();
-    console.log([admin, treasuryVault, setter, amo, withdrawer, pauser, unpauser, boostMinter, user] )
 
     // Deploy the actual contracts using deployProxy
     const BoostFactory = await ethers.getContractFactory("BoostStablecoin");
@@ -89,19 +91,12 @@ describe("SolidlyV2LiqAMO", function() {
     await testUSD.connect(boostMinter).mint(admin.address, collateralDesired);
 
     // Create Pool
-    v2Router = await ethers.getContractAt("ISolidlyRouter", V2_ROUTER);
-    const [, , poolAddress] = await v2Router.connect(admin).addLiquidity(
+    factory = await ethers.getContractAt("IFactory", V2_FACTORY);
+    const poolAddress = await factory.connect(admin).createPair(
       await boost.getAddress(),
       await testUSD.getAddress(),
-      false,
-      ethers.parseUnits("100", 18),
-      ethers.parseUnits("100", 6),
-      ethers.parseUnits("90", 18),
-      ethers.parseUnits("90", 6),
-      admin.address,
-      Math.floor(Date.now() / 1000) + 60 * 10
+      true
     );
-
     // create Gauge
     v2Voter = await ethers.getContractAt("IV2Voter", V2_VOTER);
     const gauge = await v2Voter.connect(admin).createGauge(poolAddress);
