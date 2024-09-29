@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import hre, { ethers, upgrades } from "hardhat";
+import hre, { ethers, network, upgrades } from "hardhat";
 // @ts-ignore
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import {
@@ -11,7 +11,20 @@ import {
   SolidlyV2AMO,
   IV2Voter
 } from "../typechain-types";
-import { bigint } from "hardhat/internal/core/params/argumentTypes";
+
+before(async () => {
+  await network.provider.request({
+    method: "hardhat_reset",
+    params: [
+      {
+        forking: {
+          jsonRpcUrl: "https://rpc.ftm.tools",
+          blockNumber: 92000000 // Optional: specify a block number
+        }
+      }
+    ]
+  });
+});
 
 describe("SolidlyV2LiqAMO", function() {
   let solidlyV2AMO: SolidlyV2AMO;
@@ -111,7 +124,7 @@ describe("SolidlyV2LiqAMO", function() {
       990000, // validRemovingRatio
       ethers.parseUnits("0.95", 6), // boostLowerPriceSell
       ethers.parseUnits("1.05", 6), // boostUpperPriceBuy
-      990000, // usdUsageRatio
+      990000 // usdUsageRatio
     ];
     solidlyV2AMO = (await upgrades.deployProxy(SolidlyV2LiquidityAMOFactory, args)) as unknown as SolidlyV2AMO;
     await solidlyV2AMO.waitForDeployment();
