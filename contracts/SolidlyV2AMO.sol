@@ -183,7 +183,8 @@ contract SolidlyV2AMO is ISolidlyV2AMO, MasterAMO {
         boostAmountIn = amounts[0];
         usdAmountOut = amounts[1];
 
-        if (usdAmountOut != usdBalanceAfter - usdBalanceBefore) // we check that selling BOOST yields proportionaly more USD
+        // we check that selling BOOST yields proportionally more USD
+        if (usdAmountOut != usdBalanceAfter - usdBalanceBefore)
             revert UsdAmountOutMismatch(usdAmountOut, usdBalanceAfter - usdBalanceBefore);
 
         if (usdAmountOut < minUsdAmountOut) revert InsufficientOutputAmount(usdAmountOut, minUsdAmountOut);
@@ -278,9 +279,9 @@ contract SolidlyV2AMO is ISolidlyV2AMO, MasterAMO {
         );
         uint256 usdBalanceAfter = balanceOfToken(usd);
 
+        // we check that each USDC buys more than 1 BOOST (repegging is not an expense for the protocol)
         if (usdRemoved != usdBalanceAfter - usdBalanceBefore)
             revert UsdAmountOutMismatch(usdRemoved, usdBalanceAfter - usdBalanceBefore);
-            // we check that each USDC buys more than 1 BOOST (repegging is not an expense for the protocol )
 
         // Ensure the BOOST amount is greater than or equal to the USD amount
         if ((boostRemoved * validRemovingRatio) / FACTOR < toBoostAmount(usdRemoved))

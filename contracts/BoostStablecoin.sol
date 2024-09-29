@@ -2,11 +2,11 @@
 pragma solidity 0.8.19;
 
 /**
-* the Boost coin itself is upgradable but behind a time lock.
-* in future versions, BOOST will be pausable — also governance-unpausable to ensure decentralisation
-* ( which means the Boost coin itself will be upgraded to have proof-validated upgrades )
-* this arguably is the best to ahcieve both security and decentralisation ( we can pause the contracts as most stables can nowadays; still we will guarantee that pause is censorship resistant )
-**/
+ * the Boost coin itself is upgradable but behind a time lock.
+ * in future versions, BOOST will be pausable — also governance-unpausable to ensure decentralisation
+ * ( which means the Boost coin itself will be upgraded to have proof-validated upgrades )
+ * this arguably is the best to achieve both security and decentralisation ( we can pause the contracts as most stables can nowadays; still we will guarantee that pause is censorship resistant )
+ */
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
