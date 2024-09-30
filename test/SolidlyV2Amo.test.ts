@@ -12,19 +12,19 @@ import {
   IFactory
 } from "../typechain-types";
 
-// before(async () => {
-//   await network.provider.request({
-//     method: "hardhat_reset",
-//     params: [
-//       {
-//         forking: {
-//           jsonRpcUrl: "https://rpc.ftm.tools",
-//           blockNumber: 92000000 // Optional: specify a block number
-//         }
-//       }
-//     ]
-//   });
-// });
+before(async () => {
+  await network.provider.request({
+    method: "hardhat_reset",
+    params: [
+      {
+        forking: {
+          jsonRpcUrl: "https://rpc.ftm.tools",
+          blockNumber: 92000000 // Optional: specify a block number
+        }
+      }
+    ]
+  });
+});
 
 describe("SolidlyV2LiqAMO", function() {
   let solidlyV2AMO: SolidlyV2AMO;
