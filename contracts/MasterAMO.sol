@@ -278,16 +278,6 @@ abstract contract MasterAMO is
         IERC20Upgradeable(token).safeTransfer(recipient, amount);
     }
 
-    /// @inheritdoc IMasterAMO
-    function withdrawERC721(
-        address token,
-        uint256 tokenId_,
-        address recipient
-    ) external override onlyRole(WITHDRAWER_ROLE) {
-        if (recipient == address(0)) revert ZeroAddress();
-        IERC721Upgradeable(token).safeTransferFrom(address(this), recipient, tokenId_);
-    }
-
     ////////////////////////// INTERNAL FUNCTIONS //////////////////////////
     function sortAmounts(uint256 amount0, uint256 amount1) internal view returns (uint256, uint256) {
         if (boost < usd) return (amount0, amount1);

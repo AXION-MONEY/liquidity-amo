@@ -173,15 +173,6 @@ interface IMasterAMO {
     function withdrawERC20(address token, uint256 amount, address recipient) external;
 
     /**
-     * @notice Withdraws an ERC721 token from the contract
-     * @dev Can only be called by an account with the WITHDRAWER_ROLE
-     * @param token The address of the ERC721 token contract
-     * @param tokenId_ The ID of the token to withdraw
-     * @param recipient The address to receive the token
-     */
-    function withdrawERC721(address token, uint256 tokenId_, address recipient) external;
-
-    /**
      * @notice This view function returns the current BOOST price with PRICE_DECIMALS = 6
      * @return price the current BOOST price
      */

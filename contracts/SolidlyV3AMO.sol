@@ -284,7 +284,7 @@ contract SolidlyV3AMO is ISolidlyV3AMO, MasterAMO {
 
     ////////////////////////// PUBLIC FUNCTIONS //////////////////////////
     /// @inheritdoc IMasterAMO
-    function mintSellFarm() external override returns (uint256 liquidity, uint256 newBoostPrice) {
+    function mintSellFarm() external override whenNotPaused returns (uint256 liquidity, uint256 newBoostPrice) {
         uint256 maxBoostAmount = IERC20Upgradeable(boost).balanceOf(pool);
         bool zeroForOne = boost < usd;
         (int256 amount0, int256 amount1, , , ) = ISolidlyV3Pool(pool).quoteSwap(
@@ -313,7 +313,7 @@ contract SolidlyV3AMO is ISolidlyV3AMO, MasterAMO {
     }
 
     /// @inheritdoc IMasterAMO
-    function unfarmBuyBurn() external override returns (uint256 liquidity, uint256 newBoostPrice) {
+    function unfarmBuyBurn() external override whenNotPaused returns (uint256 liquidity, uint256 newBoostPrice) {
         uint256 totalLiquidity = ISolidlyV3Pool(pool).liquidity();
         uint256 boostBalance = IERC20Upgradeable(boost).balanceOf(pool);
         uint256 usdBalance = toBoostAmount(IERC20Upgradeable(usd).balanceOf(pool)); // scaled

@@ -582,5 +582,124 @@ describe("SolidlyV3AMO", function() {
         await expect(solidlyV3AMO.connect(amo).unfarmBuyBurn()).to.be.reverted;
       });
     });
+
+    describe("MasterAMO DAO Functions", function() {
+      describe("pause", function() {
+        it("should allow pauser to pause the contract", async function() {
+          await expect(solidlyV3AMO.connect(pauser).pause()).to.not.be.reverted;
+          expect(await solidlyV3AMO.paused()).to.equal(true);
+        });
+
+        it("should not allow non-pauser to pause the contract", async function() {
+          const reverteMessage = `AccessControl: account ${user.address.toLowerCase()} is missing role ${pauserRole}`;
+          await expect(solidlyV3AMO.connect(user).pause()).to.be.revertedWith(reverteMessage);
+        });
+
+        it("should not allow mintAndSellBoost when paused", async function() {
+          const boostAmount = ethers.parseUnits("990000", 18);
+          const usdAmount = ethers.parseUnits("980000", 6);
+          await solidlyV3AMO.connect(pauser).pause();
+
+          await expect(solidlyV3AMO.connect(amo).mintAndSellBoost(
+            boostAmount,
+            usdAmount,
+            Math.floor(Date.now() / 1000) + 60 * 10
+          )).to.be.revertedWith("Pausable: paused");
+        });
+
+        it("should not allow addLiquidity when paused", async function() {
+          const usdBalance = await testUSD.balanceOf(await solidlyV3AMO.getAddress());
+          await solidlyV3AMO.connect(pauser).pause();
+
+          await expect(solidlyV3AMO.connect(amo).addLiquidity(
+            usdBalance,
+            1,
+            1,
+            Math.floor(Date.now() / 1000) + 60 * 10
+          )).to.be.revertedWith("Pausable: paused");
+        });
+
+        it("should not allow mintSellFarm when paused", async function() {
+          const boostAmount = ethers.parseUnits("990000", 18);
+          const usdAmount = ethers.parseUnits("980000", 6);
+          await solidlyV3AMO.connect(pauser).pause();
+
+          await expect(solidlyV3AMO.connect(amo).mintSellFarm(
+            boostAmount,
+            usdAmount,
+            1,
+            1,
+            Math.floor(Date.now() / 1000) + 60 * 10
+          )).to.be.revertedWith("Pausable: paused");
+        });
+
+        it("should not allow unfarmBuyBurn when paused", async function() {
+          const liqudityToBeRemoved = "1";
+          await solidlyV3AMO.connect(pauser).pause();
+
+          await expect(solidlyV3AMO.connect(amo).unfarmBuyBurn(
+            liqudityToBeRemoved,
+            1,
+            1,
+            1,
+            Math.floor(Date.now() / 1000) + 60 * 10
+          )).to.be.revertedWith("Pausable: paused");
+        });
+
+        it("should not allow public mintSellFarm when paused", async function() {
+          await solidlyV3AMO.connect(pauser).pause();
+          await expect(solidlyV3AMO.connect(amo).mintSellFarm()).to.be.revertedWith("Pausable: paused");
+        });
+
+        it("should not allow public unfarmBuyBurn when paused", async function() {
+          await solidlyV3AMO.connect(pauser).pause();
+          await expect(solidlyV3AMO.connect(amo).unfarmBuyBurn()).to.be.revertedWith("Pausable: paused");
+        });
+      });
+
+      describe("unpause", function() {
+        it("should allow unpauser to unpause the contract", async function() {
+          await solidlyV3AMO.connect(pauser).pause();
+          expect(await solidlyV3AMO.paused()).to.equal(true);
+
+          await expect(solidlyV3AMO.connect(unpauser).unpause()).to.not.be.reverted;
+          expect(await solidlyV3AMO.paused()).to.equal(false);
+        });
+
+        it("should not allow non-unpauser to unpause the contract", async function() {
+          await solidlyV3AMO.connect(pauser).pause();
+          expect(await solidlyV3AMO.paused()).to.equal(true);
+
+          const reverteMessage = `AccessControl: account ${user.address.toLowerCase()} is missing role ${unpauserRole}`;
+          await expect(solidlyV3AMO.connect(user).unpause()).to.be.revertedWith(reverteMessage);
+        });
+      });
+
+      describe("withdrawERC20", function() {
+        it("should allow withdrawer to withdraw ERC20 tokens", async function() {
+          const withdrawAmount = ethers.parseUnits("500", 18);
+          await testUSD.mint(await solidlyV3AMO.getAddress(), withdrawAmount);
+
+          await expect(
+            solidlyV3AMO.connect(withdrawer).withdrawERC20(await testUSD.getAddress(), withdrawAmount, ethers.ZeroAddress)
+          ).to.be.revertedWithCustomError(solidlyV3AMO, "ZeroAddress");
+
+          await expect(
+            solidlyV3AMO.connect(withdrawer).withdrawERC20(await testUSD.getAddress(), withdrawAmount, user.address)
+          ).to.not.be.reverted;
+
+          const finalBalance = await testUSD.balanceOf(user.address);
+          expect(finalBalance).to.equal(withdrawAmount);
+        });
+
+        it("should not allow non-withdrawer to withdraw ERC20 tokens", async function() {
+          const withdrawAmount = ethers.parseUnits("500", 18);
+          const reverteMessage = `AccessControl: account ${user.address.toLowerCase()} is missing role ${withdrawerRole}`;
+          await expect(
+            solidlyV3AMO.connect(user).withdrawERC20(await testUSD.getAddress(), withdrawAmount, user.address)
+          ).to.be.revertedWith(reverteMessage);
+        });
+      });
+    });
   });
 });
