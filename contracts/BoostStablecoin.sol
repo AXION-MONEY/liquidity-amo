@@ -3,9 +3,12 @@ pragma solidity 0.8.19;
 
 /**
  * the Boost coin itself is upgradable but behind a time lock.
- * in future versions, BOOST will be pausable — also governance-unpausable to ensure decentralisation
- * ( which means the Boost coin itself will be upgraded to have proof-validated upgrades )
- * this arguably is the best to achieve both security and decentralisation ( we can pause the contracts as most stables can nowadays; still we will guarantee that pause is censorship resistant )
+ * in future versions, will will upgrade the pause/unpause process to maximise security while giving decentralisation guarantees
+     + BOOST will be pausable for security
+     + BOOST will also be team-unpausable (after possible timelock)
+     + Governance votes will be able to force unpause ( with further timelock for new pause) to stick to decentralisation ethos
+ * these clever control features will require further upgrades — the Boost coin itself will be upgradable ( subject to proof-validation )
+ * overall we strive to achieve both security and decentralisation:  we can pause the contracts as most stables can nowadays; still we will guarantee that pause is censorship resistant!
  */
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
