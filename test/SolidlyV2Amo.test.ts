@@ -9,7 +9,8 @@ import {
   ISolidlyRouter,
   SolidlyV2AMO,
   IV2Voter,
-  IFactory
+  IFactory,
+  MockRouter
 } from "../typechain-types";
 
 before(async () => {
@@ -119,6 +120,15 @@ describe("SolidlyV2LiqAMO", function() {
     });
     const gauge = await v2Voter.gauges(poolAddress);
 
+
+    //  deploy router
+    const RouterFactory = await ethers.getContractFactory("MockRouter", admin);
+    const router = await RouterFactory.deploy(
+      V2_FACTORY,
+      "0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83"
+    );
+    await router.waitForDeployment();
+
     // Deploy SolidlyV3AMO using upgrades.deployProxy
     const SolidlyV2LiquidityAMOFactory = await ethers.getContractFactory("SolidlyV2AMO");
     const args = [
@@ -126,7 +136,7 @@ describe("SolidlyV2LiqAMO", function() {
       await boost.getAddress(),
       await testUSD.getAddress(),
       await minter.getAddress(),
-      V2_ROUTER,
+      await router.getAddress(),
       gauge,
       treasuryVault.address, //rewardVault_
       0, //tokenId_
@@ -143,13 +153,12 @@ describe("SolidlyV2LiqAMO", function() {
       initializer: "initialize(address,address,address,address,address,address,address,uint256,bool,uint256,uint24,uint24,uint256,uint256,uint256,uint256)"
     })) as unknown as SolidlyV2AMO;
     await solidlyV2AMO.waitForDeployment();
-    //
-    // // Provide liquidity
-    v2Router = await ethers.getContractAt("ISolidlyRouter", V2_ROUTER);
-    await boost.approve(V2_ROUTER, boostDesired);
-    await testUSD.approve(V2_ROUTER, collateralDesired);
 
-    await v2Router.connect(admin).addLiquidity(
+    // provide liquidity
+    await boost.approve(await router.getAddress(), boostDesired);
+    await testUSD.approve(await router.getAddress(), collateralDesired);
+
+    await router.connect(admin).addLiquidity(
       await testUSD.getAddress(),
       await boost.getAddress(),
       true,

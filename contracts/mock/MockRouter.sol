@@ -113,15 +113,14 @@ library Math {
     }}
 }
 
-// File: contracts/Router.sol
+// File: contracts/MockRouter.sol
 
 
 pragma solidity 0.8.19;
 
-import "hardhat/console.sol";
 
 
-contract Router is IRouter {
+contract MockRouter is IRouter {
     struct Route {
         address from;
         address to;
@@ -138,10 +137,10 @@ contract Router is IRouter {
         _;
     }
 
-    constructor() {
-        factory = 0xc6366EFD0AF1d09171fe0EBF32c7943BB310832a;
-        pairCodeHash = IPairFactory(factory).pairCodeHash();
-        weth = IWETH(0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83);
+    constructor(address _factory, address _weth) {
+        factory = _factory;
+        pairCodeHash = IPairFactory(_factory).pairCodeHash();
+        weth = IWETH(_weth);
     }
 
     /// @dev only accept ETH via fallback from the WETH contract
@@ -309,16 +308,11 @@ contract Router is IRouter {
         address to,
         uint deadline
     ) external ensure(deadline) returns (uint amountA, uint amountB, uint liquidity) {
-        console.log("Here1");
         (amountA, amountB) = _addLiquidity(tokenA, tokenB, stable, amountADesired, amountBDesired, amountAMin, amountBMin);
-        console.log("Here2");
         address pair = pairFor(tokenA, tokenB, stable);
-        console.log("Here3");
         _safeTransferFrom(tokenA, msg.sender, pair, amountA);
         _safeTransferFrom(tokenB, msg.sender, pair, amountB);
-        console.log("Here4");
         liquidity = IPair(pair).mint(to);
-        console.log("Here5");
     }
 
     function addLiquidityETH(
