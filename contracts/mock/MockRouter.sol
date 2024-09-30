@@ -1,18 +1,12 @@
 // File: contracts/interfaces/IRouter.sol
 
-
 pragma solidity 0.8.19;
 
 interface IRouter {
-    function pairFor(
-        address tokenA,
-        address tokenB,
-        bool stable
-    ) external view returns (address pair);
+    function pairFor(address tokenA, address tokenB, bool stable) external view returns (address pair);
 }
 
 // File: contracts/interfaces/IWETH.sol
-
 
 pragma solidity 0.8.19;
 
@@ -25,7 +19,6 @@ interface IWETH {
 }
 
 // File: contracts/interfaces/IPairFactory.sol
-
 
 pragma solidity 0.8.19;
 
@@ -48,7 +41,6 @@ interface IPairFactory {
 }
 
 // File: contracts/interfaces/IPair.sol
-
 
 pragma solidity 0.8.19;
 
@@ -75,7 +67,6 @@ interface IPair {
 }
 
 // File: contracts/interfaces/IERC20.sol
-
 
 pragma solidity 0.8.19;
 
@@ -104,7 +95,6 @@ interface IERC20 {
 
 // File: contracts/libraries/Math.sol
 
-
 pragma solidity 0.8.19;
 
 library Math {
@@ -129,7 +119,8 @@ library Math {
         }
     }
 
-    function cbrt(uint256 n) internal pure returns (uint256) {unchecked {
+    function cbrt(uint256 n) internal pure returns (uint256) {
+        unchecked {
             uint256 x = 0;
             for (uint256 y = 1 << 255; y > 0; y >>= 3) {
                 x <<= 1;
@@ -140,14 +131,13 @@ library Math {
                 }
             }
             return x;
-        }}
+        }
+    }
 }
 
 // File: contracts/MockRouter.sol
 
-
 pragma solidity 0.8.19;
-
 
 contract MockRouter is IRouter {
     struct Route {
@@ -186,30 +176,46 @@ contract MockRouter is IRouter {
     /// @dev calculates the CREATE2 address for a pair without making any external calls
     function pairFor(address tokenA, address tokenB, bool stable) public view returns (address pair) {
         (address token0, address token1) = sortTokens(tokenA, tokenB);
-        pair = address(uint160(uint256(keccak256(abi.encodePacked(
-            hex'ff',
-            factory,
-            keccak256(abi.encodePacked(token0, token1, stable)),
-            pairCodeHash // init code hash
-        )))));
+        pair = address(
+            uint160(
+                uint256(
+                    keccak256(
+                        abi.encodePacked(
+                            hex"ff",
+                            factory,
+                            keccak256(abi.encodePacked(token0, token1, stable)),
+                            pairCodeHash // init code hash
+                        )
+                    )
+                )
+            )
+        );
     }
 
     /// @dev given some amount of an asset and pair reserves, returns an equivalent amount of the other asset
     function quoteLiquidity(uint amountA, uint reserveA, uint reserveB) internal pure returns (uint amountB) {
         require(amountA > 0, "Router: INSUFFICIENT_AMOUNT");
         require(reserveA > 0 && reserveB > 0, "Router: INSUFFICIENT_LIQUIDITY");
-        amountB = amountA * reserveB / reserveA;
+        amountB = (amountA * reserveB) / reserveA;
     }
 
     /// @dev fetches and sorts the reserves for a pair
-    function getReserves(address tokenA, address tokenB, bool stable) public view returns (uint reserveA, uint reserveB) {
-        (address token0,) = sortTokens(tokenA, tokenB);
-        (uint reserve0, uint reserve1,) = IPair(pairFor(tokenA, tokenB, stable)).getReserves();
+    function getReserves(
+        address tokenA,
+        address tokenB,
+        bool stable
+    ) public view returns (uint reserveA, uint reserveB) {
+        (address token0, ) = sortTokens(tokenA, tokenB);
+        (uint reserve0, uint reserve1, ) = IPair(pairFor(tokenA, tokenB, stable)).getReserves();
         (reserveA, reserveB) = tokenA == token0 ? (reserve0, reserve1) : (reserve1, reserve0);
     }
 
     /// @dev performs chained getAmountOut calculations on any number of pairs
-    function getAmountOut(uint amountIn, address tokenIn, address tokenOut) external view returns (uint amount, bool stable) {
+    function getAmountOut(
+        uint amountIn,
+        address tokenIn,
+        address tokenOut
+    ) external view returns (uint amount, bool stable) {
         address pair = pairFor(tokenIn, tokenOut, true);
         uint amountStable;
         uint amountVolatile;
@@ -259,15 +265,14 @@ contract MockRouter is IRouter {
             (amountA, amountB) = (amountADesired, amountBDesired);
             liquidity = Math.sqrt(amountA * amountB) - MINIMUM_LIQUIDITY;
         } else {
-
             uint amountBOptimal = quoteLiquidity(amountADesired, reserveA, reserveB);
             if (amountBOptimal <= amountBDesired) {
                 (amountA, amountB) = (amountADesired, amountBOptimal);
-                liquidity = Math.min(amountA * _totalSupply / reserveA, amountB * _totalSupply / reserveB);
+                liquidity = Math.min((amountA * _totalSupply) / reserveA, (amountB * _totalSupply) / reserveB);
             } else {
                 uint amountAOptimal = quoteLiquidity(amountBDesired, reserveB, reserveA);
                 (amountA, amountB) = (amountAOptimal, amountBDesired);
-                liquidity = Math.min(amountA * _totalSupply / reserveA, amountB * _totalSupply / reserveB);
+                liquidity = Math.min((amountA * _totalSupply) / reserveA, (amountB * _totalSupply) / reserveB);
             }
         }
     }
@@ -288,9 +293,8 @@ contract MockRouter is IRouter {
         (uint reserveA, uint reserveB) = getReserves(tokenA, tokenB, stable);
         uint _totalSupply = IERC20(_pair).totalSupply();
 
-        amountA = liquidity * reserveA / _totalSupply; // using balances ensures pro-rata distribution
-        amountB = liquidity * reserveB / _totalSupply; // using balances ensures pro-rata distribution
-
+        amountA = (liquidity * reserveA) / _totalSupply; // using balances ensures pro-rata distribution
+        amountB = (liquidity * reserveB) / _totalSupply; // using balances ensures pro-rata distribution
     }
 
     function _addLiquidity(
@@ -337,7 +341,15 @@ contract MockRouter is IRouter {
         address to,
         uint deadline
     ) external ensure(deadline) returns (uint amountA, uint amountB, uint liquidity) {
-        (amountA, amountB) = _addLiquidity(tokenA, tokenB, stable, amountADesired, amountBDesired, amountAMin, amountBMin);
+        (amountA, amountB) = _addLiquidity(
+            tokenA,
+            tokenB,
+            stable,
+            amountADesired,
+            amountBDesired,
+            amountAMin,
+            amountBMin
+        );
         address pair = pairFor(tokenA, tokenB, stable);
         _safeTransferFrom(tokenA, msg.sender, pair, amountA);
         _safeTransferFrom(tokenB, msg.sender, pair, amountB);
@@ -385,7 +397,7 @@ contract MockRouter is IRouter {
         address pair = pairFor(tokenA, tokenB, stable);
         require(IPair(pair).transferFrom(msg.sender, pair, liquidity), "Router: transfer failed"); // send liquidity to pair
         (uint amount0, uint amount1) = IPair(pair).burn(to);
-        (address token0,) = sortTokens(tokenA, tokenB);
+        (address token0, ) = sortTokens(tokenA, tokenB);
         (amountA, amountB) = tokenA == token0 ? (amount0, amount1) : (amount1, amount0);
         require(amountA >= amountAMin, "Router: INSUFFICIENT_A_AMOUNT");
         require(amountB >= amountBMin, "Router: INSUFFICIENT_B_AMOUNT");
@@ -424,7 +436,10 @@ contract MockRouter is IRouter {
         uint amountBMin,
         address to,
         uint deadline,
-        bool approveMax, uint8 v, bytes32 r, bytes32 s
+        bool approveMax,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
     ) external returns (uint amountA, uint amountB) {
         address pair = pairFor(tokenA, tokenB, stable);
         {
@@ -443,24 +458,40 @@ contract MockRouter is IRouter {
         uint amountETHMin,
         address to,
         uint deadline,
-        bool approveMax, uint8 v, bytes32 r, bytes32 s
+        bool approveMax,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
     ) external returns (uint amountToken, uint amountETH) {
         address pair = pairFor(token, address(weth), stable);
         uint value = approveMax ? type(uint).max : liquidity;
         IPair(pair).permit(msg.sender, address(this), value, deadline, v, r, s);
-        (amountToken, amountETH) = removeLiquidityETH(token, stable, liquidity, amountTokenMin, amountETHMin, to, deadline);
+        (amountToken, amountETH) = removeLiquidityETH(
+            token,
+            stable,
+            liquidity,
+            amountTokenMin,
+            amountETHMin,
+            to,
+            deadline
+        );
     }
 
     // **** SWAP ****
     /// @dev requires the initial amount to have already been sent to the first pair
     function _swap(uint[] memory amounts, Route[] memory routes, address _to) internal virtual {
         for (uint i = 0; i < routes.length; i++) {
-            (address token0,) = sortTokens(routes[i].from, routes[i].to);
+            (address token0, ) = sortTokens(routes[i].from, routes[i].to);
             uint amountOut = amounts[i + 1];
             (uint amount0Out, uint amount1Out) = routes[i].from == token0 ? (uint(0), amountOut) : (amountOut, uint(0));
-            address to = i < routes.length - 1 ? pairFor(routes[i + 1].from, routes[i + 1].to, routes[i + 1].stable) : _to;
+            address to = i < routes.length - 1
+                ? pairFor(routes[i + 1].from, routes[i + 1].to, routes[i + 1].stable)
+                : _to;
             IPair(pairFor(routes[i].from, routes[i].to, routes[i].stable)).swap(
-                amount0Out, amount1Out, to, new bytes(0)
+                amount0Out,
+                amount1Out,
+                to,
+                new bytes(0)
             );
         }
     }
@@ -481,7 +512,10 @@ contract MockRouter is IRouter {
         amounts = getAmountsOut(amountIn, routes);
         require(amounts[amounts.length - 1] >= amountOutMin, "Router: INSUFFICIENT_OUTPUT_AMOUNT");
         _safeTransferFrom(
-            routes[0].from, msg.sender, pairFor(routes[0].from, routes[0].to, routes[0].stable), amounts[0]
+            routes[0].from,
+            msg.sender,
+            pairFor(routes[0].from, routes[0].to, routes[0].stable),
+            amounts[0]
         );
         _swap(amounts, routes, to);
     }
@@ -496,17 +530,20 @@ contract MockRouter is IRouter {
         amounts = getAmountsOut(amountIn, routes);
         require(amounts[amounts.length - 1] >= amountOutMin, "Router: INSUFFICIENT_OUTPUT_AMOUNT");
         _safeTransferFrom(
-            routes[0].from, msg.sender, pairFor(routes[0].from, routes[0].to, routes[0].stable), amounts[0]
+            routes[0].from,
+            msg.sender,
+            pairFor(routes[0].from, routes[0].to, routes[0].stable),
+            amounts[0]
         );
         _swap(amounts, routes, to);
     }
 
-    function swapExactETHForTokens(uint amountOutMin, Route[] calldata routes, address to, uint deadline)
-    external
-    payable
-    ensure(deadline)
-    returns (uint[] memory amounts)
-    {
+    function swapExactETHForTokens(
+        uint amountOutMin,
+        Route[] calldata routes,
+        address to,
+        uint deadline
+    ) external payable ensure(deadline) returns (uint[] memory amounts) {
         require(routes[0].from == address(weth), "Router: INVALID_PATH");
         amounts = getAmountsOut(msg.value, routes);
         require(amounts[amounts.length - 1] >= amountOutMin, "Router: INSUFFICIENT_OUTPUT_AMOUNT");
@@ -515,16 +552,21 @@ contract MockRouter is IRouter {
         _swap(amounts, routes, to);
     }
 
-    function swapExactTokensForETH(uint amountIn, uint amountOutMin, Route[] calldata routes, address to, uint deadline)
-    external
-    ensure(deadline)
-    returns (uint[] memory amounts)
-    {
+    function swapExactTokensForETH(
+        uint amountIn,
+        uint amountOutMin,
+        Route[] calldata routes,
+        address to,
+        uint deadline
+    ) external ensure(deadline) returns (uint[] memory amounts) {
         require(routes[routes.length - 1].to == address(weth), "Router: INVALID_PATH");
         amounts = getAmountsOut(amountIn, routes);
         require(amounts[amounts.length - 1] >= amountOutMin, "Router: INSUFFICIENT_OUTPUT_AMOUNT");
         _safeTransferFrom(
-            routes[0].from, msg.sender, pairFor(routes[0].from, routes[0].to, routes[0].stable), amounts[0]
+            routes[0].from,
+            msg.sender,
+            pairFor(routes[0].from, routes[0].to, routes[0].stable),
+            amounts[0]
         );
         _swap(amounts, routes, address(this));
         weth.withdraw(amounts[amounts.length - 1]);
@@ -537,13 +579,18 @@ contract MockRouter is IRouter {
         address to,
         uint deadline
     ) external ensure(deadline) returns (uint[] memory) {
-        _safeTransferFrom(routes[0].from, msg.sender, pairFor(routes[0].from, routes[0].to, routes[0].stable), amounts[0]);
+        _safeTransferFrom(
+            routes[0].from,
+            msg.sender,
+            pairFor(routes[0].from, routes[0].to, routes[0].stable),
+            amounts[0]
+        );
         _swap(amounts, routes, to);
         return amounts;
     }
 
     function _safeTransferETH(address to, uint value) internal {
-        (bool success,) = to.call{value: value}(new bytes(0));
+        (bool success, ) = to.call{value: value}(new bytes(0));
         require(success, "TransferHelper: ETH_TRANSFER_FAILED");
     }
 
@@ -555,7 +602,9 @@ contract MockRouter is IRouter {
 
     function _safeTransferFrom(address token, address from, address to, uint256 value) internal {
         require(token.code.length > 0, "Router: invalid token");
-        (bool success, bytes memory data) = token.call(abi.encodeWithSelector(IERC20.transferFrom.selector, from, to, value));
+        (bool success, bytes memory data) = token.call(
+            abi.encodeWithSelector(IERC20.transferFrom.selector, from, to, value)
+        );
         require(success && (data.length == 0 || abi.decode(data, (bool))), "Router: token transfer failed");
     }
 }

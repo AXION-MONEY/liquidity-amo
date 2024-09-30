@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
+import {IMasterAMO} from "../IMasterAMO.sol";
+
 interface ISolidlyV3AMO {
     /* ========== VARIABLES ========== */
     /// @notice Returns the USD usage ratio to check excessive liquidity removal (in 6 decimals)
