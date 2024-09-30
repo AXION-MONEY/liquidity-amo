@@ -51,7 +51,7 @@ describe("SolidlyV2LiqAMO", function() {
   let pauserRole: any;
   let unpauserRole: any;
 
-  const V2_VOTER = "0x4bebEB8188aEF8287f9a7d1E4f01d76cBE060d5b";// Equalizer voter addresses
+  const V2_VOTER = "0xE3D1A117dF7DCaC2eB0AC8219341bAd92f18dAC1";// Equalizer voter addresses
   const V2_FACTORY = "0xc6366EFD0AF1d09171fe0EBF32c7943BB310832a";
   const boostDesired = ethers.parseUnits("11000000", 18); // 10M
   const collateralDesired = ethers.parseUnits("11000000", 6); // 10M
@@ -254,6 +254,32 @@ describe("SolidlyV2LiqAMO", function() {
       )
     ).to.emit(solidlyV2AMO, "MintSell");
     expect(await solidlyV2AMO.boostPrice()).to.be.approximately(ethers.parseUnits("1", 6), 10);
+  });
+
+
+  it("should only allow AMO_ROLE to call addLiquidity", async function() {
+    const usdAmountToAdd = ethers.parseUnits("1000", 6);
+    const boostMinAmount = ethers.parseUnits("900", 18);
+    const usdMinAmount = ethers.parseUnits("900", 6);
+    await testUSD.connect(admin).mint(await solidlyV2AMO.getAddress(), usdAmountToAdd);
+
+    await expect(
+      solidlyV2AMO.connect(user).addLiquidity(
+        usdAmountToAdd,
+        boostMinAmount,
+        usdMinAmount,
+        Math.floor(Date.now() / 1000) + 60 * 10
+      )
+    ).to.be.revertedWith(`AccessControl: account ${user.address.toLowerCase()} is missing role ${amoRole}`);
+
+    await expect(
+      solidlyV2AMO.connect(amo).addLiquidity(
+        usdAmountToAdd,
+        boostMinAmount,
+        usdMinAmount,
+        Math.floor(Date.now() / 1000) + 60 * 10
+      )
+    ).to.emit(solidlyV2AMO, "AddLiquidityAndDeposit");
   });
 
 
