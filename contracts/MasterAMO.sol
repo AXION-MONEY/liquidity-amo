@@ -137,7 +137,8 @@ abstract contract MasterAMO is
     function _mintAndSellBoost(
         uint256 boostAmount,
         uint256 minUsdAmountOut, //  boost is only sold over peg ( checked performed whatever minUsdAmountOut is inputted to this function —— this variable can sometimes be omited )
-        // the price check is always performed in the implementation contracts XXX TBD could be in the master too
+        // the price check is always performed in the implementation contracts
+        // ( this gives more flexibility to the function actually used)
         uint256 deadline
     ) internal virtual returns (uint256 boostAmountIn, uint256 usdAmountOut);
 
@@ -159,16 +160,16 @@ abstract contract MasterAMO is
 
     function _addLiquidity(
         uint256 usdAmount,
-        uint256 minBoostSpend, // xxx
-        uint256 minUsdSpend, // xxx
+        uint256 minBoostSpend, 
+        uint256 minUsdSpend,
         uint256 deadline
     ) internal virtual returns (uint256 boostSpent, uint256 usdSpent, uint256 liquidity);
 
     /// @inheritdoc IMasterAMO
     function addLiquidity(
         uint256 usdAmount,
-        uint256 minBoostSpend, // xxx
-        uint256 minUsdSpend, // xxx
+        uint256 minBoostSpend,
+        uint256 minUsdSpend,
         uint256 deadline
     )
         external
