@@ -283,4 +283,78 @@ describe("SolidlyV2LiqAMO", function() {
   });
 
 
+  it("should only allow PAUSER_ROLE to pause and UNPAUSER_ROLE to unpause", async function() {
+    await expect(solidlyV2AMO.connect(pauser).pause()).to.emit(solidlyV2AMO, "Paused").withArgs(pauser.address);
+
+    await expect(
+      solidlyV2AMO.connect(amo).mintAndSellBoost(
+        ethers.parseUnits("1000", 18),
+        ethers.parseUnits("950", 6),
+        Math.floor(Date.now() / 1000) + 60 * 10
+      )
+    ).to.be.revertedWith("Pausable: paused");
+
+    await expect(solidlyV2AMO.connect(unpauser).unpause()).to.emit(solidlyV2AMO, "Unpaused").withArgs(unpauser.address);
+  });
+
+  it("should allow WITHDRAWER_ROLE to withdraw ERC20 tokens", async function() {
+    // Transfer some tokens to the contract
+    await testUSD.connect(user).mint(await solidlyV2AMO.getAddress(), ethers.parseUnits("1000", 6));
+
+    // Try withdrawing tokens without WITHDRAWER_ROLE
+    await expect(
+      solidlyV2AMO.connect(user).withdrawERC20(await testUSD.getAddress(), ethers.parseUnits("1000", 6), user.address)
+    ).to.be.revertedWith(`AccessControl: account ${user.address.toLowerCase()} is missing role ${withdrawerRole}`);
+
+    // Withdraw tokens with WITHDRAWER_ROLE
+    await solidlyV2AMO.connect(withdrawer).withdrawERC20(await testUSD.getAddress(), ethers.parseUnits("1000", 6), user.address);
+    const usdBalanceOfUser = await testUSD.balanceOf(await user.getAddress());
+    expect(usdBalanceOfUser).to.be.equal(ethers.parseUnits("1000", 6));
+  });
+
+  it("should execute public mintSellFarm when price above 1", async function() {
+    const usdToBuy = ethers.parseUnits("1000000", 6);
+    const minBoostReceive = ethers.parseUnits("990000", 18);
+    const routeBuyBoost = [{
+      from: await testUSD.getAddress(), // TestUSD address
+      to: await boost.getAddress(), // BABE token address
+      stable: true
+    }];
+    console.log(await solidlyV2AMO.boostPrice());
+    // Deadline for the transaction (current time + 60 seconds)
+    await testUSD.connect(admin).mint(user.address, usdToBuy);
+    await testUSD.connect(user).approve(await Router.getAddress(), usdToBuy);
+    await Router.connect(user).swapExactTokensForTokens(
+      usdToBuy,
+      minBoostReceive,
+      routeBuyBoost,
+      user.address,
+      Math.floor(Date.now() / 1000) + 60 * 10
+    );
+    console.log(await solidlyV2AMO.boostPrice());
+
+    expect(await solidlyV2AMO.boostPrice()).to.be.gt(ethers.parseUnits("1", 6));
+    // await expect(solidlyV2AMO.connect(user).mintSellFarm()).to.be.emit(solidlyV3AMO, "PublicMintSellFarmExecuted");
+    // expect(await solidlyV2AMO.boostPrice()).to.be.approximately(ethers.parseUnits("1", 6), 10);
+  });
+
+  it("should correctly return boostPrice", async function() {
+    expect(await solidlyV2AMO.boostPrice()).to.be.approximately(ethers.parseUnits("1", 6), 10);
+  });
+
+  it("should revert when invalid parameters are set", async function() {
+    await expect(
+      solidlyV2AMO.connect(setter).setParams(
+        ethers.toBigInt("1100000"),
+        2000000,
+        990000,
+        ethers.parseUnits("0.95", 6),
+        ethers.parseUnits("1.05", 6),
+        990000,
+        10000
+      )
+    ).to.be.revertedWithCustomError(solidlyV2AMO, "InvalidRatioValue");
+  });
+
+
 });
