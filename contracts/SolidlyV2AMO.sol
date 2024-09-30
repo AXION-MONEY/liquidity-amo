@@ -78,8 +78,7 @@ contract SolidlyV2AMO is ISolidlyV2AMO, MasterAMO {
         uint256 usdBuyRatio_
     ) public initializer {
         if (router_ == address(0) || gauge_ == address(0)) revert ZeroAddress();
-
-        address pool_ = ISolidlyRouter(router_).pairFor(usd, boost, true);
+        address pool_ = ISolidlyRouter(router_).pairFor(usd_, boost_, true);
         super.initialize(admin, boost_, usd_, pool_, boostMinter_);
 
         router = router_;
@@ -255,9 +254,9 @@ contract SolidlyV2AMO is ISolidlyV2AMO, MasterAMO {
         uint256 minBoostAmountOut,
         uint256 deadline
     )
-        internal
-        override
-        returns (uint256 boostRemoved, uint256 usdRemoved, uint256 usdAmountIn, uint256 boostAmountOut)
+    internal
+    override
+    returns (uint256 boostRemoved, uint256 usdRemoved, uint256 usdAmountIn, uint256 boostAmountOut)
     {
         // Withdraw the specified amount of liquidity tokens from the gauge
         IGauge(gauge).withdraw(liquidity);
@@ -340,7 +339,7 @@ contract SolidlyV2AMO is ISolidlyV2AMO, MasterAMO {
     ////////////////////////// PUBLIC FUNCTIONS //////////////////////////
     /// @inheritdoc IMasterAMO
     function mintSellFarm() external override returns (uint256 liquidity, uint256 newBoostPrice) {
-        (uint256 reserve0, uint256 reserve1, ) = IPair(pool).getReserves();
+        (uint256 reserve0, uint256 reserve1,) = IPair(pool).getReserves();
         uint256 boostReserve;
         uint256 usdReserve;
         if (boost < usd) {
@@ -355,7 +354,7 @@ contract SolidlyV2AMO is ISolidlyV2AMO, MasterAMO {
 
         uint256 boostAmountIn = (((usdReserve - boostReserve) / 2) * boostSellRatio) / FACTOR;
 
-        (, , , , liquidity) = _mintSellFarm(
+        (,,,, liquidity) = _mintSellFarm(
             boostAmountIn,
             toUsdAmount(boostAmountIn), // minUsdAmountOut
             1, // minBoostSpend
@@ -373,7 +372,7 @@ contract SolidlyV2AMO is ISolidlyV2AMO, MasterAMO {
 
     /// @inheritdoc IMasterAMO
     function unfarmBuyBurn() external override returns (uint256 liquidity, uint256 newBoostPrice) {
-        (uint256 reserve0, uint256 reserve1, ) = IPair(pool).getReserves();
+        (uint256 reserve0, uint256 reserve1,) = IPair(pool).getReserves();
         uint256 boostReserve;
         uint256 usdReserve;
         if (boost < usd) {
