@@ -1,6 +1,6 @@
 import { ethers, upgrades } from "hardhat";
 import { expect } from "chai";
-import { Minter, BOOSTStablecoin, MockERC20, TestMinterCaller } from "../typechain-types"; // Adjust the import paths according to your setup
+import { Minter, BOOSTStablecoin, MockERC20, MockMinterCaller } from "../typechain-types"; // Adjust the import paths according to your setup
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 describe("Minter Contract Tests", function() {
@@ -9,9 +9,9 @@ describe("Minter Contract Tests", function() {
   let minterContract: Minter;
   let collateralToken: MockERC20;
   let boostToken: BOOSTStablecoin;
-  let minterCallerWithMinterRole: TestMinterCaller;
-  let minterCallerWithAmoRole: TestMinterCaller;
-  let minterCaller: TestMinterCaller;
+  let minterCallerWithMinterRole: MockMinterCaller;
+  let minterCallerWithAmoRole: MockMinterCaller;
+  let minterCaller: MockMinterCaller;
 
   let owner: SignerWithAddress;
   let admin: SignerWithAddress;
@@ -53,7 +53,7 @@ describe("Minter Contract Tests", function() {
     await minterContract.waitForDeployment();
 
     // Deploy the ExternalCaller contract
-    const TestMinterCaller = await ethers.getContractFactory("TestMinterCaller");
+    const TestMinterCaller = await ethers.getContractFactory("MockMinterCaller");
     minterCaller = await TestMinterCaller.deploy(await minterContract.getAddress(), await boostToken.getAddress(), await collateralToken.getAddress());
     await minterCaller.waitForDeployment();
     minterCallerWithMinterRole = await TestMinterCaller.deploy(await minterContract.getAddress(), await boostToken.getAddress(), await collateralToken.getAddress());

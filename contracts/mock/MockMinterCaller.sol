@@ -5,7 +5,7 @@ import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import "../interfaces/IMinter.sol";
 
-contract TestMinterCaller {
+contract MockMinterCaller {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
     address public boostAddress;
