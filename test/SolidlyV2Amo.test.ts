@@ -12,19 +12,19 @@ import {
   IFactory
 } from "../typechain-types";
 
-before(async () => {
-  await network.provider.request({
-    method: "hardhat_reset",
-    params: [
-      {
-        forking: {
-          jsonRpcUrl: "https://rpc.ftm.tools",
-          blockNumber: 92000000 // Optional: specify a block number
-        }
-      }
-    ]
-  });
-});
+// before(async () => {
+//   await network.provider.request({
+//     method: "hardhat_reset",
+//     params: [
+//       {
+//         forking: {
+//           jsonRpcUrl: "https://rpc.ftm.tools",
+//           blockNumber: 92000000 // Optional: specify a block number
+//         }
+//       }
+//     ]
+//   });
+// });
 
 describe("SolidlyV2LiqAMO", function() {
   let solidlyV2AMO: SolidlyV2AMO;
@@ -145,26 +145,24 @@ describe("SolidlyV2LiqAMO", function() {
     await solidlyV2AMO.waitForDeployment();
     //
     // // Provide liquidity
-    // await boost.approve(pool_address, boostDesired);
-    // await testUSD.approve(pool_address, collateralDesired);
-    //
-    // let amount0Min, amount1Min;
-    // if ((await boost.getAddress()).toLowerCase() < (await testUSD.getAddress()).toLowerCase()) {
-    //   amount0Min = boostMin4Liqudity;
-    //   amount1Min = collateralMin4Liqudity;
-    // } else {
-    //   amount1Min = boostMin4Liqudity;
-    //   amount0Min = collateralMin4Liqudity;
-    // }
-    // await pool.mint(
-    //   await solidlyV3AMO.getAddress(),
-    //   tickLower,
-    //   tickUpper,
-    //   liquidity,
-    //   amount0Min,
-    //   amount1Min,
-    //   Math.floor(Date.now() / 1000) + 60 * 10
-    // );
+    v2Router = await ethers.getContractAt("ISolidlyRouter", V2_ROUTER);
+    await boost.approve(V2_ROUTER, boostDesired);
+    await testUSD.approve(V2_ROUTER, collateralDesired);
+
+    await v2Router.connect(admin).addLiquidity(
+      await testUSD.getAddress(),
+      await boost.getAddress(),
+      true,
+      collateralDesired,
+      boostDesired,
+      collateralMin4Liqudity,
+      boostMin4Liqudity,
+      admin.address,
+      Math.floor(Date.now() / 1000) + 60 * 10
+    );
+
+
+
     //
     // // Grant Roles
     // setterRole = await solidlyV3AMO.SETTER_ROLE();
