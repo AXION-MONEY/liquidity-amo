@@ -5,8 +5,8 @@ pragma solidity 0.8.19;
 
 interface IRouter {
     function pairFor(
-        address tokenA, 
-        address tokenB, 
+        address tokenA,
+        address tokenB,
         bool stable
     ) external view returns (address pair);
 }
@@ -18,7 +18,9 @@ pragma solidity 0.8.19;
 
 interface IWETH {
     function deposit() external payable returns (uint);
+
     function transfer(address to, uint value) external returns (bool);
+
     function withdraw(uint) external returns (uint);
 }
 
@@ -29,12 +31,19 @@ pragma solidity 0.8.19;
 
 interface IPairFactory {
     function isPaused() external view returns (bool);
+
     function allPairsLength() external view returns (uint);
+
     function isPair(address pair) external view returns (bool);
-    function getFee(bool _stable) external view returns(uint256);
+
+    function getFee(bool _stable) external view returns (uint256);
+
     function pairCodeHash() external pure returns (bytes32);
+
     function getPair(address tokenA, address token, bool stable) external view returns (address);
+
     function getInitializable() external view returns (address, address, bool);
+
     function createPair(address tokenA, address tokenB, bool stable) external returns (address pair);
 }
 
@@ -45,14 +54,23 @@ pragma solidity 0.8.19;
 
 interface IPair {
     function metadata() external view returns (uint dec0, uint dec1, uint r0, uint r1, bool st, address t0, address t1);
+
     function claimFees() external returns (uint, uint);
+
     function tokens() external returns (address, address);
+
     function transferFrom(address src, address dst, uint amount) external returns (bool);
+
     function permit(address owner, address spender, uint value, uint deadline, uint8 v, bytes32 r, bytes32 s) external;
+
     function swap(uint amount0Out, uint amount1Out, address to, bytes calldata data) external;
+
     function burn(address to) external returns (uint amount0, uint amount1);
+
     function mint(address to) external returns (uint liquidity);
+
     function getReserves() external view returns (uint _reserve0, uint _reserve1, uint _blockTimestampLast);
+
     function getAmountOut(uint, address) external view returns (uint);
 }
 
@@ -61,14 +79,23 @@ interface IPair {
 
 pragma solidity 0.8.19;
 
+import "hardhat/console.sol";
+
 interface IERC20 {
     function totalSupply() external view returns (uint256);
+
     function transfer(address recipient, uint amount) external returns (bool);
+
     function decimals() external view returns (uint8);
+
     function symbol() external view returns (string memory);
+
     function balanceOf(address) external view returns (uint);
+
     function transferFrom(address sender, address recipient, uint amount) external returns (bool);
+
     function allowance(address owner, address spender) external view returns (uint);
+
     function approve(address spender, uint value) external returns (bool);
 
     event Transfer(address indexed from, address indexed to, uint value);
@@ -84,9 +111,11 @@ library Math {
     function max(uint a, uint b) internal pure returns (uint) {
         return a >= b ? a : b;
     }
+
     function min(uint a, uint b) internal pure returns (uint) {
         return a < b ? a : b;
     }
+
     function sqrt(uint y) internal pure returns (uint z) {
         if (y > 3) {
             z = y;
@@ -99,25 +128,25 @@ library Math {
             z = 1;
         }
     }
-    function cbrt(uint256 n) internal pure returns (uint256) { unchecked {
-        uint256 x = 0;
-        for (uint256 y = 1 << 255; y > 0; y >>= 3) {
-            x <<= 1;
-            uint256 z = 3 * x * (x + 1) + 1;
-            if (n / y >= z) {
-                n -= y * z;
-                x += 1;
+
+    function cbrt(uint256 n) internal pure returns (uint256) {unchecked {
+            uint256 x = 0;
+            for (uint256 y = 1 << 255; y > 0; y >>= 3) {
+                x <<= 1;
+                uint256 z = 3 * x * (x + 1) + 1;
+                if (n / y >= z) {
+                    n -= y * z;
+                    x += 1;
+                }
             }
-        }
-        return x;
-    }}
+            return x;
+        }}
 }
 
 // File: contracts/MockRouter.sol
 
 
 pragma solidity 0.8.19;
-
 
 
 contract MockRouter is IRouter {
@@ -127,7 +156,7 @@ contract MockRouter is IRouter {
         bool stable;
     }
 
-    uint internal constant MINIMUM_LIQUIDITY = 10**3;
+    uint internal constant MINIMUM_LIQUIDITY = 10 ** 3;
     address public immutable factory;
     IWETH public immutable weth;
     bytes32 public immutable pairCodeHash;
@@ -197,12 +226,12 @@ contract MockRouter is IRouter {
     /// @dev performs chained getAmountOut calculations on any number of pairs
     function getAmountsOut(uint amountIn, Route[] memory routes) public view returns (uint[] memory amounts) {
         require(routes.length >= 1, "Router: INVALID_PATH");
-        amounts = new uint[](routes.length+1);
+        amounts = new uint[](routes.length + 1);
         amounts[0] = amountIn;
         for (uint i = 0; i < routes.length; i++) {
             address pair = pairFor(routes[i].from, routes[i].to, routes[i].stable);
             if (IPairFactory(factory).isPair(pair)) {
-                amounts[i+1] = IPair(pair).getAmountOut(amounts[i], routes[i].from);
+                amounts[i + 1] = IPair(pair).getAmountOut(amounts[i], routes[i].from);
             }
         }
     }
@@ -220,7 +249,7 @@ contract MockRouter is IRouter {
     ) external view returns (uint amountA, uint amountB, uint liquidity) {
         // create the pair if it doesn't exist yet
         address _pair = IPairFactory(factory).getPair(tokenA, tokenB, stable);
-        (uint reserveA, uint reserveB) = (0,0);
+        (uint reserveA, uint reserveB) = (0, 0);
         uint _totalSupply = 0;
         if (_pair != address(0)) {
             _totalSupply = IERC20(_pair).totalSupply();
@@ -253,7 +282,7 @@ contract MockRouter is IRouter {
         address _pair = IPairFactory(factory).getPair(tokenA, tokenB, stable);
 
         if (_pair == address(0)) {
-            return (0,0);
+            return (0, 0);
         }
 
         (uint reserveA, uint reserveB) = getReserves(tokenA, tokenB, stable);
@@ -429,7 +458,7 @@ contract MockRouter is IRouter {
             (address token0,) = sortTokens(routes[i].from, routes[i].to);
             uint amountOut = amounts[i + 1];
             (uint amount0Out, uint amount1Out) = routes[i].from == token0 ? (uint(0), amountOut) : (amountOut, uint(0));
-            address to = i < routes.length - 1 ? pairFor(routes[i+1].from, routes[i+1].to, routes[i+1].stable) : _to;
+            address to = i < routes.length - 1 ? pairFor(routes[i + 1].from, routes[i + 1].to, routes[i + 1].stable) : _to;
             IPair(pairFor(routes[i].from, routes[i].to, routes[i].stable)).swap(
                 amount0Out, amount1Out, to, new bytes(0)
             );
@@ -514,7 +543,7 @@ contract MockRouter is IRouter {
     }
 
     function _safeTransferETH(address to, uint value) internal {
-        (bool success,) = to.call{value:value}(new bytes(0));
+        (bool success,) = to.call{value: value}(new bytes(0));
         require(success, "TransferHelper: ETH_TRANSFER_FAILED");
     }
 

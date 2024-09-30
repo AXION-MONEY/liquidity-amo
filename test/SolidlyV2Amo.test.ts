@@ -1,12 +1,11 @@
 import { expect } from "chai";
-import hre, { ethers, network, upgrades } from "hardhat";
+import { ethers, network, upgrades } from "hardhat";
 // @ts-ignore
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import {
   Minter,
   BoostStablecoin,
   MockERC20,
-  ISolidlyRouter,
   SolidlyV2AMO,
   IV2Voter,
   IFactory,
@@ -32,7 +31,6 @@ describe("SolidlyV2LiqAMO", function() {
   let boost: BoostStablecoin;
   let testUSD: MockERC20;
   let minter: Minter;
-  let v2Router: ISolidlyRouter;
   let v2Voter: IV2Voter;
   let factory: IFactory;
   let admin: SignerWithAddress;
@@ -44,6 +42,7 @@ describe("SolidlyV2LiqAMO", function() {
   let unpauser: SignerWithAddress;
   let boostMinter: SignerWithAddress;
   let user: SignerWithAddress;
+  let Router: MockRouter;
 
 
   let setterRole: any;
@@ -52,21 +51,12 @@ describe("SolidlyV2LiqAMO", function() {
   let pauserRole: any;
   let unpauserRole: any;
 
-  const V2_ROUTER = "0x1A05EB736873485655F29a37DEf8a0AA87F5a447"; // Equalizer router addresses
   const V2_VOTER = "0x4bebEB8188aEF8287f9a7d1E4f01d76cBE060d5b";// Equalizer voter addresses
   const V2_FACTORY = "0xc6366EFD0AF1d09171fe0EBF32c7943BB310832a";
-  const MIN_SQRT_RATIO = BigInt("4295128739"); // Minimum sqrt price ratio
-  const MAX_SQRT_RATIO = BigInt("1461446703485210103287273052203988822378723970342"); // Maximum sqrt price ratio
-  let sqrtPriceX96: bigint;
-  const liquidity = ethers.parseUnits("10000000", 12); // ~10M
   const boostDesired = ethers.parseUnits("11000000", 18); // 10M
   const collateralDesired = ethers.parseUnits("11000000", 6); // 10M
   const boostMin4Liqudity = ethers.parseUnits("9990000", 18);
   const collateralMin4Liqudity = ethers.parseUnits("9990000", 6);
-  const tickLower = -887200;
-  const tickUpper = 887200;
-  const poolFee = 100;
-  const price = "1";
 
   beforeEach(async function() {
     [admin, treasuryVault, setter, amo, withdrawer, pauser, unpauser, boostMinter, user] = await ethers.getSigners();
@@ -123,11 +113,11 @@ describe("SolidlyV2LiqAMO", function() {
 
     //  deploy router
     const RouterFactory = await ethers.getContractFactory("MockRouter", admin);
-    const router = await RouterFactory.deploy(
+    Router = await RouterFactory.deploy(
       V2_FACTORY,
       "0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83"
     );
-    await router.waitForDeployment();
+    await Router.waitForDeployment();
 
     // Deploy SolidlyV3AMO using upgrades.deployProxy
     const SolidlyV2LiquidityAMOFactory = await ethers.getContractFactory("SolidlyV2AMO");
@@ -136,7 +126,7 @@ describe("SolidlyV2LiqAMO", function() {
       await boost.getAddress(),
       await testUSD.getAddress(),
       await minter.getAddress(),
-      await router.getAddress(),
+      await Router.getAddress(),
       gauge,
       treasuryVault.address, //rewardVault_
       0, //tokenId_
@@ -155,10 +145,10 @@ describe("SolidlyV2LiqAMO", function() {
     await solidlyV2AMO.waitForDeployment();
 
     // provide liquidity
-    await boost.approve(await router.getAddress(), boostDesired);
-    await testUSD.approve(await router.getAddress(), collateralDesired);
+    await boost.approve(await Router.getAddress(), boostDesired);
+    await testUSD.approve(await Router.getAddress(), collateralDesired);
 
-    await router.connect(admin).addLiquidity(
+    await Router.connect(admin).addLiquidity(
       await testUSD.getAddress(),
       await boost.getAddress(),
       true,
@@ -171,28 +161,99 @@ describe("SolidlyV2LiqAMO", function() {
     );
 
 
-
     //
     // // Grant Roles
-    // setterRole = await solidlyV3AMO.SETTER_ROLE();
-    // amoRole = await solidlyV3AMO.AMO_ROLE();
-    // withdrawerRole = await solidlyV3AMO.WITHDRAWER_ROLE();
-    // pauserRole = await solidlyV3AMO.PAUSER_ROLE();
-    // unpauserRole = await solidlyV3AMO.UNPAUSER_ROLE();
-    //
-    // await solidlyV3AMO.grantRole(setterRole, setter.address);
-    // await solidlyV3AMO.grantRole(amoRole, amo.address);
-    // await solidlyV3AMO.grantRole(withdrawerRole, withdrawer.address);
-    // await solidlyV3AMO.grantRole(pauserRole, pauser.address);
-    // await solidlyV3AMO.grantRole(unpauserRole, unpauser.address);
-    // await minter.grantRole(await minter.AMO_ROLE(), await solidlyV3AMO.getAddress());
+    setterRole = await solidlyV2AMO.SETTER_ROLE();
+    amoRole = await solidlyV2AMO.AMO_ROLE();
+    withdrawerRole = await solidlyV2AMO.WITHDRAWER_ROLE();
+    pauserRole = await solidlyV2AMO.PAUSER_ROLE();
+    unpauserRole = await solidlyV2AMO.UNPAUSER_ROLE();
+
+    await solidlyV2AMO.grantRole(setterRole, setter.address);
+    await solidlyV2AMO.grantRole(amoRole, amo.address);
+    await solidlyV2AMO.grantRole(withdrawerRole, withdrawer.address);
+    await solidlyV2AMO.grantRole(pauserRole, pauser.address);
+    await solidlyV2AMO.grantRole(unpauserRole, unpauser.address);
+    await minter.grantRole(await minter.AMO_ROLE(), await solidlyV2AMO.getAddress());
   });
 
   it("should initialize with correct parameters", async function() {
-    // expect(await solidlyV3AMO.boost()).to.equal(await boost.getAddress());
-    // expect(await solidlyV3AMO.usd()).to.equal(await testUSD.getAddress());
-    // expect(await solidlyV3AMO.pool()).to.equal(await pool.getAddress());
-    // expect(await solidlyV3AMO.boostMinter()).to.equal(await minter.getAddress());
+    expect(await solidlyV2AMO.boost()).to.equal(await boost.getAddress());
+    expect(await solidlyV2AMO.usd()).to.equal(await testUSD.getAddress());
+    expect(await solidlyV2AMO.boostMinter()).to.equal(await minter.getAddress());
+  });
+
+
+  it("should only allow SETTER_ROLE to call setParams", async function() {
+    // Try calling setParams without SETTER_ROLE
+    await expect(
+      solidlyV2AMO.connect(user).setParams(
+        ethers.toBigInt("1100000"),
+        100000,
+        990000,
+        ethers.parseUnits("0.95", 6),
+        ethers.parseUnits("1.05", 6),
+        990000,
+        10000
+      )
+    ).to.be.revertedWith(`AccessControl: account ${user.address.toLowerCase()} is missing role ${setterRole}`);
+
+    // Call setParams with SETTER_ROLE
+    await expect(
+      solidlyV2AMO.connect(setter).setParams(
+        ethers.toBigInt("1100000"),
+        100000,
+        990000,
+        ethers.parseUnits("0.95", 6),
+        ethers.parseUnits("1.05", 6),
+        990000,
+        10000
+      )
+    ).to.emit(solidlyV2AMO, "ParamsSet");
+  });
+
+  it("should only allow AMO_ROLE to call mintAndSellBoost", async function() {
+    const boostAddress = (await boost.getAddress()).toLowerCase();
+    const testUSDAddress = (await testUSD.getAddress()).toLowerCase();
+    const usdToBuy = ethers.parseUnits("1000000", 6);
+    const minBoostReceive = ethers.parseUnits("990000", 18);
+    const routeBuyBoost = [{
+      from: await testUSD.getAddress(), // TestUSD address
+      to: await boost.getAddress(), // BABE token address
+      stable: true
+    }];
+
+    // Deadline for the transaction (current time + 60 seconds)
+    const deadline = Math.floor(Date.now() / 1000) + 60;
+    await testUSD.connect(admin).mint(user.address, usdToBuy);
+    await testUSD.connect(user).approve(await Router.getAddress(), usdToBuy);
+    await Router.connect(user).swapExactTokensForTokens(
+      usdToBuy,
+      minBoostReceive,
+      routeBuyBoost,
+      user.address,
+      Math.floor(Date.now() / 1000) + 60 * 10
+    );
+
+    const boostAmount = ethers.parseUnits("990000", 18);
+    const usdAmount = ethers.parseUnits("990000", 6);
+
+    await expect(
+      solidlyV2AMO.connect(user).mintAndSellBoost(
+        boostAmount,
+        usdAmount,
+        Math.floor(Date.now() / 1000) + 60 * 10
+      )
+    ).to.be.revertedWith(`AccessControl: account ${user.address.toLowerCase()} is missing role ${amoRole}`);
+
+    await expect(
+      solidlyV2AMO.connect(amo).mintAndSellBoost(
+        boostAmount,
+        usdAmount,
+        Math.floor(Date.now() / 1000) + 60 * 10
+      )
+    ).to.emit(solidlyV2AMO, "MintSell");
+    expect(await solidlyV2AMO.boostPrice()).to.be.approximately(ethers.parseUnits("1", 6), 10);
   });
 
 
