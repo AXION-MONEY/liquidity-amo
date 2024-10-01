@@ -138,8 +138,8 @@ describe("SolidlyV2AMO", function() {
       990000, // validRemovingRatio
       ethers.parseUnits("0.95", 6), // boostLowerPriceSell
       ethers.parseUnits("1.05", 6), // boostUpperPriceBuy
-      ethers.parseUnits("1", 6), //boostSellRatio
-      ethers.parseUnits("1", 6) // usdBuyRatio
+      ethers.parseUnits("0.8", 6), //boostSellRatio
+      ethers.parseUnits("0.8", 6) // usdBuyRatio
     ];
     solidlyV2AMO = await upgrades.deployProxy(SolidlyV2LiquidityAMOFactory, args, {
       initializer: "initialize(address,address,address,address,address,address,address,uint256,bool,uint256,uint24,uint24,uint256,uint256,uint256,uint256)"
