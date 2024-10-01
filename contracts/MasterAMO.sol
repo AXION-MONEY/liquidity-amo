@@ -263,17 +263,29 @@ abstract contract MasterAMO is
     }
 
     ////////////////////////// PUBLIC FUNCTIONS //////////////////////////
-    function _mintSellFarm() internal virtual returns(uint256 liquidity, uint256 newBoostPrice);
+    function _mintSellFarm() internal virtual returns (uint256 liquidity, uint256 newBoostPrice);
 
-    function mintSellFarm() external override whenNotPaused nonReentrant returns(uint256 liquidity, uint256 newBoostPrice){
+    function mintSellFarm()
+        external
+        override
+        whenNotPaused
+        nonReentrant
+        returns (uint256 liquidity, uint256 newBoostPrice)
+    {
         (liquidity, newBoostPrice) = _mintSellFarm();
         // Checks if the actual average price of boost when selling is greater than the boostLowerPriceSell
         if (newBoostPrice < boostLowerPriceSell) revert PriceNotInRange(newBoostPrice);
     }
 
-    function _unfarmBuyBurn() internal virtual returns(uint256 liquidity, uint256 newBoostPrice);
+    function _unfarmBuyBurn() internal virtual returns (uint256 liquidity, uint256 newBoostPrice);
 
-    function unfarmBuyBurn() external override whenNotPaused nonReentrant returns(uint256 liquidity, uint256 newBoostPrice){
+    function unfarmBuyBurn()
+        external
+        override
+        whenNotPaused
+        nonReentrant
+        returns (uint256 liquidity, uint256 newBoostPrice)
+    {
         (liquidity, newBoostPrice) = _unfarmBuyBurn();
         // Checks if the actual average price of boost when buying is less than the boostUpperPriceBuy
         if (newBoostPrice > boostUpperPriceBuy) revert PriceNotInRange(newBoostPrice);

@@ -199,8 +199,7 @@ contract SolidlyV2AMO is ISolidlyV2AMO, MasterAMO {
     ) internal override returns (uint256 boostSpent, uint256 usdSpent, uint256 liquidity) {
         // Check price
         uint256 price = boostPrice();
-        if (price <= FACTOR - validRangeRatio || price >= FACTOR + validRangeRatio)
-            revert InvalidRatioToAddLiquidity();
+        if (price <= FACTOR - validRangeRatio || price >= FACTOR + validRangeRatio) revert InvalidRatioToAddLiquidity();
 
         // Mint the specified amount of BOOST tokens
         uint256 boostAmount = (toBoostAmount(usdAmount) * boostMultiplier) / FACTOR;
