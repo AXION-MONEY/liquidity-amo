@@ -412,7 +412,7 @@ contract SolidlyV2AMO is ISolidlyV2AMO, MasterAMO {
     ////////////////////////// VIEW FUNCTIONS //////////////////////////
     /// @inheritdoc IMasterAMO
     function boostPrice() public view override returns (uint256 price) {
-        uint256 amountOut = IPair(pool).current(boost, 10 ** boostDecimals);
+        uint256 amountOut = IPair(pool).getAmountOut(10 ** boostDecimals, boost);
         price = amountOut / 10 ** (usdDecimals - PRICE_DECIMALS);
     }
 }
