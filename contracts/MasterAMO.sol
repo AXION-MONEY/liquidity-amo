@@ -160,7 +160,7 @@ abstract contract MasterAMO is
 
     function _addLiquidity(
         uint256 usdAmount,
-        uint256 minBoostSpend, 
+        uint256 minBoostSpend,
         uint256 minUsdSpend,
         uint256 deadline
     ) internal virtual returns (uint256 boostSpent, uint256 usdSpent, uint256 liquidity);
