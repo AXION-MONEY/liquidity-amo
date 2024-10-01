@@ -40,32 +40,41 @@ describe("SolidlyV3AMO", function() {
   let boostMinter: SignerWithAddress;
   let user: SignerWithAddress;
 
-  let setterRole: any;
-  let amoRole: any;
-  let withdrawerRole: any;
-  let pauserRole: any;
-  let unpauserRole: any;
+  let SETTER_ROLE: string;
+  let AMO_ROLE: string;
+  let WITHDRAWER_ROLE: string;
+  let PAUSER_ROLE: string;
+  let UNPAUSER_ROLE: string;
 
-  const V3_POOL_FACTORY_ADDRESS = "0x70Fe4a44EA505cFa3A57b95cF2862D4fd5F0f687";
+  const V3_POOL_FACTORY = "0x70Fe4a44EA505cFa3A57b95cF2862D4fd5F0f687";
   const MIN_SQRT_RATIO = BigInt("4295128739"); // Minimum sqrt price ratio
   const MAX_SQRT_RATIO = BigInt("1461446703485210103287273052203988822378723970342"); // Maximum sqrt price ratio
   let sqrtPriceX96: bigint;
   const liquidity = ethers.parseUnits("10000000", 12); // ~10M
   const boostDesired = ethers.parseUnits("11000000", 18); // 10M
-  const collateralDesired = ethers.parseUnits("11000000", 6); // 10M
-  const boostMin4Liqudity = ethers.parseUnits("9990000", 18);
-  const collateralMin4Liqudity = ethers.parseUnits("9990000", 6);
+  const usdDesired = ethers.parseUnits("11000000", 6); // 10M
+  const boostMin4Liquidity = ethers.parseUnits("9990000", 18);
+  const usdMin4Liquidity = ethers.parseUnits("9990000", 6);
   const tickLower = -887200;
   const tickUpper = 887200;
   const poolFee = 100;
   const price = "1";
-  const boostMultiplier = ethers.toBigInt("1100000");
-  const validRangeRatio = ethers.toBigInt("100000");
-  const validRemovingRatio = ethers.toBigInt("990000");
-  const usdUsageRatio = ethers.toBigInt("950000");
-  const boostLowerPriceSell = ethers.parseUnits("0.95", 6);
-  const boostUpperPriceBuy = ethers.parseUnits("1.05", 6);
-  const errorTolorance = 0.001; // 0.1%
+  const boostMultiplier = ethers.parseUnits("1.1", 6);
+  const validRangeRatio = ethers.parseUnits("0.01", 6);
+  const validRemovingRatio = ethers.parseUnits("0.99", 6);
+  const usdUsageRatio = ethers.parseUnits("0.95", 6);
+  const boostLowerPriceSell = ethers.parseUnits("0.99", 6);
+  const boostUpperPriceBuy = ethers.parseUnits("1.01", 6);
+  const errorTolerance = 0.001; // 0.1%
+
+  let boostAddress: string;
+  let usdAddress: string;
+  let minterAddress: string;
+  let poolAddress: string;
+  let amoAddress: string;
+  let usd2boost: boolean;
+  let boost2usd: boolean;
+  const deadline = Math.floor(Date.now() / 1000) + 60 * 100;
 
   beforeEach(async function() {
     this.timeout(100000);
@@ -73,45 +82,51 @@ describe("SolidlyV3AMO", function() {
 
     // Deploy the actual contracts using deployProxy
     const BoostFactory = await ethers.getContractFactory("BoostStablecoin");
-    boost = (await upgrades.deployProxy(BoostFactory, [admin.address])) as unknown as BoostStablecoin;
+    boost = (await upgrades.deployProxy(BoostFactory, [admin.address]));
     await boost.waitForDeployment();
+    boostAddress = await boost.getAddress();
 
     const MockErc20Factory = await ethers.getContractFactory("MockERC20");
     testUSD = await MockErc20Factory.deploy("USD", "USD", 6);
     await testUSD.waitForDeployment();
+    usdAddress = await testUSD.getAddress();
+
+    usd2boost = boostAddress.toLowerCase() > usdAddress.toLowerCase();
+    boost2usd = boostAddress.toLowerCase() < usdAddress.toLowerCase();
 
     const MinterFactory = await ethers.getContractFactory("Minter");
-    minter = (await upgrades.deployProxy(MinterFactory, [await boost.getAddress(), await testUSD.getAddress(), await admin.getAddress()])) as unknown as Minter;
+    minter = (await upgrades.deployProxy(MinterFactory, [boostAddress, usdAddress, admin.address]));
     await minter.waitForDeployment();
+    minterAddress = await minter.getAddress();
 
     // Mint Boost and TestUSD
-    await boost.grantRole(await boost.MINTER_ROLE(), await minter.getAddress());
+    await boost.grantRole(await boost.MINTER_ROLE(), minterAddress);
     await boost.grantRole(await boost.MINTER_ROLE(), boostMinter.address);
     await boost.connect(boostMinter).mint(admin.address, boostDesired);
-    await testUSD.connect(boostMinter).mint(admin.address, collateralDesired);
+    await testUSD.connect(boostMinter).mint(admin.address, usdDesired);
 
     // Create Pool
-    poolFactory = await ethers.getContractAt("ISolidlyV3Factory", V3_POOL_FACTORY_ADDRESS);
+    poolFactory = await ethers.getContractAt("ISolidlyV3Factory", V3_POOL_FACTORY);
     const tickSpacing = await poolFactory.feeAmountTickSpacing(poolFee);
-    await poolFactory.createPool(await boost.getAddress(), await testUSD.getAddress(), poolFee);
-    const pool_address = await poolFactory.getPool(await boost.getAddress(), await testUSD.getAddress(), tickSpacing);
+    await poolFactory.createPool(boostAddress, usdAddress, poolFee);
+    poolAddress = await poolFactory.getPool(boostAddress, usdAddress, tickSpacing);
 
-    if ((await boost.getAddress()).toLowerCase() < (await testUSD.getAddress()).toLowerCase()) {
+    if ((boostAddress).toLowerCase() < (usdAddress).toLowerCase()) {
       sqrtPriceX96 = BigInt(Math.floor(Math.sqrt(Number((BigInt(price) * BigInt(2 ** 192)) / BigInt(10 ** 12)))));
     } else {
       sqrtPriceX96 = BigInt(Math.floor(Math.sqrt(Number((BigInt(price) * BigInt(2 ** 192)) * BigInt(10 ** 12)))));
     }
-    pool = await ethers.getContractAt("ISolidlyV3Pool", pool_address);
+    pool = await ethers.getContractAt("ISolidlyV3Pool", poolAddress);
     await pool.initialize(sqrtPriceX96);
 
     // Deploy SolidlyV3AMO using upgrades.deployProxy
     const SolidlyV3AMOFactory = await ethers.getContractFactory("SolidlyV3AMO");
     const args = [
       admin.address,
-      await boost.getAddress(),
-      await testUSD.getAddress(),
-      pool_address,
-      await minter.getAddress(),
+      boostAddress,
+      usdAddress,
+      poolAddress,
+      minterAddress,
       tickLower,
       tickUpper,
       sqrtPriceX96,
@@ -124,52 +139,53 @@ describe("SolidlyV3AMO", function() {
     ];
     solidlyV3AMO = (await upgrades.deployProxy(SolidlyV3AMOFactory, args, {
       initializer: "initialize(address,address,address,address,address,int24,int24,uint160,uint256,uint24,uint24,uint24,uint256,uint256)"
-    })) as unknown as SolidlyV3AMO;
+    }));
     await solidlyV3AMO.waitForDeployment();
+    amoAddress = await solidlyV3AMO.getAddress();
 
     // Provide liquidity
-    await boost.approve(pool_address, boostDesired);
-    await testUSD.approve(pool_address, collateralDesired);
+    await boost.approve(poolAddress, boostDesired);
+    await testUSD.approve(poolAddress, usdDesired);
 
     let amount0Min, amount1Min;
-    if ((await boost.getAddress()).toLowerCase() < (await testUSD.getAddress()).toLowerCase()) {
-      amount0Min = boostMin4Liqudity;
-      amount1Min = collateralMin4Liqudity;
+    if ((boostAddress).toLowerCase() < (usdAddress).toLowerCase()) {
+      amount0Min = boostMin4Liquidity;
+      amount1Min = usdMin4Liquidity;
     } else {
-      amount1Min = boostMin4Liqudity;
-      amount0Min = collateralMin4Liqudity;
+      amount1Min = boostMin4Liquidity;
+      amount0Min = usdMin4Liquidity;
     }
     await pool.mint(
-      await solidlyV3AMO.getAddress(),
+      amoAddress,
       tickLower,
       tickUpper,
       liquidity,
       amount0Min,
       amount1Min,
-      Math.floor(Date.now() / 1000) + 60 * 10
+      deadline
     );
 
     // Grant Roles
-    setterRole = await solidlyV3AMO.SETTER_ROLE();
-    amoRole = await solidlyV3AMO.AMO_ROLE();
-    withdrawerRole = await solidlyV3AMO.WITHDRAWER_ROLE();
-    pauserRole = await solidlyV3AMO.PAUSER_ROLE();
-    unpauserRole = await solidlyV3AMO.UNPAUSER_ROLE();
+    SETTER_ROLE = await solidlyV3AMO.SETTER_ROLE();
+    AMO_ROLE = await solidlyV3AMO.AMO_ROLE();
+    WITHDRAWER_ROLE = await solidlyV3AMO.WITHDRAWER_ROLE();
+    PAUSER_ROLE = await solidlyV3AMO.PAUSER_ROLE();
+    UNPAUSER_ROLE = await solidlyV3AMO.UNPAUSER_ROLE();
 
-    await solidlyV3AMO.grantRole(setterRole, setter.address);
-    await solidlyV3AMO.grantRole(amoRole, amo.address);
-    await solidlyV3AMO.grantRole(withdrawerRole, withdrawer.address);
-    await solidlyV3AMO.grantRole(pauserRole, pauser.address);
-    await solidlyV3AMO.grantRole(unpauserRole, unpauser.address);
-    await minter.grantRole(await minter.AMO_ROLE(), await solidlyV3AMO.getAddress());
+    await solidlyV3AMO.grantRole(SETTER_ROLE, setter.address);
+    await solidlyV3AMO.grantRole(AMO_ROLE, amo.address);
+    await solidlyV3AMO.grantRole(WITHDRAWER_ROLE, withdrawer.address);
+    await solidlyV3AMO.grantRole(PAUSER_ROLE, pauser.address);
+    await solidlyV3AMO.grantRole(UNPAUSER_ROLE, unpauser.address);
+    await minter.grantRole(await minter.AMO_ROLE(), amoAddress);
   });
 
   describe("Initialization", function() {
     it("Should initialize with correct parameters", async function() {
-      expect(await solidlyV3AMO.boost()).to.equal(await boost.getAddress());
-      expect(await solidlyV3AMO.usd()).to.equal(await testUSD.getAddress());
-      expect(await solidlyV3AMO.pool()).to.equal(await pool.getAddress());
-      expect(await solidlyV3AMO.boostMinter()).to.equal(await minter.getAddress());
+      expect(await solidlyV3AMO.boost()).to.equal(boostAddress);
+      expect(await solidlyV3AMO.usd()).to.equal(usdAddress);
+      expect(await solidlyV3AMO.pool()).to.equal(poolAddress);
+      expect(await solidlyV3AMO.boostMinter()).to.equal(minterAddress);
       expect(await solidlyV3AMO.tickLower()).to.equal(tickLower);
       expect(await solidlyV3AMO.tickUpper()).to.equal(tickUpper);
       expect(await solidlyV3AMO.targetSqrtPriceX96()).to.equal(sqrtPriceX96);
@@ -182,11 +198,11 @@ describe("SolidlyV3AMO", function() {
     });
 
     it("Should set correct roles", async function() {
-      expect(await solidlyV3AMO.hasRole(setterRole, setter.address)).to.be.true;
-      expect(await solidlyV3AMO.hasRole(amoRole, amo.address)).to.be.true;
-      expect(await solidlyV3AMO.hasRole(withdrawerRole, withdrawer.address)).to.be.true;
-      expect(await solidlyV3AMO.hasRole(pauserRole, pauser.address)).to.be.true;
-      expect(await solidlyV3AMO.hasRole(unpauserRole, unpauser.address)).to.be.true;
+      expect(await solidlyV3AMO.hasRole(SETTER_ROLE, setter.address)).to.be.true;
+      expect(await solidlyV3AMO.hasRole(AMO_ROLE, amo.address)).to.be.true;
+      expect(await solidlyV3AMO.hasRole(WITHDRAWER_ROLE, withdrawer.address)).to.be.true;
+      expect(await solidlyV3AMO.hasRole(PAUSER_ROLE, pauser.address)).to.be.true;
+      expect(await solidlyV3AMO.hasRole(UNPAUSER_ROLE, unpauser.address)).to.be.true;
     });
   });
 
@@ -202,7 +218,7 @@ describe("SolidlyV3AMO", function() {
 
       it("Should revert when called by non-setter", async function() {
         await expect(solidlyV3AMO.connect(user).setTickBounds(-100000, 100000))
-          .to.be.revertedWith(`AccessControl: account ${user.address.toLowerCase()} is missing role ${setterRole}`);
+          .to.be.revertedWith(`AccessControl: account ${user.address.toLowerCase()} is missing role ${SETTER_ROLE}`);
       });
     });
 
@@ -216,7 +232,7 @@ describe("SolidlyV3AMO", function() {
 
       it("Should revert when called by non-setter", async function() {
         await expect(solidlyV3AMO.connect(user).setTargetSqrtPriceX96(MIN_SQRT_RATIO))
-          .to.be.revertedWith(`AccessControl: account ${user.address.toLowerCase()} is missing role ${setterRole}`);
+          .to.be.revertedWith(`AccessControl: account ${user.address.toLowerCase()} is missing role ${SETTER_ROLE}`);
       });
 
       it("Should revert when value is out of range", async function() {
@@ -260,7 +276,7 @@ describe("SolidlyV3AMO", function() {
           boostLowerPriceSell + BigInt(100),
           boostUpperPriceBuy + BigInt(100)
         ))
-          .to.be.revertedWith(`AccessControl: account ${user.address.toLowerCase()} is missing role ${setterRole}`);
+          .to.be.revertedWith(`AccessControl: account ${user.address.toLowerCase()} is missing role ${SETTER_ROLE}`);
       });
 
       it("Should revert when value is out of range", async function() {
@@ -301,9 +317,7 @@ describe("SolidlyV3AMO", function() {
     describe("mintAndSellBoost", function() {
       it("Should execute mintAndSellBoost successfully", async function() {
         let limitSqrtPriceX96: bigint;
-        const boostAddress = (await boost.getAddress()).toLowerCase();
-        const testUSDAddress = (await testUSD.getAddress()).toLowerCase();
-        const zeroForOne = boostAddress > testUSDAddress;
+        const zeroForOne = usd2boost;
         if (zeroForOne) {
           limitSqrtPriceX96 = MIN_SQRT_RATIO + BigInt(10);
         } else {
@@ -311,14 +325,14 @@ describe("SolidlyV3AMO", function() {
         }
         const usdToBuy = ethers.parseUnits("1000000", 6);
         await testUSD.connect(admin).mint(user.address, usdToBuy);
-        await testUSD.connect(user).approve(await pool.getAddress(), usdToBuy);
+        await testUSD.connect(user).approve(poolAddress, usdToBuy);
         await pool.connect(user).swap(
-          await user.getAddress(),
+          user.address,
           zeroForOne,
           usdToBuy,
           limitSqrtPriceX96,
           usdToBuy,
-          Math.floor(Date.now() / 1000) + 60 * 10
+          deadline
         );
 
         const boostAmount = ethers.parseUnits("990000", 18);
@@ -328,10 +342,10 @@ describe("SolidlyV3AMO", function() {
         await expect(solidlyV3AMO.connect(amo).mintAndSellBoost(
           boostAmount,
           usdAmount,
-          Math.floor(Date.now() / 1000) + 60 * 10
+          deadline
         )).to.emit(solidlyV3AMO, "MintSell");
         expect(await solidlyV3AMO.boostPrice()).to.be.approximately(ethers.parseUnits(price, 6), 10);
-        expect(await boost.balanceOf(await solidlyV3AMO.getAddress())).to.be.equal(0);
+        expect(await boost.balanceOf(amoAddress)).to.be.equal(0);
       });
 
       it("Should revert mintAndSellBoost when called by non-amo", async function() {
@@ -340,17 +354,15 @@ describe("SolidlyV3AMO", function() {
         await expect(solidlyV3AMO.connect(user).mintAndSellBoost(
           boostAmount,
           usdAmount,
-          Math.floor(Date.now() / 1000) + 60 * 10
-        )).to.be.revertedWith(`AccessControl: account ${user.address.toLowerCase()} is missing role ${amoRole}`);
+          deadline
+        )).to.be.revertedWith(`AccessControl: account ${user.address.toLowerCase()} is missing role ${AMO_ROLE}`);
       });
     });
 
     describe("addLiquidity", function() {
       it("Should execute addLiquidity successfully", async function() {
         let limitSqrtPriceX96: bigint;
-        const boostAddress = (await boost.getAddress()).toLowerCase();
-        const testUSDAddress = (await testUSD.getAddress()).toLowerCase();
-        const zeroForOne = boostAddress > testUSDAddress;
+        const zeroForOne = usd2boost;
         if (zeroForOne) {
           limitSqrtPriceX96 = MIN_SQRT_RATIO + BigInt(10);
         } else {
@@ -358,14 +370,14 @@ describe("SolidlyV3AMO", function() {
         }
         const usdToBuy = ethers.parseUnits("1000000", 6);
         await testUSD.connect(admin).mint(user.address, usdToBuy);
-        await testUSD.connect(user).approve(await pool.getAddress(), usdToBuy);
+        await testUSD.connect(user).approve(poolAddress, usdToBuy);
         await pool.connect(user).swap(
-          await user.getAddress(),
+          user.address,
           zeroForOne,
           usdToBuy,
           limitSqrtPriceX96,
           usdToBuy,
-          Math.floor(Date.now() / 1000) + 60 * 10
+          deadline
         );
 
         const boostAmount = ethers.parseUnits("990000", 18);
@@ -374,18 +386,18 @@ describe("SolidlyV3AMO", function() {
         await expect(solidlyV3AMO.connect(amo).mintAndSellBoost(
           boostAmount,
           usdAmount,
-          Math.floor(Date.now() / 1000) + 60 * 10
+          deadline
         )).to.emit(solidlyV3AMO, "MintSell");
 
-        const usdBalance = await testUSD.balanceOf(await solidlyV3AMO.getAddress());
+        const usdBalance = await testUSD.balanceOf(amoAddress);
 
         await expect(solidlyV3AMO.connect(amo).addLiquidity(
           usdBalance,
           1,
           1,
-          Math.floor(Date.now() / 1000) + 60 * 10
+          deadline
         )).to.emit(solidlyV3AMO, "AddLiquidity");
-        expect(await testUSD.balanceOf(await solidlyV3AMO.getAddress())).to.be.lt(Math.floor(Number(usdBalance) * errorTolorance));
+        expect(await testUSD.balanceOf(amoAddress)).to.be.lt(Math.floor(Number(usdBalance) * errorTolerance));
       });
 
       it("Should revert addLiquidity when called by non-amo", async function() {
@@ -394,17 +406,15 @@ describe("SolidlyV3AMO", function() {
           usdBalance,
           1,
           1,
-          Math.floor(Date.now() / 1000) + 60 * 10
-        )).to.be.revertedWith(`AccessControl: account ${user.address.toLowerCase()} is missing role ${amoRole}`);
+          deadline
+        )).to.be.revertedWith(`AccessControl: account ${user.address.toLowerCase()} is missing role ${AMO_ROLE}`);
       });
     });
 
     describe("mintSellFarm", function() {
       it("Should execute mintSellFarm successfully", async function() {
         let limitSqrtPriceX96: bigint;
-        const boostAddress = (await boost.getAddress()).toLowerCase();
-        const testUSDAddress = (await testUSD.getAddress()).toLowerCase();
-        const zeroForOne = boostAddress > testUSDAddress;
+        const zeroForOne = usd2boost;
         if (zeroForOne) {
           limitSqrtPriceX96 = MIN_SQRT_RATIO + BigInt(10);
         } else {
@@ -412,14 +422,14 @@ describe("SolidlyV3AMO", function() {
         }
         const usdToBuy = ethers.parseUnits("1000000", 6);
         await testUSD.connect(admin).mint(user.address, usdToBuy);
-        await testUSD.connect(user).approve(await pool.getAddress(), usdToBuy);
+        await testUSD.connect(user).approve(poolAddress, usdToBuy);
         await pool.connect(user).swap(
-          await user.getAddress(),
+          user.address,
           zeroForOne,
           usdToBuy,
           limitSqrtPriceX96,
           usdToBuy,
-          Math.floor(Date.now() / 1000) + 60 * 10
+          deadline
         );
 
         const boostAmount = ethers.parseUnits("990000", 18);
@@ -431,14 +441,14 @@ describe("SolidlyV3AMO", function() {
           usdAmount,
           1,
           1,
-          Math.floor(Date.now() / 1000) + 60 * 10
+          deadline
         );
         const receipt = await tx.wait();
         expect(tx).to.emit(solidlyV3AMO, "MintSell");
         expect(tx).to.emit(solidlyV3AMO, "AddLiquidity");
         expect(await solidlyV3AMO.boostPrice()).to.be.approximately(ethers.parseUnits(price, 6), 10);
-        expect(await boost.balanceOf(await solidlyV3AMO.getAddress())).to.be.equal(0);
-        expect(await testUSD.balanceOf(await solidlyV3AMO.getAddress())).to.be.lt(Math.floor(Number(usdAmount) * errorTolorance));
+        expect(await boost.balanceOf(amoAddress)).to.be.equal(0);
+        expect(await testUSD.balanceOf(amoAddress)).to.be.lt(Math.floor(Number(usdAmount) * errorTolerance));
         ;
       });
 
@@ -450,17 +460,15 @@ describe("SolidlyV3AMO", function() {
           usdAmount,
           1,
           1,
-          Math.floor(Date.now() / 1000) + 60 * 10
-        )).to.be.revertedWith(`AccessControl: account ${user.address.toLowerCase()} is missing role ${amoRole}`);
+          deadline
+        )).to.be.revertedWith(`AccessControl: account ${user.address.toLowerCase()} is missing role ${AMO_ROLE}`);
       });
     });
 
     describe("unfarmBuyBurn", function() {
       it("Should execute unfarmBuyBurn successfully", async function() {
         let limitSqrtPriceX96: bigint;
-        const boostAddress = (await boost.getAddress()).toLowerCase();
-        const testUSDAddress = (await testUSD.getAddress()).toLowerCase();
-        const zeroForOne = boostAddress < testUSDAddress;
+        const zeroForOne = boost2usd;
         if (zeroForOne) {
           limitSqrtPriceX96 = MIN_SQRT_RATIO + BigInt(10);
         } else {
@@ -468,17 +476,17 @@ describe("SolidlyV3AMO", function() {
         }
         const boostToBuy = ethers.parseUnits("1000000", 18);
         await boost.connect(boostMinter).mint(user.address, boostToBuy);
-        await boost.connect(user).approve(await pool.getAddress(), boostToBuy);
+        await boost.connect(user).approve(poolAddress, boostToBuy);
         await pool.connect(user).swap(
-          await user.getAddress(),
+          user.address,
           zeroForOne,
           boostToBuy,
           limitSqrtPriceX96,
           1,
-          Math.floor(Date.now() / 1000) + 60 * 10
+          deadline
         );
 
-        const boostInPool = await boost.balanceOf(await pool.getAddress());
+        const boostInPool = await boost.balanceOf(poolAddress);
         const totalLiqudity = await pool.liquidity();
         const liqudityToBeRemoved = (boostToBuy * totalLiqudity) / boostInPool;
 
@@ -488,16 +496,16 @@ describe("SolidlyV3AMO", function() {
           1,
           1,
           1,
-          Math.floor(Date.now() / 1000) + 60 * 10
+          deadline
         )).to.emit(solidlyV3AMO, "UnfarmBuyBurn");
         expect(await solidlyV3AMO.boostPrice()).to.be.approximately(ethers.parseUnits(price, 6), 10);
-        expect(await boost.balanceOf(await solidlyV3AMO.getAddress())).to.be.equal(0);
-        expect(await testUSD.balanceOf(await solidlyV3AMO.getAddress())).to.be.equal(0);
+        expect(await boost.balanceOf(amoAddress)).to.be.equal(0);
+        expect(await testUSD.balanceOf(amoAddress)).to.be.equal(0);
       });
 
       it("Should revert unfarmBuyBurn when called by non-amo", async function() {
         const boostAmount = ethers.parseUnits("990000", 18);
-        const boostInPool = await boost.balanceOf(await pool.getAddress());
+        const boostInPool = await boost.balanceOf(poolAddress);
         const totalLiqudity = await pool.liquidity();
         const liqudityToBeRemoved = (boostAmount * totalLiqudity) / boostInPool;
         await expect(solidlyV3AMO.connect(user).unfarmBuyBurn(
@@ -505,8 +513,8 @@ describe("SolidlyV3AMO", function() {
           1,
           1,
           1,
-          Math.floor(Date.now() / 1000) + 60 * 10
-        )).to.be.revertedWith(`AccessControl: account ${user.address.toLowerCase()} is missing role ${amoRole}`);
+          deadline
+        )).to.be.revertedWith(`AccessControl: account ${user.address.toLowerCase()} is missing role ${AMO_ROLE}`);
       });
     });
   });
@@ -515,9 +523,7 @@ describe("SolidlyV3AMO", function() {
     describe("mintSellFarm", function() {
       it("Should execute mintSellFarm successfully when price is above 1", async function() {
         let limitSqrtPriceX96: bigint;
-        const boostAddress = (await boost.getAddress()).toLowerCase();
-        const testUSDAddress = (await testUSD.getAddress()).toLowerCase();
-        const zeroForOne = boostAddress > testUSDAddress;
+        const zeroForOne = usd2boost;
         if (zeroForOne) {
           limitSqrtPriceX96 = MIN_SQRT_RATIO + BigInt(10);
         } else {
@@ -525,21 +531,21 @@ describe("SolidlyV3AMO", function() {
         }
         const usdToBuy = ethers.parseUnits("1000000", 6);
         await testUSD.connect(admin).mint(user.address, usdToBuy);
-        await testUSD.connect(user).approve(await pool.getAddress(), usdToBuy);
+        await testUSD.connect(user).approve(poolAddress, usdToBuy);
         await pool.connect(user).swap(
-          await user.getAddress(),
+          user.address,
           zeroForOne,
           usdToBuy,
           limitSqrtPriceX96,
           usdToBuy,
-          Math.floor(Date.now() / 1000) + 60 * 10
+          deadline
         );
 
         expect(await solidlyV3AMO.boostPrice()).to.be.gt(ethers.parseUnits("1.1", 6));
         await expect(solidlyV3AMO.connect(amo).mintSellFarm()).to.emit(solidlyV3AMO, "PublicMintSellFarmExecuted");
         expect(await solidlyV3AMO.boostPrice()).to.be.approximately(ethers.parseUnits(price, 6), 10);
-        expect(await boost.balanceOf(await solidlyV3AMO.getAddress())).to.be.equal(0);
-        expect(await testUSD.balanceOf(await solidlyV3AMO.getAddress())).to.be.lt(Math.floor(Number(usdToBuy) * errorTolorance));
+        expect(await boost.balanceOf(amoAddress)).to.be.equal(0);
+        expect(await testUSD.balanceOf(amoAddress)).to.be.lt(Math.floor(Number(usdToBuy) * errorTolerance));
       });
 
       it("Should revert mintSellFarm when price is 1", async function() {
@@ -550,9 +556,7 @@ describe("SolidlyV3AMO", function() {
     describe("unfarmBuyBurn", function() {
       it("Should execute unfarmBuyBurn successfully when price is above 1", async function() {
         let limitSqrtPriceX96: bigint;
-        const boostAddress = (await boost.getAddress()).toLowerCase();
-        const testUSDAddress = (await testUSD.getAddress()).toLowerCase();
-        const zeroForOne = boostAddress < testUSDAddress;
+        const zeroForOne = boost2usd;
         if (zeroForOne) {
           limitSqrtPriceX96 = MIN_SQRT_RATIO + BigInt(10);
         } else {
@@ -560,21 +564,21 @@ describe("SolidlyV3AMO", function() {
         }
         const boostToBuy = ethers.parseUnits("1000000", 18);
         await boost.connect(boostMinter).mint(user.address, boostToBuy);
-        await boost.connect(user).approve(await pool.getAddress(), boostToBuy);
+        await boost.connect(user).approve(poolAddress, boostToBuy);
         await pool.connect(user).swap(
-          await user.getAddress(),
+          user.address,
           zeroForOne,
           boostToBuy,
           limitSqrtPriceX96,
           1,
-          Math.floor(Date.now() / 1000) + 60 * 10
+          deadline
         );
 
         expect(await solidlyV3AMO.boostPrice()).to.be.lt(ethers.parseUnits("0.9", 6));
         await expect(solidlyV3AMO.connect(amo).unfarmBuyBurn()).to.emit(solidlyV3AMO, "PublicUnfarmBuyBurnExecuted");
         expect(await solidlyV3AMO.boostPrice()).to.be.approximately(ethers.parseUnits(price, 6), 10);
-        expect(await boost.balanceOf(await solidlyV3AMO.getAddress())).to.be.equal(0);
-        expect(await testUSD.balanceOf(await solidlyV3AMO.getAddress())).to.be.lt(
+        expect(await boost.balanceOf(amoAddress)).to.be.equal(0);
+        expect(await testUSD.balanceOf(amoAddress)).to.be.lt(
           Math.floor(Number(boostToBuy) * (10 ** 6 - Number(usdUsageRatio)) / 10 ** 18));
       });
 
@@ -591,7 +595,7 @@ describe("SolidlyV3AMO", function() {
         });
 
         it("should not allow non-pauser to pause the contract", async function() {
-          const reverteMessage = `AccessControl: account ${user.address.toLowerCase()} is missing role ${pauserRole}`;
+          const reverteMessage = `AccessControl: account ${user.address.toLowerCase()} is missing role ${PAUSER_ROLE}`;
           await expect(solidlyV3AMO.connect(user).pause()).to.be.revertedWith(reverteMessage);
         });
 
@@ -603,19 +607,19 @@ describe("SolidlyV3AMO", function() {
           await expect(solidlyV3AMO.connect(amo).mintAndSellBoost(
             boostAmount,
             usdAmount,
-            Math.floor(Date.now() / 1000) + 60 * 10
+            deadline
           )).to.be.revertedWith("Pausable: paused");
         });
 
         it("should not allow addLiquidity when paused", async function() {
-          const usdBalance = await testUSD.balanceOf(await solidlyV3AMO.getAddress());
+          const usdBalance = await testUSD.balanceOf(amoAddress);
           await solidlyV3AMO.connect(pauser).pause();
 
           await expect(solidlyV3AMO.connect(amo).addLiquidity(
             usdBalance,
             1,
             1,
-            Math.floor(Date.now() / 1000) + 60 * 10
+            deadline
           )).to.be.revertedWith("Pausable: paused");
         });
 
@@ -629,7 +633,7 @@ describe("SolidlyV3AMO", function() {
             usdAmount,
             1,
             1,
-            Math.floor(Date.now() / 1000) + 60 * 10
+            deadline
           )).to.be.revertedWith("Pausable: paused");
         });
 
@@ -642,7 +646,7 @@ describe("SolidlyV3AMO", function() {
             1,
             1,
             1,
-            Math.floor(Date.now() / 1000) + 60 * 10
+            deadline
           )).to.be.revertedWith("Pausable: paused");
         });
 
@@ -670,7 +674,7 @@ describe("SolidlyV3AMO", function() {
           await solidlyV3AMO.connect(pauser).pause();
           expect(await solidlyV3AMO.paused()).to.equal(true);
 
-          const reverteMessage = `AccessControl: account ${user.address.toLowerCase()} is missing role ${unpauserRole}`;
+          const reverteMessage = `AccessControl: account ${user.address.toLowerCase()} is missing role ${UNPAUSER_ROLE}`;
           await expect(solidlyV3AMO.connect(user).unpause()).to.be.revertedWith(reverteMessage);
         });
       });
@@ -678,14 +682,14 @@ describe("SolidlyV3AMO", function() {
       describe("withdrawERC20", function() {
         it("should allow withdrawer to withdraw ERC20 tokens", async function() {
           const withdrawAmount = ethers.parseUnits("500", 18);
-          await testUSD.mint(await solidlyV3AMO.getAddress(), withdrawAmount);
+          await testUSD.mint(amoAddress, withdrawAmount);
 
           await expect(
-            solidlyV3AMO.connect(withdrawer).withdrawERC20(await testUSD.getAddress(), withdrawAmount, ethers.ZeroAddress)
+            solidlyV3AMO.connect(withdrawer).withdrawERC20(usdAddress, withdrawAmount, ethers.ZeroAddress)
           ).to.be.revertedWithCustomError(solidlyV3AMO, "ZeroAddress");
 
           await expect(
-            solidlyV3AMO.connect(withdrawer).withdrawERC20(await testUSD.getAddress(), withdrawAmount, user.address)
+            solidlyV3AMO.connect(withdrawer).withdrawERC20(usdAddress, withdrawAmount, user.address)
           ).to.not.be.reverted;
 
           const finalBalance = await testUSD.balanceOf(user.address);
@@ -694,9 +698,9 @@ describe("SolidlyV3AMO", function() {
 
         it("should not allow non-withdrawer to withdraw ERC20 tokens", async function() {
           const withdrawAmount = ethers.parseUnits("500", 18);
-          const reverteMessage = `AccessControl: account ${user.address.toLowerCase()} is missing role ${withdrawerRole}`;
+          const reverteMessage = `AccessControl: account ${user.address.toLowerCase()} is missing role ${WITHDRAWER_ROLE}`;
           await expect(
-            solidlyV3AMO.connect(user).withdrawERC20(await testUSD.getAddress(), withdrawAmount, user.address)
+            solidlyV3AMO.connect(user).withdrawERC20(usdAddress, withdrawAmount, user.address)
           ).to.be.revertedWith(reverteMessage);
         });
       });
