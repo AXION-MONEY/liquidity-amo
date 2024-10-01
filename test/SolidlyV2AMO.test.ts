@@ -67,6 +67,15 @@ describe("SolidlyV2AMO", function() {
   let amoAddress: string;
   const deadline = Math.floor(Date.now() / 1000) + 60 * 100;
   const delta = ethers.parseUnits("0.001", 6);
+  const params = [
+    ethers.parseUnits("1.1", 6), // boostMultiplier
+    ethers.parseUnits("0.01", 6), // validRangeRatio
+    ethers.parseUnits("0.99", 6), // validRemovingRatio
+    ethers.parseUnits("0.99", 6), // boostLowerPriceSell
+    ethers.parseUnits("1.01", 6), // boostUpperPriceBuy
+    ethers.parseUnits("0.8", 6), // boostSellRatio
+    ethers.parseUnits("0.8", 6) // usdBuyRatio
+  ];
 
   beforeEach(async function() {
     [admin, rewardVault, setter, amoBot, withdrawer, pauser, unpauser, boostMinter, user] = await ethers.getSigners();
@@ -132,15 +141,8 @@ describe("SolidlyV2AMO", function() {
       gaugeAddress,
       rewardVault.address,
       0, //tokenId_
-      false, //useTokenId_
-      ethers.toBigInt("1100000"), // boostMultiplier
-      100000, // validRangeRatio
-      990000, // validRemovingRatio
-      ethers.parseUnits("0.95", 6), // boostLowerPriceSell
-      ethers.parseUnits("1.05", 6), // boostUpperPriceBuy
-      ethers.parseUnits("0.8", 6), //boostSellRatio
-      ethers.parseUnits("0.8", 6) // usdBuyRatio
-    ];
+      false //useTokenId_
+    ].concat(params);
     solidlyV2AMO = await upgrades.deployProxy(SolidlyV2LiquidityAMOFactory, args, {
       initializer: "initialize(address,address,address,address,address,address,address,uint256,bool,uint256,uint24,uint24,uint256,uint256,uint256,uint256)"
     });
@@ -188,28 +190,12 @@ describe("SolidlyV2AMO", function() {
   it("should only allow SETTER_ROLE to call setParams", async function() {
     // Try calling setParams without SETTER_ROLE
     await expect(
-      solidlyV2AMO.connect(user).setParams(
-        ethers.toBigInt("1100000"),
-        100000,
-        990000,
-        ethers.parseUnits("0.95", 6),
-        ethers.parseUnits("1.05", 6),
-        990000,
-        10000
-      )
+      solidlyV2AMO.connect(user).setParams(...params)
     ).to.be.revertedWith(`AccessControl: account ${user.address.toLowerCase()} is missing role ${SETTER_ROLE}`);
 
     // Call setParams with SETTER_ROLE
     await expect(
-      solidlyV2AMO.connect(setter).setParams(
-        ethers.toBigInt("1100000"),
-        100000,
-        990000,
-        ethers.parseUnits("0.95", 6),
-        ethers.parseUnits("1.05", 6),
-        990000,
-        10000
-      )
+      solidlyV2AMO.connect(setter).setParams(...params)
     ).to.emit(solidlyV2AMO, "ParamsSet");
   });
 
@@ -338,17 +324,14 @@ describe("SolidlyV2AMO", function() {
     expect(await solidlyV2AMO.boostPrice()).to.be.approximately(ethers.parseUnits("1", 6), delta);
   });
 
-  it("should revert when invalid parameters are set", async function() {
-    await expect(
-      solidlyV2AMO.connect(setter).setParams(
-        ethers.toBigInt("1100000"),
-        2000000,
-        990000,
-        ethers.parseUnits("0.95", 6),
-        ethers.parseUnits("1.05", 6),
-        990000,
-        10000
-      )
-    ).to.be.revertedWithCustomError(solidlyV2AMO, "InvalidRatioValue");
+  describe("should revert when invalid parameters are set", function() {
+    for (const i of [1, 2]) {
+      it(`param on index ${i}`, async function() {
+        let tempParams = [...params];
+        tempParams[i] = ethers.parseUnits("1.00001", 6);
+        await expect(solidlyV2AMO.connect(setter).setParams(...tempParams)
+        ).to.be.revertedWithCustomError(solidlyV2AMO, "InvalidRatioValue");
+      });
+    }
   });
 });

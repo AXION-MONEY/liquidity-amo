@@ -197,6 +197,11 @@ contract SolidlyV2AMO is ISolidlyV2AMO, MasterAMO {
         uint256 minUsdSpend,
         uint256 deadline
     ) internal override returns (uint256 boostSpent, uint256 usdSpent, uint256 liquidity) {
+        // Check price
+        uint256 price = boostPrice();
+        if (price <= FACTOR - validRangeRatio || price >= FACTOR + validRangeRatio)
+            revert InvalidRatioToAddLiquidity();
+
         // Mint the specified amount of BOOST tokens
         uint256 boostAmount = (toBoostAmount(usdAmount) * boostMultiplier) / FACTOR;
 
@@ -227,11 +232,6 @@ contract SolidlyV2AMO is ISolidlyV2AMO, MasterAMO {
         // Revoke approval from the router
         IERC20Upgradeable(boost).approve(router, 0);
         IERC20Upgradeable(usd).approve(router, 0);
-
-        // Calculate the valid range for USD spent based on the BOOST spent and the validRangeRatio
-        uint256 validRange = (boostSpent * validRangeRatio) / FACTOR;
-        if (toBoostAmount(usdSpent) < boostSpent - validRange || toBoostAmount(usdSpent) > boostSpent + validRange)
-            revert InvalidRatioToAddLiquidity();
 
         // Approve the transfer of liquidity tokens to the gauge and deposit them
         IERC20Upgradeable(pool).approve(gauge, liquidity);
