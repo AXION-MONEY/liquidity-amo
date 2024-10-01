@@ -283,8 +283,7 @@ contract SolidlyV3AMO is ISolidlyV3AMO, MasterAMO {
     }
 
     ////////////////////////// PUBLIC FUNCTIONS //////////////////////////
-    /// @inheritdoc IMasterAMO
-    function mintSellFarm() external override whenNotPaused returns (uint256 liquidity, uint256 newBoostPrice) {
+    function _mintSellFarm() internal override returns (uint256 liquidity, uint256 newBoostPrice) {
         uint256 maxBoostAmount = IERC20Upgradeable(boost).balanceOf(pool);
         bool zeroForOne = boost < usd;
         (int256 amount0, int256 amount1, , , ) = ISolidlyV3Pool(pool).quoteSwap(
@@ -306,14 +305,10 @@ contract SolidlyV3AMO is ISolidlyV3AMO, MasterAMO {
 
         newBoostPrice = boostPrice();
 
-        // Checks if the actual average price of boost when selling is greater than the boostLowerPriceSell
-        if (newBoostPrice < boostLowerPriceSell) revert PriceNotInRange(newBoostPrice);
-
         emit PublicMintSellFarmExecuted(liquidity, newBoostPrice);
     }
 
-    /// @inheritdoc IMasterAMO
-    function unfarmBuyBurn() external override whenNotPaused returns (uint256 liquidity, uint256 newBoostPrice) {
+    function _unfarmBuyBurn() internal override returns (uint256 liquidity, uint256 newBoostPrice) {
         uint256 totalLiquidity = ISolidlyV3Pool(pool).liquidity();
         uint256 boostBalance = IERC20Upgradeable(boost).balanceOf(pool);
         uint256 usdBalance = toBoostAmount(IERC20Upgradeable(usd).balanceOf(pool)); // scaled
@@ -332,9 +327,6 @@ contract SolidlyV3AMO is ISolidlyV3AMO, MasterAMO {
         );
 
         newBoostPrice = boostPrice();
-
-        // Checks if the actual average price of boost when buying is less than the boostUpperPriceBuy
-        if (newBoostPrice > boostUpperPriceBuy) revert PriceNotInRange(newBoostPrice);
 
         emit PublicUnfarmBuyBurnExecuted(liquidity, newBoostPrice);
     }
