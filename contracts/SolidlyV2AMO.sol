@@ -197,7 +197,8 @@ contract SolidlyV2AMO is ISolidlyV2AMO, MasterAMO {
         uint256 minUsdSpend,
         uint256 deadline
     ) internal override returns (uint256 boostSpent, uint256 usdSpent, uint256 liquidity) {
-        // Check price
+        // We only add liquidity when price is withing range (close to $1)
+        // if price is too high, we need to mint and sell more before we add liqudiity
         uint256 price = boostPrice();
         if (price <= FACTOR - validRangeRatio || price >= FACTOR + validRangeRatio) revert InvalidRatioToAddLiquidity();
 
