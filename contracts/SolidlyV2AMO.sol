@@ -337,18 +337,7 @@ contract SolidlyV2AMO is ISolidlyV2AMO, MasterAMO {
 
     ////////////////////////// PUBLIC FUNCTIONS //////////////////////////
     function _mintSellFarm() internal override returns (uint256 liquidity, uint256 newBoostPrice) {
-        (uint256 reserve0, uint256 reserve1, ) = IPair(pool).getReserves();
-        uint256 boostReserve;
-        uint256 usdReserve;
-        if (boost < usd) {
-            boostReserve = reserve0;
-            usdReserve = toBoostAmount(reserve1); // scaled
-        } else {
-            boostReserve = reserve1;
-            usdReserve = toBoostAmount(reserve0); // scaled
-        }
-        // Checks if the expected boost price is more than 1$
-        if (usdReserve <= boostReserve) revert InvalidReserveRatio({ratio: (FACTOR * usdReserve) / boostReserve});
+        (uint256 boostReserve, uint256 usdReserve) = getReserves();
 
         uint256 boostAmountIn = (((usdReserve - boostReserve) / 2) * boostSellRatio) / FACTOR;
 
@@ -364,18 +353,7 @@ contract SolidlyV2AMO is ISolidlyV2AMO, MasterAMO {
     }
 
     function _unfarmBuyBurn() internal override returns (uint256 liquidity, uint256 newBoostPrice) {
-        (uint256 reserve0, uint256 reserve1, ) = IPair(pool).getReserves();
-        uint256 boostReserve;
-        uint256 usdReserve;
-        if (boost < usd) {
-            boostReserve = reserve0;
-            usdReserve = toBoostAmount(reserve1); // scaled
-        } else {
-            boostReserve = reserve1;
-            usdReserve = toBoostAmount(reserve0); // scaled
-        }
-
-        if (boostReserve <= usdReserve) revert InvalidReserveRatio({ratio: (FACTOR * usdReserve) / boostReserve});
+        (uint256 boostReserve, uint256 usdReserve) = getReserves();
 
         uint256 usdNeeded = (((boostReserve - usdReserve) / 2) * usdBuyRatio) / FACTOR;
         uint256 totalLp = IERC20Upgradeable(pool).totalSupply();
@@ -401,5 +379,24 @@ contract SolidlyV2AMO is ISolidlyV2AMO, MasterAMO {
     function boostPrice() public view override returns (uint256 price) {
         uint256 amountOut = IPair(pool).getAmountOut(10 ** boostDecimals, boost);
         price = amountOut / 10 ** (usdDecimals - PRICE_DECIMALS);
+    }
+
+    function getReserves() public view returns(uint256 boostReserve, uint256 usdReserve){
+        (uint256 reserve0, uint256 reserve1, ) = IPair(pool).getReserves();
+        uint256 boostReserve;
+        uint256 usdReserve;
+        if (boost < usd) {
+            boostReserve = reserve0;
+            usdReserve = toBoostAmount(reserve1); // scaled
+        } else {
+            boostReserve = reserve1;
+            usdReserve = toBoostAmount(reserve0); // scaled
+        }
+    }
+
+    function _validateSwap(bool boostForUsd) public view override {
+        (uint256 boostReserve, uint256 usdReserve) = getReserves();
+        if(boostForUsd && boostReserve <= usdReserve) revert InvalidReserveRatio({ratio: (FACTOR * usdReserve) / boostReserve});
+        else if (!boostForUsd && usdReserve <= boostReserve) revert InvalidReserveRatio({ratio: (FACTOR * usdReserve) / boostReserve});
     }
 }

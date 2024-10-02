@@ -342,4 +342,6 @@ contract SolidlyV3AMO is ISolidlyV3AMO, MasterAMO {
             }
         }
     }
+
+    function _validateSwap(bool boostForUsd) public view override {}
 }

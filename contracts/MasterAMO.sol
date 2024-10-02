@@ -42,6 +42,12 @@ abstract contract MasterAMO is
     event PublicMintSellFarmExecuted(uint256 liquidity, uint256 newBoostPrice);
     event PublicUnfarmBuyBurnExecuted(uint256 liquidity, uint256 newBoostPrice);
 
+    /* ========= MODIFIERS ========= */
+    modifier validateSwap(bool boostForUsd) {
+        _validateSwap(boostForUsd);
+        _;
+    }
+
     /* ========== ROLES ========== */
     /// @inheritdoc IMasterAMO
     bytes32 public constant override SETTER_ROLE = keccak256("SETTER_ROLE");
@@ -267,6 +273,7 @@ abstract contract MasterAMO is
     function _mintSellFarm() internal virtual returns (uint256 liquidity, uint256 newBoostPrice);
 
     function mintSellFarm()
+        validateSwap(true)
         external
         override
         whenNotPaused
@@ -283,6 +290,7 @@ abstract contract MasterAMO is
     function _unfarmBuyBurn() internal virtual returns (uint256 liquidity, uint256 newBoostPrice);
 
     function unfarmBuyBurn()
+        validateSwap(false)
         external
         override
         whenNotPaused
@@ -331,4 +339,6 @@ abstract contract MasterAMO is
 
     ////////////////////////// VIEW FUNCTIONS //////////////////////////
     function boostPrice() public view virtual returns (uint256 price);
+
+    function _validateSwap(bool boostForUsd) public view virtual;
 }
