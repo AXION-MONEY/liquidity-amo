@@ -95,16 +95,17 @@ abstract contract MasterAMO is
 
     /* ========== FUNCTIONS ========== */
     function initialize(
-        address admin, // admin role given is given to multi-sig exclusively
-        address boost_, // the stable coin
+        address admin, // // Address assigned the admin role (given exclusively to a multi-sig wallet)
+        address boost_, // The Boost stablecoin address
         address usd_, // generic name for $1 collateral ( typically USDC or USDT )
-        address pool_, // the AMO logic applies on a given Boost-USD pool
-        // on each chain where boost is deployed, there will be one stable Boost-USD pool which guarantees BOOST's peg
-        // there can be multiple Boost-Usd pool (which each it's AMO) if two major Dexes on one chain, peg is guaranteed independently on the two pools
+        address pool_, // The pool where AMO logic applies for Boost-USD pair
+        // On each chain where Boost is deployed, there will be a stable Boost-USD pool ensuring BOOST's peg.
+        // Multiple Boost-USD pools can exist across different DEXes on the same chain, each with its own AMO, maintaining independent peg guarantees.
         address boostMinter_ // the minter contract
     ) public initializer {
         __AccessControlEnumerable_init();
         __Pausable_init();
+        // Ensure no zero addresses are passed to critical parameters
         if (
             admin == address(0) ||
             boost_ == address(0) ||
@@ -274,6 +275,7 @@ abstract contract MasterAMO is
     ////////////////////////// PUBLIC FUNCTIONS //////////////////////////
     function _mintSellFarm() internal virtual returns (uint256 liquidity, uint256 newBoostPrice);
 
+    // This function handles the minting, selling, and farming of Boost when it's over the peg.
     function mintSellFarm()
         external
         override
@@ -282,7 +284,7 @@ abstract contract MasterAMO is
         validateSwap(SELL_BOOST)
         returns (uint256 liquidity, uint256 newBoostPrice)
     {
-        (liquidity, newBoostPrice) = _mintSellFarm();
+        (liquidity, newBoostPrice) = _mintSellFarm();  // Perform the mint and sell, and return liquidity and the new Boost price
         // Checks if the actual average price of boost when selling is greater than the boostLowerPriceSell
         if (newBoostPrice < boostLowerPriceSell) revert PriceNotInRange(newBoostPrice);
 
@@ -291,10 +293,11 @@ abstract contract MasterAMO is
 
     function _unfarmBuyBurn() internal virtual returns (uint256 liquidity, uint256 newBoostPrice);
 
+    // This function handles the un-farming, buying, and burning of Boost when it's under the peg.
     function unfarmBuyBurn()
         external
         override
-        whenNotPaused
+        whenNotPaused // Ensures the contract is not paused
         nonReentrant
         validateSwap(BUY_BOOST)
         returns (uint256 liquidity, uint256 newBoostPrice)
