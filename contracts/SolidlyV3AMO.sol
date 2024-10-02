@@ -327,7 +327,7 @@ contract SolidlyV3AMO is ISolidlyV3AMO, MasterAMO {
         newBoostPrice = boostPrice();
     }
 
-    function _validateSwap(bool boostForUsd) public view override {}
+    function _validateSwap(bool boostForUsd) internal view override {}
 
     ////////////////////////// VIEW FUNCTIONS //////////////////////////
     /// @inheritdoc IMasterAMO
