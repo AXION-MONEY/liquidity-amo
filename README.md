@@ -67,8 +67,7 @@ This function sets or changes the treasury vault address. Only an account with t
 Purpose: this function is only available in the main branch which relies on uniswap v3 tech. setTickBounds defines the price range (ticks) at which it provides liquidity in the BOOST-USD pool. The current tech, however, uses full-range liquidity.	
 
 ### 4.  mintAndSellBoost
-			Purpose: Mints a specified amount of BOOST and sells it for USD in the pool. It also transfers a small part of the USD to the treasury as "dry powder” using this line:
- IERC20Upgradeable(usd).safeTransfer(treasuryVault, dryPowderAmount);
+			Purpose: Mints a specified amount of BOOST and sells it for USD in the pool. 
 Triggered: When the BOOST-USD price diverges from peg (e.g., BOOST is trading above $1), this function is triggered to mint additional BOOST and sell it for USD to bring the price back down to peg.
 
 **Parameters:**
@@ -76,12 +75,9 @@ Triggered: When the BOOST-USD price diverges from peg (e.g., BOOST is trading ab
 * minUsdAmountOut: The minimum USD amount should be received following the swap
 * deadline: Timestamp representing the deadline for the operation to be executed
 * usdAmountOut: The USD amount that received from the swap
-* dryPowderAmount: The USD amount that transferred to the treasury as dry powder
 
 **Return values:** 
 	usdAmountOut: The USD amount that received from the swap
-dryPowderAmount: The USD amount that transferred to the treasury as dry powder
-
 Logic and economic security: the function reverts if Boost is not sold above par, so this function can never induce a loss for the protocol.
 
 ### 5. addLiquidity (solidly v3) and addLiquidityAndDeposit (solidly v2)
