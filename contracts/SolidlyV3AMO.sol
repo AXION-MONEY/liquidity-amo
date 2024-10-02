@@ -128,19 +128,21 @@ contract SolidlyV3AMO is ISolidlyV3AMO, MasterAMO {
         uint256 minUsdAmountOut,
         uint256 deadline
     ) internal override returns (uint256 boostAmountIn, uint256 usdAmountOut) {
-        // Mint the specified amount of BOOST tokens
+        // Mint the specified amount of BOOST tokens to this contract's address
         IMinter(boostMinter).protocolMint(address(this), boostAmount);
 
-        // Approve the transfer of BOOST tokens to the pool
+        // Approve the transfer of the minted BOOST tokens to the pool
         IERC20Upgradeable(boost).approve(pool, boostAmount);
 
         // Execute the swap
+        // If boost < usd, we are selling BOOST for USD, otherwise vice versa
+        The swap is executed at the targetSqrtPriceX96, and must meet the minimum USD amount
         (int256 amount0, int256 amount1) = ISolidlyV3Pool(pool).swap(
             address(this),
             boost < usd,
-            int256(boostAmount),
-            targetSqrtPriceX96,
-            minUsdAmountOut,
+            int256(boostAmount), // Amount of BOOST tokens being swapped
+            targetSqrtPriceX96, // The target square root price
+            minUsdAmountOut, // Minimum acceptable amount of USD to receive from the swap
             deadline
         );
 
@@ -148,12 +150,12 @@ contract SolidlyV3AMO is ISolidlyV3AMO, MasterAMO {
         IERC20Upgradeable(boost).approve(pool, 0);
 
         (int256 boostDelta, int256 usdDelta) = sortAmounts(amount0, amount1);
-        boostAmountIn = uint256(boostDelta);
-        usdAmountOut = uint256(-usdDelta);
+        boostAmountIn = uint256(boostDelta); // BOOST tokens used in the swap
+        usdAmountOut = uint256(-usdDelta); // USD tokens received from the swap
         if (toBoostAmount(usdAmountOut) <= boostAmountIn)
             revert InsufficientOutputAmount({outputAmount: toBoostAmount(usdAmountOut), minRequired: boostAmountIn});
 
-        // Burn excessive boosts
+        // Burn any excess BOOST that wasn't used in the swap
         if (boostAmount > boostAmountIn) IBoostStablecoin(boost).burn(boostAmount - boostAmountIn);
 
         emit MintSell(boostAmountIn, usdAmountOut);
@@ -165,9 +167,10 @@ contract SolidlyV3AMO is ISolidlyV3AMO, MasterAMO {
         uint256 minUsdSpend,
         uint256 deadline
     ) internal override returns (uint256 boostSpent, uint256 usdSpent, uint256 liquidity) {
-        // Mint the specified amount of BOOST tokens
+        // Calculate the amount of BOOST to mint based on the usdAmount and boostMultiplier
         uint256 boostAmount = (toBoostAmount(usdAmount) * boostMultiplier) / FACTOR;
 
+        // Mint the specified amount of BOOST tokens to this contract's address
         IMinter(boostMinter).protocolMint(address(this), boostAmount);
 
         // Approve the transfer of BOOST and USD tokens to the pool
@@ -179,7 +182,7 @@ contract SolidlyV3AMO is ISolidlyV3AMO, MasterAMO {
         uint128 currentLiquidity = ISolidlyV3Pool(pool).liquidity();
         liquidity = (usdAmount * currentLiquidity) / IERC20Upgradeable(usd).balanceOf(pool);
 
-        // Add liquidity to the BOOST-USD pool
+        // Add liquidity to the BOOST-USD pool within the specified tick range
         (uint256 amount0, uint256 amount1) = ISolidlyV3Pool(pool).mint(
             address(this),
             tickLower,
@@ -196,12 +199,12 @@ contract SolidlyV3AMO is ISolidlyV3AMO, MasterAMO {
 
         (boostSpent, usdSpent) = sortAmounts(amount0, amount1);
 
-        // Calculate the valid range for USD spent based on the BOOST spent and the validRangeRatio
+        // Calculate valid range for USD spent based on BOOST spent and validRangeRatio
         uint256 validRange = (boostSpent * validRangeRatio) / FACTOR;
         if (toBoostAmount(usdSpent) <= boostSpent - validRange || toBoostAmount(usdSpent) >= boostSpent + validRange)
             revert InvalidRatioToAddLiquidity();
 
-        // Burn excessive boosts
+        // Burn any excess BOOST not used in liquidity
         if (boostAmount > boostSpent) IBoostStablecoin(boost).burn(boostAmount - boostSpent);
 
         emit AddLiquidity(boostSpent, usdSpent, liquidity);
@@ -249,7 +252,7 @@ contract SolidlyV3AMO is ISolidlyV3AMO, MasterAMO {
         // Execute the swap and store the amounts of tokens involved
         (int256 amount0, int256 amount1) = ISolidlyV3Pool(pool).swap(
             address(this),
-            boost > usd,
+            boost > usd, // Determines if we are swapping USD for BOOST (true) or BOOST for USD (false)
             int256(usdRemoved),
             targetSqrtPriceX96,
             minBoostAmountOut,
@@ -262,13 +265,14 @@ contract SolidlyV3AMO is ISolidlyV3AMO, MasterAMO {
         (int256 boostDelta, int256 usdDelta) = sortAmounts(amount0, amount1);
         usdAmountIn = uint256(usdDelta);
         boostAmountOut = uint256(-boostDelta);
+        // Ensure the BOOST output is sufficient relative to the USD input
         if (toUsdAmount(boostAmountOut) <= usdAmountIn)
             revert InsufficientOutputAmount({outputAmount: toUsdAmount(boostAmountOut), minRequired: usdAmountIn});
-
+        // Check the USD usage ratio to ensure it is within limits
         if ((FACTOR * usdAmountIn) / usdRemoved < usdUsageRatio)
             revert ExcessiveLiquidityRemoval({liquidity: liquidity, unusedUsdAmount: usdRemoved - usdAmountIn});
 
-        // Burn the BOOST tokens received from burn liquidity, collect owed tokens and swap
+        // // Burn the BOOST tokens collected from liquidity removal, collected owed tokens and swap
         IBoostStablecoin(boost).burn(boostCollected + boostAmountOut);
 
         emit UnfarmBuyBurn(
@@ -285,12 +289,14 @@ contract SolidlyV3AMO is ISolidlyV3AMO, MasterAMO {
     ////////////////////////// PUBLIC FUNCTIONS //////////////////////////
     function _mintSellFarm() internal override returns (uint256 liquidity, uint256 newBoostPrice) {
         uint256 maxBoostAmount = IERC20Upgradeable(boost).balanceOf(pool);
-        bool zeroForOne = boost < usd;
+        bool zeroForOne = boost < usd; // Determine the direction of the swap
+        // Quote the swap to calculate how much BOOST can be swapped for USD
         (int256 amount0, int256 amount1, , , ) = ISolidlyV3Pool(pool).quoteSwap(
             zeroForOne,
             int256(maxBoostAmount),
             targetSqrtPriceX96
         );
+        // Determine the amount of BOOST based on the direction of the swap
         uint256 boostAmount;
         if (zeroForOne) boostAmount = uint256(amount0);
         else boostAmount = uint256(amount1);
@@ -313,7 +319,7 @@ contract SolidlyV3AMO is ISolidlyV3AMO, MasterAMO {
         if (boostBalance <= usdBalance) revert PriceNotInRange(boostPrice());
 
         liquidity = (totalLiquidity * (boostBalance - usdBalance)) / (boostBalance + usdBalance);
-        // FIXME: make liquidity factor dynamic (hardcoded for now)
+        // FIXME: This liquidity factor should be dynamic instead of hardcoded (hardcoded for now)
         liquidity = (liquidity * 995000) / FACTOR;
 
         _unfarmBuyBurn(
