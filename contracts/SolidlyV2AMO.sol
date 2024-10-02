@@ -374,6 +374,12 @@ contract SolidlyV2AMO is ISolidlyV2AMO, MasterAMO {
         newBoostPrice = boostPrice();
     }
 
+    function _validateSwap(bool boostForUsd) internal view override {
+        (uint256 boostReserve, uint256 usdReserve) = getReserves();
+        if(boostForUsd && boostReserve <= usdReserve) revert InvalidReserveRatio({ratio: (FACTOR * usdReserve) / boostReserve});
+        else if (!boostForUsd && usdReserve <= boostReserve) revert InvalidReserveRatio({ratio: (FACTOR * usdReserve) / boostReserve});
+    }
+
     ////////////////////////// VIEW FUNCTIONS //////////////////////////
     /// @inheritdoc IMasterAMO
     function boostPrice() public view override returns (uint256 price) {
@@ -392,11 +398,5 @@ contract SolidlyV2AMO is ISolidlyV2AMO, MasterAMO {
             boostReserve = reserve1;
             usdReserve = toBoostAmount(reserve0); // scaled
         }
-    }
-
-    function _validateSwap(bool boostForUsd) public view override {
-        (uint256 boostReserve, uint256 usdReserve) = getReserves();
-        if(boostForUsd && boostReserve <= usdReserve) revert InvalidReserveRatio({ratio: (FACTOR * usdReserve) / boostReserve});
-        else if (!boostForUsd && usdReserve <= boostReserve) revert InvalidReserveRatio({ratio: (FACTOR * usdReserve) / boostReserve});
     }
 }

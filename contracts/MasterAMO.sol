@@ -340,5 +340,5 @@ abstract contract MasterAMO is
     ////////////////////////// VIEW FUNCTIONS //////////////////////////
     function boostPrice() public view virtual returns (uint256 price);
 
-    function _validateSwap(bool boostForUsd) public view virtual;
+    function _validateSwap(bool boostForUsd) internal view virtual;
 }
