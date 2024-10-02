@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
+import "hardhat/console.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
@@ -275,6 +276,8 @@ abstract contract MasterAMO is
         (liquidity, newBoostPrice) = _mintSellFarm();
         // Checks if the actual average price of boost when selling is greater than the boostLowerPriceSell
         if (newBoostPrice < boostLowerPriceSell) revert PriceNotInRange(newBoostPrice);
+
+        emit PublicMintSellFarmExecuted(liquidity, newBoostPrice);
     }
 
     function _unfarmBuyBurn() internal virtual returns (uint256 liquidity, uint256 newBoostPrice);
@@ -289,6 +292,8 @@ abstract contract MasterAMO is
         (liquidity, newBoostPrice) = _unfarmBuyBurn();
         // Checks if the actual average price of boost when buying is less than the boostUpperPriceBuy
         if (newBoostPrice > boostUpperPriceBuy) revert PriceNotInRange(newBoostPrice);
+
+        emit PublicUnfarmBuyBurnExecuted(liquidity, newBoostPrice);
     }
     ////////////////////////// WITHDRAWAL FUNCTIONS //////////////////////////
     /// @inheritdoc IMasterAMO

@@ -304,8 +304,6 @@ contract SolidlyV3AMO is ISolidlyV3AMO, MasterAMO {
         );
 
         newBoostPrice = boostPrice();
-
-        emit PublicMintSellFarmExecuted(liquidity, newBoostPrice);
     }
 
     function _unfarmBuyBurn() internal override returns (uint256 liquidity, uint256 newBoostPrice) {
@@ -327,8 +325,6 @@ contract SolidlyV3AMO is ISolidlyV3AMO, MasterAMO {
         );
 
         newBoostPrice = boostPrice();
-
-        emit PublicUnfarmBuyBurnExecuted(liquidity, newBoostPrice);
     }
 
     ////////////////////////// VIEW FUNCTIONS //////////////////////////

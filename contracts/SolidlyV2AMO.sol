@@ -361,8 +361,6 @@ contract SolidlyV2AMO is ISolidlyV2AMO, MasterAMO {
         );
 
         newBoostPrice = boostPrice();
-
-        emit PublicMintSellFarmExecuted(liquidity, newBoostPrice);
     }
 
     function _unfarmBuyBurn() internal override returns (uint256 liquidity, uint256 newBoostPrice) {
@@ -385,7 +383,7 @@ contract SolidlyV2AMO is ISolidlyV2AMO, MasterAMO {
 
         // Readjust the LP amount and USD needed to balance price before removing LP
         // ( rationale: we first compute the amount of USD needed to rebalance the price in the pool; then first-order adjust for the fact that removing liquidity/totalLP fraction of the pool increases price impact —— less liquidity needs to be removed )
-        liquidity -= liquidity ** 2 / totalLp;
+        // liquidity -= liquidity ** 2 / totalLp;
 
         _unfarmBuyBurn(
             liquidity,
@@ -396,8 +394,6 @@ contract SolidlyV2AMO is ISolidlyV2AMO, MasterAMO {
         );
 
         newBoostPrice = boostPrice();
-
-        emit PublicUnfarmBuyBurnExecuted(liquidity, newBoostPrice);
     }
 
     ////////////////////////// VIEW FUNCTIONS //////////////////////////

@@ -111,7 +111,7 @@ describe("SolidlyV3AMO", function() {
     await poolFactory.createPool(boostAddress, usdAddress, poolFee);
     poolAddress = await poolFactory.getPool(boostAddress, usdAddress, tickSpacing);
 
-    if ((boostAddress).toLowerCase() < (usdAddress).toLowerCase()) {
+    if (boostAddress.toLowerCase() < usdAddress.toLowerCase()) {
       sqrtPriceX96 = BigInt(Math.floor(Math.sqrt(Number((BigInt(price) * BigInt(2 ** 192)) / BigInt(10 ** 12)))));
     } else {
       sqrtPriceX96 = BigInt(Math.floor(Math.sqrt(Number((BigInt(price) * BigInt(2 ** 192)) * BigInt(10 ** 12)))));
@@ -148,7 +148,7 @@ describe("SolidlyV3AMO", function() {
     await testUSD.approve(poolAddress, usdDesired);
 
     let amount0Min, amount1Min;
-    if ((boostAddress).toLowerCase() < (usdAddress).toLowerCase()) {
+    if (boostAddress.toLowerCase() < usdAddress.toLowerCase()) {
       amount0Min = boostMin4Liquidity;
       amount1Min = usdMin4Liquidity;
     } else {
@@ -331,7 +331,7 @@ describe("SolidlyV3AMO", function() {
           zeroForOne,
           usdToBuy,
           limitSqrtPriceX96,
-          usdToBuy,
+          1,
           deadline
         );
 
@@ -376,7 +376,7 @@ describe("SolidlyV3AMO", function() {
           zeroForOne,
           usdToBuy,
           limitSqrtPriceX96,
-          usdToBuy,
+          1,
           deadline
         );
 
@@ -428,7 +428,7 @@ describe("SolidlyV3AMO", function() {
           zeroForOne,
           usdToBuy,
           limitSqrtPriceX96,
-          usdToBuy,
+          1,
           deadline
         );
 
@@ -537,7 +537,7 @@ describe("SolidlyV3AMO", function() {
           zeroForOne,
           usdToBuy,
           limitSqrtPriceX96,
-          usdToBuy,
+          1,
           deadline
         );
 

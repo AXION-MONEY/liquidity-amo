@@ -9,8 +9,11 @@ import {
   SolidlyV2AMO,
   IV2Voter,
   IFactory,
-  MockRouter
+  MockRouter,
+  IGauge,
+  IERC20
 } from "../typechain-types";
+import { setBalance } from "@nomicfoundation/hardhat-network-helpers";
 
 before(async () => {
   await network.provider.request({
@@ -34,6 +37,8 @@ describe("SolidlyV2AMO", function() {
   let router: MockRouter;
   let v2Voter: IV2Voter;
   let factory: IFactory;
+  let gauge: IGauge;
+  let pool: IERC20;
   let admin: SignerWithAddress;
   let rewardVault: SignerWithAddress;
   let setter: SignerWithAddress;
@@ -161,11 +166,28 @@ describe("SolidlyV2AMO", function() {
       boostDesired,
       usdMin4Liquidity,
       boostMin4Liquidity,
-      admin.address,
+      amoAddress,
       deadline
     );
 
-    // // Grant Roles
+    // Deposit LP
+    pool = await ethers.getContractAt("@openzeppelin/contracts/token/ERC20/IERC20.sol:IERC20", poolAddress);
+    let lpBalance = await pool.balanceOf(amoAddress);
+    await network.provider.request({
+      method: "hardhat_impersonateAccount",
+      params: [amoAddress]
+    });
+    await setBalance(amoAddress, ethers.parseEther("1"));
+    const amoSigner = await ethers.getSigner(amoAddress);
+    await pool.connect(amoSigner).approve(gaugeAddress, lpBalance);
+    gauge = await ethers.getContractAt("IGauge", gaugeAddress);
+    await gauge.connect(amoSigner)["deposit(uint256)"](lpBalance);
+    await network.provider.request({
+      method: "hardhat_stopImpersonatingAccount",
+      params: [amoAddress]
+    });
+
+    // Grant Roles
     SETTER_ROLE = await solidlyV2AMO.SETTER_ROLE();
     AMO_ROLE = await solidlyV2AMO.AMO_ROLE();
     WITHDRAWER_ROLE = await solidlyV2AMO.WITHDRAWER_ROLE();
@@ -299,11 +321,10 @@ describe("SolidlyV2AMO", function() {
     const usdToBuy = ethers.parseUnits("1000000", 6);
     const minBoostReceive = ethers.parseUnits("990000", 18);
     const routeBuyBoost = [{
-      from: usdAddress, // TestUSD address
-      to: boostAddress, // BABE token address
+      from: usdAddress,
+      to: boostAddress,
       stable: true
     }];
-    // Deadline for the transaction (current time + 60 seconds)
     await testUSD.connect(admin).mint(user.address, usdToBuy);
     await testUSD.connect(user).approve(routerAddress, usdToBuy);
     await router.connect(user).swapExactTokensForTokens(
@@ -317,6 +338,34 @@ describe("SolidlyV2AMO", function() {
     expect(await solidlyV2AMO.boostPrice()).to.be.gt(ethers.parseUnits("1", 6));
 
     await expect(solidlyV2AMO.connect(user).mintSellFarm()).to.be.emit(solidlyV2AMO, "PublicMintSellFarmExecuted");
+    expect(await solidlyV2AMO.boostPrice()).to.be.approximately(ethers.parseUnits("1", 6), delta);
+  });
+
+  it("should correctly return boostPrice", async function() {
+    expect(await solidlyV2AMO.boostPrice()).to.be.approximately(ethers.parseUnits("1", 6), delta);
+  });
+
+  it("should execute public unfarmBuyBurn when price below 1", async function() {
+    const boostToBuy = ethers.parseUnits("1000000", 18);
+    const minUsdReceive = ethers.parseUnits("990000", 6);
+    const routeSellBoost = [{
+      from: boostAddress,
+      to: usdAddress,
+      stable: true
+    }];
+    await boost.connect(boostMinter).mint(user.address, boostToBuy);
+    await boost.connect(user).approve(routerAddress, boostToBuy);
+    await router.connect(user).swapExactTokensForTokens(
+      boostToBuy,
+      minUsdReceive,
+      routeSellBoost,
+      user.address,
+      deadline
+    );
+
+    expect(await solidlyV2AMO.boostPrice()).to.be.lt(ethers.parseUnits("1", 6));
+
+    await expect(solidlyV2AMO.connect(user).unfarmBuyBurn()).to.be.emit(solidlyV2AMO, "PublicUnfarmBuyBurnExecuted");
     expect(await solidlyV2AMO.boostPrice()).to.be.approximately(ethers.parseUnits("1", 6), delta);
   });
 
