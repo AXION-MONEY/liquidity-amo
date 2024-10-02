@@ -46,6 +46,7 @@ describe("SolidlyV2AMO", function() {
   let withdrawer: SignerWithAddress;
   let pauser: SignerWithAddress;
   let unpauser: SignerWithAddress;
+  let rewardCollector: SignerWithAddress;
   let boostMinter: SignerWithAddress;
   let user: SignerWithAddress;
 
@@ -54,6 +55,7 @@ describe("SolidlyV2AMO", function() {
   let WITHDRAWER_ROLE: string;
   let PAUSER_ROLE: string;
   let UNPAUSER_ROLE: string;
+  let REWARD_COLLECTOR_ROLE: string;
 
   const V2_VOTER = "0xE3D1A117dF7DCaC2eB0AC8219341bAd92f18dAC1"; // Equalizer DEX Voter
   const V2_FACTORY = "0xc6366EFD0AF1d09171fe0EBF32c7943BB310832a"; // Equalizer DEX PairFactory
@@ -83,7 +85,9 @@ describe("SolidlyV2AMO", function() {
   ];
 
   beforeEach(async function() {
-    [admin, rewardVault, setter, amoBot, withdrawer, pauser, unpauser, boostMinter, user] = await ethers.getSigners();
+    [
+      admin, rewardVault, setter, amoBot, withdrawer, pauser, unpauser, boostMinter, user, rewardCollector
+    ] = await ethers.getSigners();
 
     // Deploy the actual contracts using deployProxy
     const BoostFactory = await ethers.getContractFactory("BoostStablecoin");
@@ -193,12 +197,14 @@ describe("SolidlyV2AMO", function() {
     WITHDRAWER_ROLE = await solidlyV2AMO.WITHDRAWER_ROLE();
     PAUSER_ROLE = await solidlyV2AMO.PAUSER_ROLE();
     UNPAUSER_ROLE = await solidlyV2AMO.UNPAUSER_ROLE();
+    REWARD_COLLECTOR_ROLE = await solidlyV2AMO.REWARD_COLLECTOR_ROLE();
 
     await solidlyV2AMO.grantRole(SETTER_ROLE, setter.address);
     await solidlyV2AMO.grantRole(AMO_ROLE, amoBot.address);
     await solidlyV2AMO.grantRole(WITHDRAWER_ROLE, withdrawer.address);
     await solidlyV2AMO.grantRole(PAUSER_ROLE, pauser.address);
     await solidlyV2AMO.grantRole(UNPAUSER_ROLE, unpauser.address);
+    await solidlyV2AMO.grantRole(REWARD_COLLECTOR_ROLE, rewardCollector.address);
     await minter.grantRole(await minter.AMO_ROLE(), amoAddress);
   });
 
@@ -276,6 +282,15 @@ describe("SolidlyV2AMO", function() {
         deadline
       )
     ).to.be.revertedWith(`AccessControl: account ${user.address.toLowerCase()} is missing role ${AMO_ROLE}`);
+
+    await solidlyV2AMO.connect(setter).setTokenId(1, true);
+    await expect(solidlyV2AMO.connect(amoBot).addLiquidity(
+      usdAmountToAdd,
+      boostMinAmount,
+      usdMinAmount,
+      deadline
+    )).to.be.revertedWithoutReason();
+    await solidlyV2AMO.connect(setter).setTokenId(0, false);
 
     await expect(
       solidlyV2AMO.connect(amoBot).addLiquidity(
@@ -382,5 +397,25 @@ describe("SolidlyV2AMO", function() {
         ).to.be.revertedWithCustomError(solidlyV2AMO, "InvalidRatioValue");
       });
     }
+  });
+  describe("get reward", async function() {
+    const tokens = [];
+    it("should revert when token is not whitelisted", async function() {
+
+    });
+    it("should revert for non-setter", async function() {
+      await expect(solidlyV2AMO.connect(user).setWhitelistedTokens(tokens, true)).to.be.revertedWith(
+        `AccessControl: account ${user.address.toLowerCase()} is missing role ${SETTER_ROLE}`);
+    });
+    it("should whitelist tokens", async function() {
+      await expect(solidlyV2AMO.connect(setter).setWhitelistedTokens(tokens, true)).to.emit(solidlyV2AMO, "RewardTokensSet");
+    });
+    it("should revert for non-reward_collector", async function() {
+      await expect(solidlyV2AMO.connect(user).getReward(tokens, true)).to.be.revertedWith(
+        `AccessControl: account ${user.address.toLowerCase()} is missing role ${REWARD_COLLECTOR_ROLE}`);
+    });
+    it("should get reward", async function() {
+      await expect(solidlyV2AMO.connect(rewardCollector).getReward(tokens, true)).to.emit(solidlyV2AMO, "GetReward");
+    });
   });
 });
