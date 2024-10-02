@@ -90,6 +90,8 @@ abstract contract MasterAMO is
     uint8 internal constant PRICE_DECIMALS = 6;
     uint8 internal constant PARAMS_DECIMALS = 6;
     uint256 internal constant FACTOR = 10 ** PARAMS_DECIMALS;
+    bool internal constant SELL_BOOST = true;
+    bool internal constant BUY_BOOST = false;
 
     /* ========== FUNCTIONS ========== */
     function initialize(
@@ -109,7 +111,7 @@ abstract contract MasterAMO is
             usd_ == address(0) ||
             pool_ == address(0) ||
             boostMinter_ == address(0)
-        ) revert ZeroAddress(); //zero-address error checks
+        ) revert ZeroAddress(); // zero-address error checks
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         boost = boost_;
@@ -273,11 +275,11 @@ abstract contract MasterAMO is
     function _mintSellFarm() internal virtual returns (uint256 liquidity, uint256 newBoostPrice);
 
     function mintSellFarm()
-        validateSwap(true)
         external
         override
         whenNotPaused
         nonReentrant
+        validateSwap(SELL_BOOST)
         returns (uint256 liquidity, uint256 newBoostPrice)
     {
         (liquidity, newBoostPrice) = _mintSellFarm();
@@ -290,11 +292,11 @@ abstract contract MasterAMO is
     function _unfarmBuyBurn() internal virtual returns (uint256 liquidity, uint256 newBoostPrice);
 
     function unfarmBuyBurn()
-        validateSwap(false)
         external
         override
         whenNotPaused
         nonReentrant
+        validateSwap(BUY_BOOST)
         returns (uint256 liquidity, uint256 newBoostPrice)
     {
         (liquidity, newBoostPrice) = _unfarmBuyBurn();

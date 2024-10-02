@@ -376,8 +376,10 @@ contract SolidlyV2AMO is ISolidlyV2AMO, MasterAMO {
 
     function _validateSwap(bool boostForUsd) internal view override {
         (uint256 boostReserve, uint256 usdReserve) = getReserves();
-        if(boostForUsd && boostReserve <= usdReserve) revert InvalidReserveRatio({ratio: (FACTOR * usdReserve) / boostReserve});
-        else if (!boostForUsd && usdReserve <= boostReserve) revert InvalidReserveRatio({ratio: (FACTOR * usdReserve) / boostReserve});
+        if (boostForUsd && boostReserve >= usdReserve)
+            revert InvalidReserveRatio({ratio: (FACTOR * usdReserve) / boostReserve});
+        if (!boostForUsd && usdReserve >= boostReserve)
+            revert InvalidReserveRatio({ratio: (FACTOR * usdReserve) / boostReserve});
     }
 
     ////////////////////////// VIEW FUNCTIONS //////////////////////////
@@ -387,10 +389,8 @@ contract SolidlyV2AMO is ISolidlyV2AMO, MasterAMO {
         price = amountOut / 10 ** (usdDecimals - PRICE_DECIMALS);
     }
 
-    function getReserves() public view returns(uint256 boostReserve, uint256 usdReserve){
+    function getReserves() public view returns (uint256 boostReserve, uint256 usdReserve) {
         (uint256 reserve0, uint256 reserve1, ) = IPair(pool).getReserves();
-        uint256 boostReserve;
-        uint256 usdReserve;
         if (boost < usd) {
             boostReserve = reserve0;
             usdReserve = toBoostAmount(reserve1); // scaled
