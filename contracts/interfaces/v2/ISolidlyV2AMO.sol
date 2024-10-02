@@ -44,8 +44,9 @@ interface ISolidlyV2AMO {
 
     /**
      * @notice This function sets the token id for depositing in mintSellFarm()
+     * @dev Can only be called by an account with the SETTER_ROLE
      * @param tokenId_ The token id
-     * @param useTokenId_ A boolean indicating use or not to use the token id
+     * @param useTokenId_ A boolean indicating whether to use the token ID
      */
     function setTokenId(uint256 tokenId_, bool useTokenId_) external;
 
@@ -54,7 +55,7 @@ interface ISolidlyV2AMO {
      * @dev Can only be called by an account with the SETTER_ROLE
      * @param boostMultiplier_ The multiplier used to calculate the amount of boost to mint in addLiquidity()
      * @param validRangeRatio_ The valid range ratio for addLiquidity()
-     * @param validRemovingRatio_ Set the price (<1$) on which the unfarmBuyBurn() is allowed
+     * @param validRemovingRatio_ Set the price (<1$) at which the unfarmBuyBurn() is allowed
      * @param boostLowerPriceSell_ The new lower price bound for selling BOOST
      * @param boostUpperPriceBuy_ The new upper price bound for buying BOOST
      * @param boostSellRatio_ The new BOOST sell ratio
