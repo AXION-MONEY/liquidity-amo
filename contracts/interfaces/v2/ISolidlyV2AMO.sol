@@ -16,10 +16,11 @@ interface ISolidlyV2AMO {
 
     /// @notice Returns the address of the reward vault for collected rewards
     function rewardVault() external view returns (address);
+    
+    /// @notice Checks if the given token is a whitelisted reward token.
+    /// @param token The address of the token to check.
+    /// @return True if the token is whitelisted, false otherwise.
 
-    /// @notice Returns whether the given token is a whitelisted reward token
-    /// @param token The address of the token to check
-    /// @return true if the token is whitelisted, false otherwise
     function whitelistedRewardTokens(address token) external view returns (bool);
 
     /// @notice Returns the BOOST sell ratio (in 6 decimals)
@@ -31,13 +32,13 @@ interface ISolidlyV2AMO {
     /// @notice Returns the token ID for gauge
     function tokenId() external view returns (uint256);
 
-    /// @notice Returns a boolean indicating use or not to use the token ID
+    /// @notice Returns a boolean indicating whether to use the token ID.
     function useTokenId() external view returns (bool);
 
     /* ========== FUNCTIONS ========== */
     /**
      * @notice This function sets the reward and buyback vault addresses
-     * @dev Can only be called by an account with the SETTER_ROLE
+     * @dev Can only be called by an account with the SETTER_ROLE. Reverts if the provided address is zero
      * @param rewardVault_ The address of the reward vault
      */
     function setVault(address rewardVault_) external;
@@ -72,10 +73,10 @@ interface ISolidlyV2AMO {
     ) external;
 
     /**
-     * @notice This function sets the reward token whitelist status
+     * @notice This function sets the whitelisted status for reward tokens
      * @dev Can only be called by an account with the SETTER_ROLE
      * @param tokens An array of reward token addresses
-     * @param isWhitelisted The new whitelist status for the tokens
+     * @param isWhitelisted A boolean indicating whether to whitelist a token
      */
     function setWhitelistedTokens(address[] memory tokens, bool isWhitelisted) external;
 
@@ -83,7 +84,7 @@ interface ISolidlyV2AMO {
      * @notice This function collects reward tokens from the gauge and transfers them to the reward vault
      * @dev Can only be called by an account with the REWARD_COLLECTOR_ROLE when the contract is not paused
      * @param tokens An array of reward token addresses to be collected
-     * @param passTokens The boolean to determine whether tokens should be passed to getReward() function or not
+     * @param passTokens  A boolean indicating whether to pass the token array to the external getReward() function
      */
     function getReward(address[] memory tokens, bool passTokens) external;
 }
