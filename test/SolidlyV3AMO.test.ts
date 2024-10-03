@@ -60,8 +60,8 @@ describe("SolidlyV3AMO", function() {
   const poolFee = 100;
   const price = "1";
   const boostMultiplier = ethers.parseUnits("1.1", 6);
-  const validRangeRatio = ethers.parseUnits("0.01", 6);
-  const validRemovingRatio = ethers.parseUnits("0.99", 6);
+  const validRangeWidth = ethers.parseUnits("0.01", 6);
+  const validRemovingRatio = ethers.parseUnits("1.01", 6);
   const usdUsageRatio = ethers.parseUnits("0.95", 6);
   const boostLowerPriceSell = ethers.parseUnits("0.99", 6);
   const boostUpperPriceBuy = ethers.parseUnits("1.01", 6);
@@ -131,7 +131,7 @@ describe("SolidlyV3AMO", function() {
       tickUpper,
       sqrtPriceX96,
       boostMultiplier,
-      validRangeRatio,
+      validRangeWidth,
       validRemovingRatio,
       usdUsageRatio,
       boostLowerPriceSell,
@@ -190,7 +190,7 @@ describe("SolidlyV3AMO", function() {
       expect(await solidlyV3AMO.tickUpper()).to.equal(tickUpper);
       expect(await solidlyV3AMO.targetSqrtPriceX96()).to.equal(sqrtPriceX96);
       expect(await solidlyV3AMO.boostMultiplier()).to.equal(boostMultiplier);
-      expect(await solidlyV3AMO.validRangeRatio()).to.equal(validRangeRatio);
+      expect(await solidlyV3AMO.validRangeWidth()).to.equal(validRangeWidth);
       expect(await solidlyV3AMO.validRemovingRatio()).to.equal(validRemovingRatio);
       expect(await solidlyV3AMO.usdUsageRatio()).to.equal(usdUsageRatio);
       expect(await solidlyV3AMO.boostLowerPriceSell()).to.equal(boostLowerPriceSell);
@@ -245,7 +245,7 @@ describe("SolidlyV3AMO", function() {
       it("Should set params correctly", async function() {
         await expect(solidlyV3AMO.connect(setter).setParams(
           boostMultiplier + BigInt(100),
-          validRangeRatio + BigInt(100),
+          validRangeWidth + BigInt(100),
           validRemovingRatio + BigInt(100),
           usdUsageRatio + BigInt(100),
           boostLowerPriceSell + BigInt(100),
@@ -253,14 +253,14 @@ describe("SolidlyV3AMO", function() {
         )).to.emit(solidlyV3AMO, "ParamsSet")
           .withArgs(
             boostMultiplier + BigInt(100),
-            validRangeRatio + BigInt(100),
+            validRangeWidth + BigInt(100),
             validRemovingRatio + BigInt(100),
             usdUsageRatio + BigInt(100),
             boostLowerPriceSell + BigInt(100),
             boostUpperPriceBuy + BigInt(100)
           );
         expect(await solidlyV3AMO.boostMultiplier()).to.equal(boostMultiplier + BigInt(100));
-        expect(await solidlyV3AMO.validRangeRatio()).to.equal(validRangeRatio + BigInt(100));
+        expect(await solidlyV3AMO.validRangeWidth()).to.equal(validRangeWidth + BigInt(100));
         expect(await solidlyV3AMO.validRemovingRatio()).to.equal(validRemovingRatio + BigInt(100));
         expect(await solidlyV3AMO.usdUsageRatio()).to.equal(usdUsageRatio + BigInt(100));
         expect(await solidlyV3AMO.boostLowerPriceSell()).to.equal(boostLowerPriceSell + BigInt(100));
@@ -270,7 +270,7 @@ describe("SolidlyV3AMO", function() {
       it("Should revert when called by non-setter", async function() {
         await expect(solidlyV3AMO.connect(user).setParams(
           boostMultiplier + BigInt(100),
-          validRangeRatio + BigInt(100),
+          validRangeWidth + BigInt(100),
           validRemovingRatio + BigInt(100),
           usdUsageRatio + BigInt(100),
           boostLowerPriceSell + BigInt(100),
@@ -280,10 +280,9 @@ describe("SolidlyV3AMO", function() {
       });
 
       it("Should revert when value is out of range", async function() {
-        const outOfRangeValue = ethers.parseUnits("1.1", 6);
         await expect(solidlyV3AMO.connect(setter).setParams(
           boostMultiplier + BigInt(100),
-          outOfRangeValue,
+          ethers.parseUnits("1.1", 6),
           validRemovingRatio + BigInt(100),
           usdUsageRatio + BigInt(100),
           boostLowerPriceSell + BigInt(100),
@@ -292,8 +291,8 @@ describe("SolidlyV3AMO", function() {
 
         await expect(solidlyV3AMO.connect(setter).setParams(
           boostMultiplier + BigInt(100),
-          validRangeRatio + BigInt(100),
-          outOfRangeValue,
+          validRangeWidth + BigInt(100),
+          ethers.parseUnits("0.99", 6),
           usdUsageRatio + BigInt(100),
           boostLowerPriceSell + BigInt(100),
           boostUpperPriceBuy + BigInt(100)
@@ -301,9 +300,9 @@ describe("SolidlyV3AMO", function() {
 
         await expect(solidlyV3AMO.connect(setter).setParams(
           boostMultiplier + BigInt(100),
-          validRangeRatio + BigInt(100),
+          validRangeWidth + BigInt(100),
           validRemovingRatio + BigInt(100),
-          outOfRangeValue,
+          ethers.parseUnits("1.1", 6),
           boostLowerPriceSell + BigInt(100),
           boostUpperPriceBuy + BigInt(100)
         )).to.be.revertedWithCustomError(solidlyV3AMO, "InvalidRatioValue");

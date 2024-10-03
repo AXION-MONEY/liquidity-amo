@@ -26,7 +26,7 @@ contract SolidlyV2AMO is ISolidlyV2AMO, MasterAMO {
     event TokenIdSet(uint256 tokenId, bool useTokenId);
     event ParamsSet(
         uint256 boostMultiplier,
-        uint24 validRangeRatio,
+        uint24 validRangeWidth,
         uint24 validRemovingRatio,
         uint256 boostLowerPriceSell,
         uint256 boostUpperPriceBuy,
@@ -70,7 +70,7 @@ contract SolidlyV2AMO is ISolidlyV2AMO, MasterAMO {
         uint256 tokenId_,
         bool useTokenId_,
         uint256 boostMultiplier_,
-        uint24 validRangeRatio_,
+        uint24 validRangeWidth_,
         uint24 validRemovingRatio_,
         uint256 boostLowerPriceSell_,
         uint256 boostUpperPriceBuy_,
@@ -89,7 +89,7 @@ contract SolidlyV2AMO is ISolidlyV2AMO, MasterAMO {
         setTokenId(tokenId_, useTokenId_);
         setParams(
             boostMultiplier_,
-            validRangeRatio_,
+            validRangeWidth_,
             validRemovingRatio_,
             boostLowerPriceSell_,
             boostUpperPriceBuy_,
@@ -117,16 +117,16 @@ contract SolidlyV2AMO is ISolidlyV2AMO, MasterAMO {
     /// @inheritdoc ISolidlyV2AMO
     function setParams(
         uint256 boostMultiplier_,
-        uint24 validRangeRatio_,
+        uint24 validRangeWidth_,
         uint24 validRemovingRatio_,
         uint256 boostLowerPriceSell_,
         uint256 boostUpperPriceBuy_,
         uint256 boostSellRatio_,
         uint256 usdBuyRatio_
     ) public override onlyRole(SETTER_ROLE) {
-        if (validRangeRatio_ > FACTOR || validRemovingRatio_ > FACTOR) revert InvalidRatioValue();
+        if (validRangeWidth_ > FACTOR || validRemovingRatio_ < FACTOR) revert InvalidRatioValue();
         boostMultiplier = boostMultiplier_;
-        validRangeRatio = validRangeRatio_;
+        validRangeWidth = validRangeWidth_;
         validRemovingRatio = validRemovingRatio_;
         boostLowerPriceSell = boostLowerPriceSell_;
         boostUpperPriceBuy = boostUpperPriceBuy_;
@@ -134,7 +134,7 @@ contract SolidlyV2AMO is ISolidlyV2AMO, MasterAMO {
         usdBuyRatio = usdBuyRatio_;
         emit ParamsSet(
             boostMultiplier,
-            validRangeRatio,
+            validRangeWidth,
             validRemovingRatio,
             boostLowerPriceSell,
             boostUpperPriceBuy,
@@ -200,7 +200,7 @@ contract SolidlyV2AMO is ISolidlyV2AMO, MasterAMO {
         // We only add liquidity when price is withing range (close to $1)
         // if price is too high, we need to mint and sell more before we add liqudiity
         uint256 price = boostPrice();
-        if (price <= FACTOR - validRangeRatio || price >= FACTOR + validRangeRatio) revert InvalidRatioToAddLiquidity();
+        if (price <= FACTOR - validRangeWidth || price >= FACTOR + validRangeWidth) revert InvalidRatioToAddLiquidity();
 
         // Mint the specified amount of BOOST tokens
         uint256 boostAmount = (toBoostAmount(usdAmount) * boostMultiplier) / FACTOR;

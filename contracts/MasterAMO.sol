@@ -77,7 +77,7 @@ abstract contract MasterAMO is
     /// @inheritdoc IMasterAMO
     uint256 public override boostMultiplier;
     /// @inheritdoc IMasterAMO
-    uint24 public override validRangeRatio;
+    uint24 public override validRangeWidth;
     /// @inheritdoc IMasterAMO
     uint24 public override validRemovingRatio;
 
@@ -210,7 +210,7 @@ abstract contract MasterAMO is
         (boostAmountIn, usdAmountOut) = _mintAndSellBoost(boostAmount, minUsdAmountOut, deadline);
 
         uint256 price = boostPrice();
-        if (price > FACTOR - validRangeRatio && price < FACTOR + validRangeRatio) {
+        if (price > FACTOR - validRangeWidth && price < FACTOR + validRangeWidth) {
             uint256 usdBalance = IERC20Upgradeable(usd).balanceOf(address(this));
             (boostSpent, usdSpent, liquidity) = _addLiquidity(usdBalance, minBoostSpend, minUsdSpend, deadline);
         }

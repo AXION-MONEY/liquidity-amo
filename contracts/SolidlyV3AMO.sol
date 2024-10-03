@@ -25,7 +25,7 @@ contract SolidlyV3AMO is ISolidlyV3AMO, MasterAMO {
     event TargetSqrtPriceX96Set(uint160 targetSqrtPriceX96);
     event ParamsSet(
         uint256 boostMultiplier,
-        uint24 validRangeRatio,
+        uint24 validRangeWidth,
         uint24 validRemovingRatio,
         uint24 usdUsageRatio,
         uint256 boostLowerPriceSell,
@@ -58,7 +58,7 @@ contract SolidlyV3AMO is ISolidlyV3AMO, MasterAMO {
         int24 tickUpper_,
         uint160 targetSqrtPriceX96_,
         uint256 boostMultiplier_,
-        uint24 validRangeRatio_,
+        uint24 validRangeWidth_,
         uint24 validRemovingRatio_,
         uint24 usdUsageRatio_,
         uint256 boostLowerPriceSell_,
@@ -71,7 +71,7 @@ contract SolidlyV3AMO is ISolidlyV3AMO, MasterAMO {
         setTargetSqrtPriceX96(targetSqrtPriceX96_);
         setParams(
             boostMultiplier_,
-            validRangeRatio_,
+            validRangeWidth_,
             validRemovingRatio_,
             usdUsageRatio_,
             boostLowerPriceSell_,
@@ -98,23 +98,23 @@ contract SolidlyV3AMO is ISolidlyV3AMO, MasterAMO {
     /// @inheritdoc ISolidlyV3AMO
     function setParams(
         uint256 boostMultiplier_,
-        uint24 validRangeRatio_,
+        uint24 validRangeWidth_,
         uint24 validRemovingRatio_,
         uint24 usdUsageRatio_,
         uint256 boostLowerPriceSell_,
         uint256 boostUpperPriceBuy_
     ) public override onlyRole(SETTER_ROLE) {
-        if (validRangeRatio_ > FACTOR || validRemovingRatio_ > FACTOR || usdUsageRatio_ > FACTOR)
+        if (validRangeWidth_ > FACTOR || validRemovingRatio_ < FACTOR || usdUsageRatio_ > FACTOR)
             revert InvalidRatioValue();
         boostMultiplier = boostMultiplier_;
-        validRangeRatio = validRangeRatio_;
+        validRangeWidth = validRangeWidth_;
         validRemovingRatio = validRemovingRatio_;
         usdUsageRatio = usdUsageRatio_;
         boostLowerPriceSell = boostLowerPriceSell_;
         boostUpperPriceBuy = boostUpperPriceBuy_;
         emit ParamsSet(
             boostMultiplier,
-            validRangeRatio,
+            validRangeWidth,
             validRemovingRatio,
             usdUsageRatio,
             boostLowerPriceSell,
@@ -136,7 +136,7 @@ contract SolidlyV3AMO is ISolidlyV3AMO, MasterAMO {
 
         // Execute the swap
         // If boost < usd, we are selling BOOST for USD, otherwise vice versa
-        The swap is executed at the targetSqrtPriceX96, and must meet the minimum USD amount
+        // The swap is executed at the targetSqrtPriceX96, and must meet the minimum USD amount
         (int256 amount0, int256 amount1) = ISolidlyV3Pool(pool).swap(
             address(this),
             boost < usd,
@@ -199,8 +199,8 @@ contract SolidlyV3AMO is ISolidlyV3AMO, MasterAMO {
 
         (boostSpent, usdSpent) = sortAmounts(amount0, amount1);
 
-        // Calculate valid range for USD spent based on BOOST spent and validRangeRatio
-        uint256 validRange = (boostSpent * validRangeRatio) / FACTOR;
+        // Calculate valid range for USD spent based on BOOST spent and validRangeWidth
+        uint256 validRange = (boostSpent * validRangeWidth) / FACTOR;
         if (toBoostAmount(usdSpent) <= boostSpent - validRange || toBoostAmount(usdSpent) >= boostSpent + validRange)
             revert InvalidRatioToAddLiquidity();
 

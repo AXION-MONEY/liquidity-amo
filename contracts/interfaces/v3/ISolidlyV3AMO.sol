@@ -38,7 +38,7 @@ interface ISolidlyV3AMO {
      * @dev Can only be called by an account with the SETTER_ROLE
      * @param boostMultiplier_ The multiplier used to calculate the amount of boost to mint in addLiquidity() 
      * —— this factor makes it possible to mint marginally less than what is needed to revert to peg ( avoids risk of reverting )
-     * @param validRangeRatio_ The valid range ratio for addLiquidity()
+     * @param validRangeWidth_ The valid range width for addLiquidity()
      * —— we only add liquidity if price has reverted close to 1.
      * @param validRemovingRatio_ Set the price (<1$) on which the unfarmBuyBurn() is allowed
      * @param usdUsageRatio_ The minimum valid ratio of usdAmountIn to usdRemoved in unfarmBuyBurn()
@@ -47,7 +47,7 @@ interface ISolidlyV3AMO {
      */
     function setParams(
         uint256 boostMultiplier_,
-        uint24 validRangeRatio_,
+        uint24 validRangeWidth_,
         uint24 validRemovingRatio_,
         uint24 usdUsageRatio_,
         uint256 boostLowerPriceSell_,

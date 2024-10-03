@@ -55,7 +55,7 @@ interface ISolidlyV2AMO {
      * @notice This function sets various params for the contract
      * @dev Can only be called by an account with the SETTER_ROLE
      * @param boostMultiplier_ The multiplier used to calculate the amount of boost to mint in addLiquidity()
-     * @param validRangeRatio_ The valid range ratio for addLiquidity()
+     * @param validRangeWidth_ The valid range width for addLiquidity()
      * @param validRemovingRatio_ Set the price (<1$) at which the unfarmBuyBurn() is allowed
      * @param boostLowerPriceSell_ The new lower price bound for selling BOOST
      * @param boostUpperPriceBuy_ The new upper price bound for buying BOOST
@@ -64,7 +64,7 @@ interface ISolidlyV2AMO {
      */
     function setParams(
         uint256 boostMultiplier_,
-        uint24 validRangeRatio_,
+        uint24 validRangeWidth_,
         uint24 validRemovingRatio_,
         uint256 boostLowerPriceSell_,
         uint256 boostUpperPriceBuy_,

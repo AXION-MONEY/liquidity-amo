@@ -76,8 +76,8 @@ describe("SolidlyV2AMO", function() {
   const delta = ethers.parseUnits("0.001", 6);
   const params = [
     ethers.parseUnits("1.1", 6), // boostMultiplier
-    ethers.parseUnits("0.01", 6), // validRangeRatio
-    ethers.parseUnits("0.99", 6), // validRemovingRatio
+    ethers.parseUnits("0.01", 6), // validRangeWidth
+    ethers.parseUnits("1.01", 6), // validRemovingRatio
     ethers.parseUnits("0.99", 6), // boostLowerPriceSell
     ethers.parseUnits("1.01", 6), // boostUpperPriceBuy
     ethers.parseUnits("0.8", 6), // boostSellRatio
@@ -389,10 +389,19 @@ describe("SolidlyV2AMO", function() {
   });
 
   describe("should revert when invalid parameters are set", function() {
-    for (const i of [1, 2]) {
+    for (const i of [1]) {
       it(`param on index ${i}`, async function() {
         let tempParams = [...params];
         tempParams[i] = ethers.parseUnits("1.00001", 6);
+        await expect(solidlyV2AMO.connect(setter).setParams(...tempParams)
+        ).to.be.revertedWithCustomError(solidlyV2AMO, "InvalidRatioValue");
+      });
+    }
+
+    for (const i of [2]) {
+      it(`param on index ${i}`, async function() {
+        let tempParams = [...params];
+        tempParams[i] = ethers.parseUnits("0.99999", 6);
         await expect(solidlyV2AMO.connect(setter).setParams(...tempParams)
         ).to.be.revertedWithCustomError(solidlyV2AMO, "InvalidRatioValue");
       });

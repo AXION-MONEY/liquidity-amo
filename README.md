@@ -91,7 +91,7 @@ It involves free-minting BOOST tokens, pairing it with USDC backing, and after a
 3. The contract approves the BOOST and USD tokens for transfer to the pool. 
 4. The contract calculates the amount of liquidity that will be provided to the pool based on the USD amount. It also calculates the minimum amounts of BOOST and USD that can be used to add liquidity (from minBoostSpend and minUsdSpend).
 5. The function sorts the amounts of BOOST and USD to determine the actual amounts spent when adding liquidity.
-6. It then checks that the USD spent is within the valid range based on the validRangeRatio and BOOST spent. This ensures the liquidity added is balanced between BOOST and USD.
+6. It then checks that the USD spent is within the valid range based on the validRangeWidth and BOOST spent. This ensures the liquidity added is balanced between BOOST and USD.
 7. If any BOOST tokens are left unused (i.e., not spent to provide liquidity), the contract burns them.
 
 **Triggered**: When the protocol needs to add liquidity to the BOOST-USD pool, usually right after price rebalancing (MintAndSell).

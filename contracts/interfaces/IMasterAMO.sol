@@ -47,7 +47,7 @@ interface IMasterAMO {
     function boostMultiplier() external view returns (uint256);
 
     /// @notice Returns the valid range ratio for adding liquidity (in 6 decimals)
-    function validRangeRatio() external view returns (uint24);
+    function validRangeWidth() external view returns (uint24);
 
     /// @notice Returns the valid removing liquidity ratio (in 6 decimals)
     function validRemovingRatio() external view returns (uint24);
