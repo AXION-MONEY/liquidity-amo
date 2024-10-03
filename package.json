@@ -47,8 +47,5 @@
         }
       }
     ]
-  },
-  "dependencies": {
-    "solidity-code-metrics": "^0.0.27"
   }
 }

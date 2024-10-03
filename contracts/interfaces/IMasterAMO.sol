@@ -1,44 +1,77 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.5.0;
+pragma solidity 0.8.19;
 
-/// @title SolidlyV3LiquidityAMO actions
-/// @notice Contains SolidlyV3LiquidityAMO methods that can be called by the roles
-interface ISolidlyV3LiquidityAMOActions {
+interface IMasterAMO {
+    /* ========== ROLES ========== */
+    /// @notice Returns the identifier for the SETTER_ROLE
+    /// @dev This role allows calling set functions to modifying certain parameters of the contract
+    function SETTER_ROLE() external view returns (bytes32);
+
+    /// @notice Returns the identifier for the AMO_ROLE
+    /// @dev This role allows calling mintAndSellBoost(), addLiquidity(), mintSellFarm() and unfarmBuyBurn();
+    /// actions related to the AMO (Asset Management Operations)
+    function AMO_ROLE() external view returns (bytes32);
+
+    /// @notice Returns the identifier for the PAUSER_ROLE
+    /// @dev This role allows calling pause(), the pausing of the contract's critical functions
+    function PAUSER_ROLE() external view returns (bytes32);
+
+    /// @notice Returns the identifier for the UNPAUSER_ROLE
+    /// @dev This role allows calling unpause(), the unpausing of the contract's critical functions
+    function UNPAUSER_ROLE() external view returns (bytes32);
+
+    /// @notice Returns the identifier for the WITHDRAWER_ROLE
+    /// @dev This role allows calling withdrawERC20() and withdrawERC721() for withdrawing tokens from the contract
+    function WITHDRAWER_ROLE() external view returns (bytes32);
+
+    /* ========== VARIABLES ========== */
+    /// @notice Returns the address of the BOOST token
+    function boost() external view returns (address);
+
+    /// @notice Returns the address of the USD token
+    function usd() external view returns (address);
+
+    /// @notice Returns the address of the liquidity pool
+    function pool() external view returns (address);
+
+    /// @notice Returns the number of decimals used by the BOOST token
+    function boostDecimals() external view returns (uint8);
+
+    /// @notice Returns the number of decimals used by the USD token
+    function usdDecimals() external view returns (uint8);
+
+    /// @notice Returns the address of the BOOST Minter contract
+    function boostMinter() external view returns (address);
+
+    /// @notice Returns the multiplier for BOOST (in 6 decimals)
+    function boostMultiplier() external view returns (uint256);
+
+    /// @notice Returns the valid range ratio for adding liquidity (in 6 decimals). Will be a few percentage points ( scaled with Factor = 6 decimals),
+    /// actual ratio is 1 +- validRangeWidth / 1e6 == factor +- validRangeWidth
+    function validRangeWidth() external view returns (uint24);
+
+    /// @notice Returns the valid removing liquidity ratio (in 6 decimals)
+    /// value is expected to be very close to 1
+    function validRemovingRatio() external view returns (uint24);
+
+    /// @notice Returns the BOOST lower price after sell (in 6 decimals)
+    function boostLowerPriceSell() external view returns (uint256);
+
+    /// @notice Returns the BOOST upper price after buy (in 6 decimals)
+    function boostUpperPriceBuy() external view returns (uint256);
+
+    /* ========== FUNCTIONS ========== */
+    /**
+     * @notice Pauses the contract, disabling specific functionalities
+     * @dev Only an address with the PAUSER_ROLE can call this function
+     */
     function pause() external;
 
+    /**
+     * @notice Unpauses the contract, re-enabling specific functionalities
+     * @dev Only an address with the UNPAUSER_ROLE can call this function
+     */
     function unpause() external;
-
-    /**
-     * @notice This function sets the treasury vault addresses
-     * @dev Can only be called by an account with the SETTER_ROLE
-     * @param treasuryVault_ The address of the treasury vault
-     */
-    function setVault(address treasuryVault_) external;
-
-    /**
-     * @notice This function sets various params for the contract
-     * @dev Can only be called by an account with the SETTER_ROLE
-     * @param boostMultiplier_ The multiplier used to calculate the amount of boost to mint in addLiquidity()
-     * @param validRangeRatio_ The valid range ratio for addLiquidity()
-     * @param validRemovingRatio_ Set the price (<1$) on which the unfarmBuyBurn() is allowed
-     * @param dryPowderRatio_ The percent of collateral that transfer to treasuryVault in mintAndSellBoost() as dry powder
-     * @param usdUsageRatio_ The minimum valid ratio of usdAmountIn to usdRemoved in unfarmBuyBurn()
-     * @param boostLowerPriceSell_ The new lower price bound for selling BOOST
-     * @param boostUpperPriceBuy_ The new upper price bound for buying BOOST
-     */
-    function setParams(
-        uint256 boostMultiplier_,
-        uint24 validRangeRatio_,
-        uint24 validRemovingRatio_,
-        uint24 dryPowderRatio_,
-        uint24 usdUsageRatio_,
-        uint256 boostLowerPriceSell_,
-        uint256 boostUpperPriceBuy_
-    ) external;
-
-    function setTickBounds(int24 tickLower_, int24 tickUpper_) external;
-
-    function setTargetSqrtPriceX96(uint160 targetSqrtPriceX96_) external;
 
     /**
      * @notice This function mints BOOST tokens and sells them for USD
@@ -48,13 +81,12 @@ interface ISolidlyV3LiquidityAMOActions {
      * @param deadline Timestamp representing the deadline for the operation to be executed
      * @return boostAmountIn The BOOST amount that sent to the pool for the swap
      * @return usdAmountOut The USD amount that received from the swap
-     * @return dryPowderAmount The USD amount that transferred to the treasury as dry powder
      */
     function mintAndSellBoost(
         uint256 boostAmount,
         uint256 minUsdAmountOut,
         uint256 deadline
-    ) external returns (uint256 boostAmountIn, uint256 usdAmountOut, uint256 dryPowderAmount);
+    ) external returns (uint256 boostAmountIn, uint256 usdAmountOut);
 
     /**
      * @notice This function adds liquidity to the BOOST-USD pool
@@ -84,7 +116,6 @@ interface ISolidlyV3LiquidityAMOActions {
      * @param deadline Timestamp representing the deadline for the operation to be executed
      * @return boostAmountIn The BOOST amount that sent to the pool for the swap
      * @return usdAmountOut The USD amount that received from the swap
-     * @return dryPowderAmount The USD amount that transferred to the treasury as dry powder
      * @return boostSpent The BOOST amount that is spent in add liquidity
      * @return usdSpent The USD amount that is spent in add liquidity
      * @return liquidity The liquidity Amount that received from add liquidity
@@ -97,14 +128,7 @@ interface ISolidlyV3LiquidityAMOActions {
         uint256 deadline
     )
         external
-        returns (
-            uint256 boostAmountIn,
-            uint256 usdAmountOut,
-            uint256 dryPowderAmount,
-            uint256 boostSpent,
-            uint256 usdSpent,
-            uint256 liquidity
-        );
+        returns (uint256 boostAmountIn, uint256 usdAmountOut, uint256 boostSpent, uint256 usdSpent, uint256 liquidity);
 
     /**
      * @notice This function rebalances the BOOST-USD pool by removing liquidity, buying and burning BOOST tokens
@@ -136,11 +160,10 @@ interface ISolidlyV3LiquidityAMOActions {
 
     /**
      * @notice Unfarms liquidity, buys BOOST tokens with USD, and burns them
-     * @param liquidityFactor A coefficient for calculated liquidityToUnfarm to adjusting the liquidity amount
      * @return liquidity The liquidity Amount that unfarmed from add liquidity
      * @return newBoostPrice The BOOST new price after unfarmBuyBurn()
      */
-    function unfarmBuyBurn(uint24 liquidityFactor) external returns (uint256 liquidity, uint256 newBoostPrice);
+    function unfarmBuyBurn() external returns (uint256 liquidity, uint256 newBoostPrice);
 
     /**
      * @notice Withdraws ERC20 tokens from the contract
@@ -152,11 +175,8 @@ interface ISolidlyV3LiquidityAMOActions {
     function withdrawERC20(address token, uint256 amount, address recipient) external;
 
     /**
-     * @notice Withdraws an ERC721 token from the contract
-     * @dev Can only be called by an account with the WITHDRAWER_ROLE
-     * @param token The address of the ERC721 token contract
-     * @param tokenId The ID of the token to withdraw
-     * @param recipient The address to receive the token
+     * @notice This view function returns the current BOOST price with PRICE_DECIMALS = 6
+     * @return price the current BOOST price
      */
-    function withdrawERC721(address token, uint256 tokenId, address recipient) external;
+    function boostPrice() external view returns (uint256 price);
 }
