@@ -70,8 +70,6 @@ interface IPair {
 
 pragma solidity 0.8.19;
 
-import "hardhat/console.sol";
-
 interface IERC20 {
     function totalSupply() external view returns (uint256);
 

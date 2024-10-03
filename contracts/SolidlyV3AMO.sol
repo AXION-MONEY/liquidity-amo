@@ -46,6 +46,7 @@ contract SolidlyV3AMO is ISolidlyV3AMO, MasterAMO {
     uint160 internal constant MIN_SQRT_RATIO = 4295128739;
     uint160 internal constant MAX_SQRT_RATIO = 1461446703485210103287273052203988822378723970342;
     uint256 internal constant Q96 = 2 ** 96;
+    uint256 internal constant LIQUIDITY_COEFF = 995000;
 
     /* ========== FUNCTIONS ========== */
     function initialize(
@@ -322,8 +323,7 @@ contract SolidlyV3AMO is ISolidlyV3AMO, MasterAMO {
         if (boostBalance <= usdBalance) revert PriceNotInRange(boostPrice());
 
         liquidity = (totalLiquidity * (boostBalance - usdBalance)) / (boostBalance + usdBalance);
-        // FIXME: This liquidity factor should be dynamic instead of hardcoded (hardcoded for now)
-        liquidity = (liquidity * 995000) / FACTOR;
+        liquidity = (liquidity * LIQUIDITY_COEFF) / FACTOR;
 
         _unfarmBuyBurn(
             liquidity,
