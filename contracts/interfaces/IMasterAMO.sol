@@ -51,6 +51,7 @@ interface IMasterAMO {
     function validRangeRatio() external view returns (uint24);
 
     /// @notice Returns the valid removing liquidity ratio (in 6 decimals)
+    /// value is expected to be very close to 1 
     function validRemovingRatio() external view returns (uint24);
 
     /// @notice Returns the BOOST lower price after sell (in 6 decimals)
