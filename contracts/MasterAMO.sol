@@ -87,11 +87,11 @@ abstract contract MasterAMO is
     uint256 public override boostUpperPriceBuy;
 
     /* ========== CONSTANTS ========== */
-    uint8 internal constant PRICE_DECIMALS = 6;               // BOOST price decimals. For instance, if the actual BOOST price is 1.2$ the internal BOOST price is 1200000
-    uint8 internal constant PARAMS_DECIMALS = 6;              // Decimals of all parameters for internal calculations
+    uint8 internal constant PRICE_DECIMALS = 6; // BOOST price decimals. For instance, if the actual BOOST price is 1.2$ the internal BOOST price is 1200000
+    uint8 internal constant PARAMS_DECIMALS = 6; // Decimals of all parameters for internal calculations
     uint256 internal constant FACTOR = 10 ** PARAMS_DECIMALS; // Factor scales 1 with PARAMS_DECIMALS for internal calcs. It is the internal representation of the value 1
-    bool internal constant SELL_BOOST = true;                 // param for the validation modifier
-    bool internal constant BUY_BOOST = false;                 // param for the validation modifier
+    bool internal constant SELL_BOOST = true; // param for the validation modifier
+    bool internal constant BUY_BOOST = false; // param for the validation modifier
 
     /* ========== FUNCTIONS ========== */
     function initialize(
@@ -284,7 +284,7 @@ abstract contract MasterAMO is
         validateSwap(SELL_BOOST)
         returns (uint256 liquidity, uint256 newBoostPrice)
     {
-        (liquidity, newBoostPrice) = _mintSellFarm();  // Perform the mint and sell, and return liquidity and the new Boost price
+        (liquidity, newBoostPrice) = _mintSellFarm(); // Perform the mint and sell, and return liquidity and the new Boost price
         // Checks if the actual average price of boost when selling is greater than the boostLowerPriceSell
         if (newBoostPrice < boostLowerPriceSell) revert PriceNotInRange(newBoostPrice);
 
