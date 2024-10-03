@@ -46,10 +46,12 @@ interface IMasterAMO {
     /// @notice Returns the multiplier for BOOST (in 6 decimals)
     function boostMultiplier() external view returns (uint256);
 
-    /// @notice Returns the valid range ratio for adding liquidity (in 6 decimals)
+    /// @notice Returns the valid range ratio for adding liquidity (in 6 decimals). Will be a few percentage points ( scaled with Factor = 6 decimals),
+    /// actual ratio is 1 +- validRangeWidth / 1e6 == factor +- validRangeWidth
     function validRangeWidth() external view returns (uint24);
 
     /// @notice Returns the valid removing liquidity ratio (in 6 decimals)
+    /// value is expected to be very close to 1
     function validRemovingRatio() external view returns (uint24);
 
     /// @notice Returns the BOOST lower price after sell (in 6 decimals)

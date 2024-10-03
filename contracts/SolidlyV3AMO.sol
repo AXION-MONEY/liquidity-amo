@@ -106,6 +106,9 @@ contract SolidlyV3AMO is ISolidlyV3AMO, MasterAMO {
     ) public override onlyRole(SETTER_ROLE) {
         if (validRangeWidth_ > FACTOR || validRemovingRatio_ < FACTOR || usdUsageRatio_ > FACTOR)
             revert InvalidRatioValue();
+        // validRangeWidth is a few percentage points (scaled with FACTOR). So it needs to be lower than 1 (scaled with FACTOR)
+        // validRemovingRatio nedds to be greater than 1 (we remove more BOOST than USD otherwise the pool is balanced )
+
         boostMultiplier = boostMultiplier_;
         validRangeWidth = validRangeWidth_;
         validRemovingRatio = validRemovingRatio_;

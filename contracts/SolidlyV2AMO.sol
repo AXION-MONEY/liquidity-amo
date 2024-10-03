@@ -124,7 +124,8 @@ contract SolidlyV2AMO is ISolidlyV2AMO, MasterAMO {
         uint256 boostSellRatio_,
         uint256 usdBuyRatio_
     ) public override onlyRole(SETTER_ROLE) {
-        if (validRangeWidth_ > FACTOR || validRemovingRatio_ < FACTOR) revert InvalidRatioValue();
+        if (validRangeWidth_ > FACTOR || validRemovingRatio_ < FACTOR) revert InvalidRatioValue(); // validRangeWidth is a few percentage points (scaled with factor). So it needs to be lower than 1 (scaled with FACTOR)
+        // validRemovingRatio nedds to be greater than 1 (we remove more BOOST than USD otherwise the pool is balanced )
         boostMultiplier = boostMultiplier_;
         validRangeWidth = validRangeWidth_;
         validRemovingRatio = validRemovingRatio_;
@@ -198,6 +199,7 @@ contract SolidlyV2AMO is ISolidlyV2AMO, MasterAMO {
         uint256 deadline
     ) internal override returns (uint256 boostSpent, uint256 usdSpent, uint256 liquidity) {
         // We only add liquidity when price is withing range (close to $1)
+        // Price needs to be in range: 1 +- validRangeRatio / 1e6 == factor +- validRangeRatio
         // if price is too high, we need to mint and sell more before we add liqudiity
         uint256 price = boostPrice();
         if (price <= FACTOR - validRangeWidth || price >= FACTOR + validRangeWidth) revert InvalidRatioToAddLiquidity();
