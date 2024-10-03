@@ -16,7 +16,7 @@ interface ISolidlyV2AMO {
 
     /// @notice Returns the address of the reward vault for collected rewards
     function rewardVault() external view returns (address);
-    
+
     /// @notice Checks if the given token is a whitelisted reward token.
     /// @param token The address of the token to check.
     /// @return True if the token is whitelisted, false otherwise.
