@@ -179,7 +179,7 @@ contract SolidlyV3AMO is ISolidlyV3AMO, MasterAMO {
 
         // Approve the transfer of BOOST and USD tokens to the pool
         IERC20Upgradeable(boost).approve(pool, boostAmount);
-        IERC20Upgradeable(usd).approve(pool, usdAmount);
+        IERC20Upgradeable(usd).forceApprove(pool, usdAmount);
 
         (uint256 amount0Min, uint256 amount1Min) = sortAmounts(minBoostSpend, minUsdSpend);
 
@@ -199,7 +199,7 @@ contract SolidlyV3AMO is ISolidlyV3AMO, MasterAMO {
 
         // Revoke approval from the pool
         IERC20Upgradeable(boost).approve(pool, 0);
-        IERC20Upgradeable(usd).approve(pool, 0);
+        IERC20Upgradeable(usd).forceApprove(pool, 0);
 
         (boostSpent, usdSpent) = sortAmounts(amount0, amount1);
 
@@ -251,7 +251,7 @@ contract SolidlyV3AMO is ISolidlyV3AMO, MasterAMO {
             revert InvalidRatioToRemoveLiquidity();
 
         // Approve the transfer of usd tokens to the pool
-        IERC20Upgradeable(usd).approve(pool, usdRemoved);
+        IERC20Upgradeable(usd).forceApprove(pool, usdRemoved);
 
         // Execute the swap and store the amounts of tokens involved
         (int256 amount0, int256 amount1) = ISolidlyV3Pool(pool).swap(
@@ -264,7 +264,7 @@ contract SolidlyV3AMO is ISolidlyV3AMO, MasterAMO {
         );
 
         // Revoke approval from the pool
-        IERC20Upgradeable(usd).approve(pool, 0);
+        IERC20Upgradeable(usd).forceApprove(pool, 0);
 
         (int256 boostDelta, int256 usdDelta) = sortAmounts(amount0, amount1);
         usdAmountIn = uint256(usdDelta);
