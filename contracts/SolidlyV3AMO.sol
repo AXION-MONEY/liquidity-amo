@@ -6,6 +6,8 @@ import {ISolidlyV3Pool} from "./interfaces/v3/ISolidlyV3Pool.sol";
 import {ISolidlyV3AMO} from "./interfaces/v3/ISolidlyV3AMO.sol";
 
 contract SolidlyV3AMO is ISolidlyV3AMO, MasterAMO {
+    using SafeERC20Upgradeable for IERC20Upgradeable;
+
     /* ========== ERRORS ========== */
     error ExcessiveLiquidityRemoval(uint256 liquidity, uint256 unusedUsdAmount);
 
