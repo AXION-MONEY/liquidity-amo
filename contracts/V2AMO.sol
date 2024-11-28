@@ -363,8 +363,6 @@ contract V2AMO is IV2AMO, MasterAMO {
             );
         }
 
-        // Burn the BOOST tokens received from the liquidity
-        // Burn the BOOST tokens received from the swap
         usdAmountIn = amounts[0];
         boostAmountOut = amounts[1];
         IBoostStablecoin(boost).burn(boostRemoved + boostAmountOut);
