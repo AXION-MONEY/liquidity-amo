@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
-
+import "@uniswap/v3-core/contracts/libraries/TickMath.sol";
+import "@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol";
 import "./MasterAMO.sol";
+import "./interfaces/v3/IUniswapV3Pool.sol";
 import {ISolidlyV3Pool} from "./interfaces/v3/ISolidlyV3Pool.sol";
 import {ISolidlyV3Factory} from "./interfaces/v3/ISolidlyV3Factory.sol";
 import {IRewardsDistributor} from "./interfaces/v3/IRewardsDistributor.sol";
@@ -11,6 +13,7 @@ import {IUniswapV3Pool} from "./interfaces/v3/IUniswapV3Pool.sol";
 contract V3AMO is IV3AMO, MasterAMO {
     /* ========== ERRORS ========== */
     error ExcessiveLiquidityRemoval(uint256 liquidity, uint256 unusedUsdAmount);
+    error InsufficientTokenSpent();
 
     /* ========== EVENTS ========== */
     event AddLiquidity(uint256 boostSpent, uint256 usdSpent, uint256 liquidity);
@@ -170,51 +173,37 @@ contract V3AMO is IV3AMO, MasterAMO {
         emit MintSell(boostAmountIn, usdAmountOut);
     }
 
+    function _getLiquidityForUsdAmount(uint256 usdAmount) internal view returns (uint256 liquidity) {
+        uint160 sqrtRatioX96;
+        (sqrtRatioX96, , , ) = ISolidlyV3Pool(pool).slot0();
+        uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(tickLower);
+        uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(tickUpper);
+        (uint256 amount0, uint256 amount1) = sortAmounts(type(uint128).max, usdAmount);
+        liquidity = uint256(
+            LiquidityAmounts.getLiquidityForAmounts(sqrtRatioX96, sqrtRatioAX96, sqrtRatioBX96, amount0, amount1)
+        );
+    }
+
     function _addLiquidity(
         uint256 usdAmount,
         uint256 minBoostSpend,
-        uint256 minUsdSpend,
-        uint256 deadline
+        uint256 minUsdSpend
     ) internal override returns (uint256 boostSpent, uint256 usdSpent, uint256 liquidity) {
-        // Calculate the amount of BOOST to mint based on the usdAmount and boostMultiplier
-        uint256 boostAmount = (toBoostAmount(usdAmount) * boostMultiplier) / FACTOR;
-
-        // Mint the specified amount of BOOST tokens to this contract's address
-        IMinter(boostMinter).protocolMint(address(this), boostAmount);
-
-        // Approve the transfer of BOOST and USD tokens to the pool
-        IERC20Upgradeable(boost).approve(pool, boostAmount);
-        IERC20Upgradeable(usd).approve(pool, usdAmount);
-
-        (uint256 amount0Min, uint256 amount1Min) = sortAmounts(minBoostSpend, minUsdSpend);
-
-        uint128 currentLiquidity = ISolidlyV3Pool(pool).liquidity();
-        liquidity = (usdAmount * currentLiquidity) / IERC20Upgradeable(usd).balanceOf(pool);
+        liquidity = _getLiquidityForUsdAmount(usdAmount);
 
         // Add liquidity to the BOOST-USD pool within the specified tick range
-        (uint256 amount0, uint256 amount1) = ISolidlyV3Pool(pool).mint(
-            address(this),
-            tickLower,
-            tickUpper,
-            uint128(liquidity),
-            amount0Min,
-            amount1Min,
-            deadline
-        );
+        uint256 amount0;
+        uint256 amount1;
 
-        // Revoke approval from the pool
-        IERC20Upgradeable(boost).approve(pool, 0);
-        IERC20Upgradeable(usd).approve(pool, 0);
+        (amount0, amount1) = IUniswapV3Pool(pool).mint(address(this), tickLower, tickUpper, uint128(liquidity), "");
 
         (boostSpent, usdSpent) = sortAmounts(amount0, amount1);
+        if (boostSpent < minBoostSpend || usdSpent < minUsdSpend) revert InsufficientTokenSpent();
 
         // Calculate valid range for USD spent based on BOOST spent and validRangeWidth
         uint256 validRange = (boostSpent * validRangeWidth) / FACTOR;
         if (toBoostAmount(usdSpent) <= boostSpent - validRange || toBoostAmount(usdSpent) >= boostSpent + validRange)
             revert InvalidRatioToAddLiquidity();
-
-        // Burn any excess BOOST not used in liquidity
-        if (boostAmount > boostSpent) IBoostStablecoin(boost).burn(boostAmount - boostSpent);
 
         emit AddLiquidity(boostSpent, usdSpent, liquidity);
     }
