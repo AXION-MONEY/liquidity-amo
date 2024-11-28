@@ -28,4 +28,13 @@ interface ISolidlyV3Factory {
     /// @dev The pool is uniquely identified by the two tokens and the tick spacing value. The fee is mutable post pool creation.
     /// @return pool The address of the newly created pool
     function createPool(address tokenA, address tokenB, uint24 fee) external returns (address pool);
+
+    /// @notice The contract that deployed the pool, which must adhere to the ISolidlyV3Factory interface
+    /// @return The contract address
+    function factory() external view returns (address);
+
+    /// @notice Returns the current fee collector of the factory
+    /// @dev Can be changed by the current owner via setFeeCollector
+    /// @return The address of the fee collector
+    function feeCollector() external view returns (address);
 }

@@ -3,7 +3,10 @@ pragma solidity 0.8.19;
 
 import "./MasterAMO.sol";
 import {ISolidlyV3Pool} from "./interfaces/v3/ISolidlyV3Pool.sol";
+import {ISolidlyV3Factory} from "./interfaces/v3/ISolidlyV3Factory.sol";
+import {IRewardsDistributor} from "./interfaces/v3/IRewardsDistributor.sol";
 import {IV3AMO} from "./interfaces/v3/IV3AMO.sol";
+import {IUniswapV3Pool} from "./interfaces/v3/IUniswapV3Pool.sol";
 
 contract V3AMO is IV3AMO, MasterAMO {
     /* ========== ERRORS ========== */
@@ -227,29 +230,27 @@ contract V3AMO is IV3AMO, MasterAMO {
     {
         (uint256 amount0Min, uint256 amount1Min) = sortAmounts(minBoostRemove, minUsdRemove);
         // Remove liquidity and store the amounts of USD and BOOST tokens received
-        (
-            uint256 amount0FromBurn,
-            uint256 amount1FromBurn,
-            uint128 amount0Collected,
-            uint128 amount1Collected
-        ) = ISolidlyV3Pool(pool).burnAndCollect(
-                address(this),
-                tickLower,
-                tickUpper,
-                uint128(liquidity),
-                amount0Min,
-                amount1Min,
-                type(uint128).max,
-                type(uint128).max,
-                deadline
-            );
+        uint256 amount0FromBurn;
+        uint256 amount1FromBurn;
+        (amount0FromBurn, amount1FromBurn) = IUniswapV3Pool(pool).burn(tickLower, tickUpper, uint128(liquidity));
         (boostRemoved, usdRemoved) = sortAmounts(amount0FromBurn, amount1FromBurn);
-        (uint256 boostCollected, uint256 usdCollected) = sortAmounts(amount0Collected, amount1Collected);
 
         // Ensure the BOOST amount is greater than or equal to the USD amount
         if ((boostRemoved * validRemovingRatio) / FACTOR < toBoostAmount(usdRemoved))
             revert InvalidRatioToRemoveLiquidity();
 
+        address feeCollector = ISolidlyV3Factory(ISolidlyV3Pool(pool).factory()).feeCollector();
+        IRewardsDistributor(feeCollector).collectPoolFees(pool);
+        uint128 amount0Collected;
+        uint128 amount1Collected;
+        (amount0Collected, amount1Collected) = IUniswapV3Pool(pool).collect(
+            address(this),
+            tickLower,
+            tickUpper,
+            type(uint128).max,
+            type(uint128).max
+        );
+        (uint256 boostCollected, uint256 usdCollected) = sortAmounts(amount0Collected, amount1Collected);
         // Approve the transfer of usd tokens to the pool
         IERC20Upgradeable(usd).approve(pool, usdRemoved);
 
