@@ -211,7 +211,7 @@ contract V2AMO is IV2AMO, MasterAMO {
 
         // Approve the transfer of BOOST and USD tokens to the router
         IERC20Upgradeable(boost).approve(router, boostAmount);
-        IERC20Upgradeable(usd).approve(router, usdAmount);
+        IERC20Upgradeable(usd).forceApprove(router, usdAmount);
 
         uint256 lpBalanceBefore = balanceOfToken(pool);
         // Add liquidity to the BOOST-USD pool
@@ -233,7 +233,7 @@ contract V2AMO is IV2AMO, MasterAMO {
 
         // Revoke approval from the router
         IERC20Upgradeable(boost).approve(router, 0);
-        IERC20Upgradeable(usd).approve(router, 0);
+        IERC20Upgradeable(usd).forceApprove(router, 0);
 
         // Approve the transfer of liquidity tokens to the gauge and deposit them
         IERC20Upgradeable(pool).approve(gauge, liquidity);
@@ -293,7 +293,7 @@ contract V2AMO is IV2AMO, MasterAMO {
         routes[0] = ISolidlyRouter.route(usd, boost, true);
 
         // Approve the transfer of usd tokens to the router
-        IERC20Upgradeable(usd).approve(router, usdRemoved);
+        IERC20Upgradeable(usd).forceApprove(router, usdRemoved);
 
         if (minBoostAmountOut < toBoostAmount(usdRemoved)) minBoostAmountOut = toBoostAmount(usdRemoved);
 
