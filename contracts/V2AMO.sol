@@ -188,7 +188,8 @@ contract V2AMO is IV2AMO, MasterAMO {
             revert UsdAmountOutMismatch(usdAmountOut, usdBalanceAfter - usdBalanceBefore);
 
         if (usdAmountOut < minUsdAmountOut) revert InsufficientOutputAmount(usdAmountOut, minUsdAmountOut);
-
+        uint256 price = boostPrice();
+        if (price <= FACTOR - validRangeWidth) revert PriceNotInRange(price);
         emit MintSell(boostAmount, usdAmountOut);
     }
 
@@ -305,7 +306,8 @@ contract V2AMO is IV2AMO, MasterAMO {
             address(this),
             deadline
         );
-
+        uint256 price = boostPrice();
+        if (price >= FACTOR + validRangeWidth) revert PriceNotInRange(price);
         // Burn the BOOST tokens received from the liquidity
         // Burn the BOOST tokens received from the swap
         usdAmountIn = amounts[0];
