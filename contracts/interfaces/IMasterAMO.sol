@@ -94,7 +94,6 @@ interface IMasterAMO {
      * @param usdAmount The amount of USD to be added as liquidity
      * @param minBoostSpend The minimum amount of BOOST that must be added to the pool
      * @param minUsdSpend The minimum amount of USD that must be added to the pool
-     * @param deadline Timestamp representing the deadline for the operation to be executed
      * @return boostSpent The BOOST amount that is spent in add liquidity
      * @return usdSpent The USD amount that is spent in add liquidity
      * @return liquidity The liquidity Amount that received from add liquidity
@@ -102,8 +101,7 @@ interface IMasterAMO {
     function addLiquidity(
         uint256 usdAmount,
         uint256 minBoostSpend,
-        uint256 minUsdSpend,
-        uint256 deadline
+        uint256 minUsdSpend
     ) external returns (uint256 boostSpent, uint256 usdSpent, uint256 liquidity);
 
     /**

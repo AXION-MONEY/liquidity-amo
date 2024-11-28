@@ -170,25 +170,23 @@ abstract contract MasterAMO is
     function _addLiquidity(
         uint256 usdAmount,
         uint256 minBoostSpend,
-        uint256 minUsdSpend,
-        uint256 deadline
+        uint256 minUsdSpend
     ) internal virtual returns (uint256 boostSpent, uint256 usdSpent, uint256 liquidity);
 
     /// @inheritdoc IMasterAMO
     function addLiquidity(
         uint256 usdAmount,
         uint256 minBoostSpend,
-        uint256 minUsdSpend,
-        uint256 deadline
+        uint256 minUsdSpend
     )
-        external
-        override
-        onlyRole(AMO_ROLE)
-        whenNotPaused
-        nonReentrant
-        returns (uint256 boostSpent, uint256 usdSpent, uint256 liquidity)
+    external
+    override
+    onlyRole(AMO_ROLE)
+    whenNotPaused
+    nonReentrant
+    returns (uint256 boostSpent, uint256 usdSpent, uint256 liquidity)
     {
-        (boostSpent, usdSpent, liquidity) = _addLiquidity(usdAmount, minBoostSpend, minUsdSpend, deadline);
+        (boostSpent, usdSpent, liquidity) = _addLiquidity(usdAmount, minBoostSpend, minUsdSpend);
     }
 
     /**
