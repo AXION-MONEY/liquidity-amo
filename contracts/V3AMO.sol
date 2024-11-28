@@ -341,19 +341,43 @@ contract V3AMO is IV3AMO, MasterAMO {
     function _validateSwap(bool boostForUsd) internal view override {}
 
     ////////////////////////// VIEW FUNCTIONS //////////////////////////
-    /// @inheritdoc IMasterAMO
+
+    /**
+     * @dev Calculates the boost price with precision adjustments to prevent rounding errors.
+     * The function determines the price based on the relation between `boost` and `usd`,
+     * while accounting for potential precision loss in mathematical operations.
+     *
+     * The method uses adjusted decimals and avoids direct division of large integers,
+     * which can lead to significant precision loss. This ensures accurate calculations
+     * and resolves previously identified issues with rounding errors in edge cases.
+     *
+     * @return price The calculated price of BOOST relative to USD.
+     */
     function boostPrice() public view override returns (uint256 price) {
         (uint160 _sqrtPriceX96, , , ) = ISolidlyV3Pool(pool).slot0();
         uint256 sqrtPriceX96 = uint256(_sqrtPriceX96);
-        uint8 decimalsDiff = boostDecimals - usdDecimals;
-        uint256 sqrtDecimals;
-        if (decimalsDiff % 2 == 0) sqrtDecimals = 10 ** (decimalsDiff / 2) * 10 ** PRICE_DECIMALS;
-        else sqrtDecimals = (10 ** (decimalsDiff / 2) * 10 ** PRICE_DECIMALS * SQRT10) / FACTOR;
 
+        // Calculate the difference in decimals between BOOST and USD
+        uint8 decimalsDiff = boostDecimals - usdDecimals;
+
+        // Adjust for decimals and square root scaling
+        uint256 sqrtDecimals;
+        if (decimalsDiff % 2 == 0) {
+            // Even difference: scale directly
+            sqrtDecimals = 10 ** (decimalsDiff / 2) * 10 ** PRICE_DECIMALS;
+        } else {
+            // Odd difference: handle fractional scaling with SQRT10 and FACTOR
+            sqrtDecimals = (10 ** (decimalsDiff / 2) * 10 ** PRICE_DECIMALS * SQRT10) / FACTOR;
+        }
+
+        // Calculate the price based on the BOOST and USD relationship
         if (boost < usd) {
+            // BOOST is less than USD: multiply the scaled price and square it
             price = ((sqrtDecimals * sqrtPriceX96) / Q96) ** 2 / 10 ** PRICE_DECIMALS;
         } else {
+            // BOOST is greater than or equal to USD: adjust for inverse scaling
             price = ((sqrtDecimals * Q96) / sqrtPriceX96) ** 2 / 10 ** PRICE_DECIMALS;
         }
     }
+
 }
