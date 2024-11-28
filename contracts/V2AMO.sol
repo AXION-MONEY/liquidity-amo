@@ -36,26 +36,26 @@ contract V2AMO is IV2AMO, MasterAMO {
     event RewardTokensSet(address[] tokens, bool isWhitelisted);
 
     /* ========== ROLES ========== */
-    /// @inheritdoc IV2AMO.sol
+    /// @inheritdoc IV2AMO
     bytes32 public constant override REWARD_COLLECTOR_ROLE = keccak256("REWARD_COLLECTOR_ROLE");
 
     /* ========== VARIABLES ========== */
-    /// @inheritdoc IV2AMO.sol
+    /// @inheritdoc IV2AMO
     address public override router;
-    /// @inheritdoc IV2AMO.sol
+    /// @inheritdoc IV2AMO
     address public override gauge;
 
-    /// @inheritdoc IV2AMO.sol
+    /// @inheritdoc IV2AMO
     address public override rewardVault;
-    /// @inheritdoc IV2AMO.sol
+    /// @inheritdoc IV2AMO
     mapping(address => bool) public override whitelistedRewardTokens;
-    /// @inheritdoc IV2AMO.sol
+    /// @inheritdoc IV2AMO
     uint256 public override boostSellRatio;
-    /// @inheritdoc IV2AMO.sol
+    /// @inheritdoc IV2AMO
     uint256 public override usdBuyRatio;
-    /// @inheritdoc IV2AMO.sol
+    /// @inheritdoc IV2AMO
     uint256 public override tokenId;
-    /// @inheritdoc IV2AMO.sol
+    /// @inheritdoc IV2AMO
     bool public override useTokenId;
 
     /* ========== FUNCTIONS ========== */
@@ -100,21 +100,21 @@ contract V2AMO is IV2AMO, MasterAMO {
     }
 
     ////////////////////////// SETTER_ROLE ACTIONS //////////////////////////
-    /// @inheritdoc IV2AMO.sol
+    /// @inheritdoc IV2AMO
     function setVault(address rewardVault_) public override onlyRole(SETTER_ROLE) {
         if (rewardVault_ == address(0)) revert ZeroAddress();
         rewardVault = rewardVault_;
         emit VaultSet(rewardVault);
     }
 
-    /// @inheritdoc IV2AMO.sol
+    /// @inheritdoc IV2AMO
     function setTokenId(uint256 tokenId_, bool useTokenId_) public override onlyRole(SETTER_ROLE) {
         tokenId = tokenId_;
         useTokenId = useTokenId_;
         emit TokenIdSet(tokenId, useTokenId);
     }
 
-    /// @inheritdoc IV2AMO.sol
+    /// @inheritdoc IV2AMO
     function setParams(
         uint256 boostMultiplier_,
         uint24 validRangeWidth_,
@@ -144,7 +144,7 @@ contract V2AMO is IV2AMO, MasterAMO {
         );
     }
 
-    /// @inheritdoc IV2AMO.sol
+    /// @inheritdoc IV2AMO
     function setWhitelistedTokens(address[] memory tokens, bool isWhitelisted) external override onlyRole(SETTER_ROLE) {
         for (uint i = 0; i < tokens.length; i++) {
             whitelistedRewardTokens[tokens[i]] = isWhitelisted;
@@ -316,7 +316,7 @@ contract V2AMO is IV2AMO, MasterAMO {
     }
 
     ////////////////////////// REWARD_COLLECTOR_ROLE ACTIONS //////////////////////////
-    /// @inheritdoc IV2AMO.sol
+    /// @inheritdoc IV2AMO
     function getReward(
         address[] memory tokens,
         bool passTokens

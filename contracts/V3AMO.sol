@@ -33,13 +33,13 @@ contract V3AMO is IV3AMO, MasterAMO {
     );
 
     /* ========== VARIABLES ========== */
-    /// @inheritdoc IV3AMO.sol
+    /// @inheritdoc IV3AMO
     uint24 public override usdUsageRatio;
-    /// @inheritdoc IV3AMO.sol
+    /// @inheritdoc IV3AMO
     int24 public override tickLower;
-    /// @inheritdoc IV3AMO.sol
+    /// @inheritdoc IV3AMO
     int24 public override tickUpper;
-    /// @inheritdoc IV3AMO.sol
+    /// @inheritdoc IV3AMO
     uint160 public override targetSqrtPriceX96;
 
     /* ========== CONSTANTS ========== */
@@ -82,21 +82,21 @@ contract V3AMO is IV3AMO, MasterAMO {
     }
 
     ////////////////////////// SETTER_ROLE ACTIONS //////////////////////////
-    /// @inheritdoc IV3AMO.sol
+    /// @inheritdoc IV3AMO
     function setTickBounds(int24 tickLower_, int24 tickUpper_) public override onlyRole(SETTER_ROLE) {
         tickLower = tickLower_;
         tickUpper = tickUpper_;
         emit TickBoundsSet(tickLower, tickUpper);
     }
 
-    /// @inheritdoc IV3AMO.sol
+    /// @inheritdoc IV3AMO
     function setTargetSqrtPriceX96(uint160 targetSqrtPriceX96_) public override onlyRole(SETTER_ROLE) {
         if (targetSqrtPriceX96_ <= MIN_SQRT_RATIO || targetSqrtPriceX96_ >= MAX_SQRT_RATIO) revert InvalidRatioValue();
         targetSqrtPriceX96 = targetSqrtPriceX96_;
         emit TargetSqrtPriceX96Set(targetSqrtPriceX96);
     }
 
-    /// @inheritdoc IV3AMO.sol
+    /// @inheritdoc IV3AMO
     function setParams(
         uint256 boostMultiplier_,
         uint24 validRangeWidth_,
