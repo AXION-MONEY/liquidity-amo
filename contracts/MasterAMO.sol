@@ -101,7 +101,7 @@ abstract contract MasterAMO is
         // On each chain where Boost is deployed, there will be a stable Boost-USD pool ensuring BOOST's peg.
         // Multiple Boost-USD pools can exist across different DEXes on the same chain, each with its own AMO, maintaining independent peg guarantees.
         address boostMinter_ // the minter contract
-    ) public initializer {
+    ) public onlyInitializing {
         __AccessControlEnumerable_init();
         __Pausable_init();
         // Ensure no zero addresses are passed to critical parameters
