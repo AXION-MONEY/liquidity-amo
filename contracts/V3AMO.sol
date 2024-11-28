@@ -47,6 +47,8 @@ contract V3AMO is IV3AMO, MasterAMO {
     uint160 internal constant MAX_SQRT_RATIO = 1461446703485210103287273052203988822378723970342;
     uint256 internal constant Q96 = 2 ** 96;
     uint256 internal constant LIQUIDITY_COEFF = 995000;
+    uint24 internal constant SQRT10 = 3162278; // sqrt(10) = 3.162278
+
 
     /* ========== FUNCTIONS ========== */
     function initialize(
@@ -343,14 +345,15 @@ contract V3AMO is IV3AMO, MasterAMO {
     function boostPrice() public view override returns (uint256 price) {
         (uint160 _sqrtPriceX96, , , ) = ISolidlyV3Pool(pool).slot0();
         uint256 sqrtPriceX96 = uint256(_sqrtPriceX96);
+        uint8 decimalsDiff = boostDecimals - usdDecimals;
+        uint256 sqrtDecimals;
+        if (decimalsDiff % 2 == 0) sqrtDecimals = 10 ** (decimalsDiff / 2) * 10 ** PRICE_DECIMALS;
+        else sqrtDecimals = (10 ** (decimalsDiff / 2) * 10 ** PRICE_DECIMALS * SQRT10) / FACTOR;
+
         if (boost < usd) {
-            price = (10 ** (boostDecimals - usdDecimals + PRICE_DECIMALS) * sqrtPriceX96 ** 2) / Q96 ** 2;
+            price = ((sqrtDecimals * sqrtPriceX96) / Q96) ** 2 / 10 ** PRICE_DECIMALS;
         } else {
-            if (sqrtPriceX96 >= Q96) {
-                price = 10 ** (boostDecimals - usdDecimals + PRICE_DECIMALS) / (sqrtPriceX96 ** 2 / Q96 ** 2);
-            } else {
-                price = (10 ** (boostDecimals - usdDecimals + PRICE_DECIMALS) * Q96 ** 2) / sqrtPriceX96 ** 2;
-            }
+            price = ((sqrtDecimals * Q96) / sqrtPriceX96) ** 2 / 10 ** PRICE_DECIMALS;
         }
     }
 }
