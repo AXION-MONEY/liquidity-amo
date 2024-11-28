@@ -342,7 +342,7 @@ contract V2AMO is IV2AMO, MasterAMO {
     function _mintSellFarm() internal override returns (uint256 liquidity, uint256 newBoostPrice) {
         (uint256 boostReserve, uint256 usdReserve) = getReserves();
 
-        uint256 boostAmountIn = (((usdReserve - boostReserve) / 2) * boostSellRatio) / FACTOR;
+        uint256 boostAmountIn = ((sqrt(usdReserve * boostReserve) - boostReserve) * boostSellRatio) / FACTOR;
 
         (, , , , liquidity) = _mintSellFarm(
             boostAmountIn,
