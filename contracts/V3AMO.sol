@@ -11,7 +11,8 @@ contract V3AMO is IV3AMO, MasterAMO {
     /* ========== ERRORS ========== */
     error ExcessiveLiquidityRemoval(uint256 liquidity, uint256 unusedUsdAmount);
     error InsufficientTokenSpent();
-
+    error UntrustedCaller(address caller);
+    error InvalidOwed();
     /* ========== EVENTS ========== */
     event AddLiquidity(uint256 boostSpent, uint256 usdSpent, uint256 liquidity);
     event UnfarmBuyBurn(
@@ -127,6 +128,22 @@ contract V3AMO is IV3AMO, MasterAMO {
             boostLowerPriceSell,
             boostUpperPriceBuy
         );
+    }
+
+
+    function solidlyV3MintCallback(uint256 amount0Owed, uint256 amount1Owed, bytes calldata data) external {
+        _mintCallback(amount0Owed, amount1Owed, data);
+    }
+
+    function _mintCallback(uint256 amount0Owed, uint256 amount1Owed, bytes calldata) internal {
+        if (msg.sender != pool) revert UntrustedCaller(msg.sender);
+
+        (uint256 boostOwed, uint256 usdOwed) = sortAmounts(amount0Owed, amount1Owed);
+        uint256 boostAmount = (toBoostAmount(usdOwed) * boostMultiplier) / FACTOR;
+        if (boostAmount < boostOwed) revert InvalidOwed();
+
+        IERC20Upgradeable(usd).safeTransfer(pool, usdOwed);
+        IMinter(boostMinter).protocolMint(pool, boostOwed);
     }
 
     ////////////////////////// AMO_ROLE ACTIONS //////////////////////////
