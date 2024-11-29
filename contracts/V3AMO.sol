@@ -330,9 +330,8 @@ contract V3AMO is IV3AMO, MasterAMO {
         if (boostSpent < minBoostSpend || usdSpent < minUsdSpend) revert InsufficientTokenSpent();
 
         // Calculate valid range for USD spent based on BOOST spent and validRangeWidth (in %)
-        uint256 validRange = (boostSpent * validRangeWidth) / FACTOR; // validRange is the width in scaled dollar terms
-        if (toBoostAmount(usdSpent) <= boostSpent - validRange || toBoostAmount(usdSpent) >= boostSpent + validRange)
-            revert InvalidRatioToAddLiquidity();
+        uint256 allowedBoostDeviation = (boostSpent * validRangeWidth) / FACTOR; // validRange is the width in scaled dollar terms
+        if (toBoostAmount(usdSpent) <= boostSpent - allowedBoostDeviation || toBoostAmount(usdSpent) >= boostSpent + allowedBoostDeviation)
 
         emit AddLiquidity(boostSpent, usdSpent, liquidity);
     }
