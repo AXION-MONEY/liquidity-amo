@@ -290,7 +290,7 @@ contract V3AMO is IV3AMO, MasterAMO {
 
 
     /**
-     * @notice Removes liquidity, swaps USD for BOOST to stabilize the price, and burns excess BOOST.
+     * @notice Removes liquidity, swaps USD for BOOST to repeg BOOST, and burns excess BOOST.
      * @dev Fixes the issue of incorrectly estimating liquidity in V3 pools by using `quoteSwap`
      *      to calculate the required amount of liquidity based on the deviation from the target price.
      *      This ensures the liquidity removed and USD swapped are calculated precisely.
@@ -402,7 +402,8 @@ contract V3AMO is IV3AMO, MasterAMO {
     }
 
     /**
-    * @notice Removes liquidity, stabilizes BOOST price, and calculates the new price post-operation.
+     * @dev _unfarmBuyBurn() is the internal function that support the the public unfarmBuyBurn() function
+     * @notice Removes liquidity, stabilizes BOOST price, and calculates the new price post-operation.
      * @dev Fixes the issue of relying on incorrect liquidity calculations by using `quoteSwap`
      *      to estimate the required USD amount and `_getLiquidityForUsdAmount` to determine the corresponding liquidity.
      *      Ensures the operation only removes the necessary liquidity to achieve the target price, preventing overshooting.
