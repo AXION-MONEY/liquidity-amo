@@ -42,7 +42,6 @@ contract V3AMO is IV3AMO, MasterAMO {
     event TickBoundsSet(int24 tickLower, int24 tickUpper);
     event TargetSqrtPriceX96Set(uint160 targetSqrtPriceX96);
     event ParamsSet(
-        PoolType poolType,
         address quoter,
         uint256 boostMultiplier,
         uint24 validRangeWidth,
@@ -92,11 +91,13 @@ contract V3AMO is IV3AMO, MasterAMO {
         uint256 boostUpperPriceBuy_
     ) public initializer {
         super.initialize(admin, boost_, usd_, pool_, boostMinter_);
-        _grantRole(SETTER_ROLE, msg.sender);
+        poolType = poolType_;
+
         setTickBounds(tickLower_, tickUpper_);
         setTargetSqrtPriceX96(targetSqrtPriceX96_);
+
+        _grantRole(SETTER_ROLE, msg.sender);
         setParams(
-            poolType_,
             quoter_,
             boostMultiplier_,
             validRangeWidth_,
@@ -123,34 +124,20 @@ contract V3AMO is IV3AMO, MasterAMO {
         emit TargetSqrtPriceX96Set(targetSqrtPriceX96);
     }
 
-    /**
-     * @notice This function sets various params for the contract
-     * @dev Can only be called by an account with the SETTER_ROLE
-     * @param quoter_ the quoter contract address that would be set to use calculate how much for swap or mint
-     * @param boostMultiplier_ The multiplier used to calculate the amount of boost to mint in addLiquidity()
-     * —— this factor makes it possible to mint marginally less than what is needed to revert to peg ( avoids risk of reverting )
-     * @param validRangeWidth_ The valid range width for addLiquidity()
-     * —— we only add liquidity if price has reverted close to 1.
-     * @param validRemovingRatio_ Set the price (<1$) on which the unfarmBuyBurn() is allowed
-     * @param usdUsageRatio_ The minimum valid ratio of usdAmountIn to usdRemoved in unfarmBuyBurn()
-     * @param boostLowerPriceSell_ The new lower price bound for selling BOOST
-     * @param boostUpperPriceBuy_ The new upper price bound for buying BOOST
-     */
+    /// @inheritdoc IV3AMO
     function setParams(
-        PoolType poolType_,
         address quoter_,
-        uint256 boostMultiplier_,     
-        uint24 validRangeWidth_,      
-        uint24 validRemovingRatio_,   
-        uint24 usdUsageRatio_,        
-        uint256 boostLowerPriceSell_, 
-        uint256 boostUpperPriceBuy_   
+        uint256 boostMultiplier_,
+        uint24 validRangeWidth_,
+        uint24 validRemovingRatio_,
+        uint24 usdUsageRatio_,
+        uint256 boostLowerPriceSell_,
+        uint256 boostUpperPriceBuy_
     ) public override onlyRole(SETTER_ROLE) {
         if (validRangeWidth_ > FACTOR || validRemovingRatio_ < FACTOR || usdUsageRatio_ > FACTOR)
             revert InvalidRatioValue();
         // validRangeWidth is a few percentage points (scaled with FACTOR). So it needs to be lower than 1 (scaled with FACTOR)
         // validRemovingRatio needs to be greater than 1 (we remove more BOOST than USD otherwise the pool is balanced)
-        poolType = poolType_;
         quoter = quoter_;
         boostMultiplier = boostMultiplier_;
         validRangeWidth = validRangeWidth_;
@@ -159,7 +146,6 @@ contract V3AMO is IV3AMO, MasterAMO {
         boostLowerPriceSell = boostLowerPriceSell_;
         boostUpperPriceBuy = boostUpperPriceBuy_;
         emit ParamsSet(
-            poolType,
             quoter,
             boostMultiplier,
             validRangeWidth,
@@ -175,8 +161,8 @@ contract V3AMO is IV3AMO, MasterAMO {
      * @param amount0Delta Amount of token0 involved in the swap.
      * @param amount1Delta Amount of token1 involved in the swap.
      * @param data Encoded swap type data.
-     * @description the pool uses _swapCallback to buy (resp to sell) the desired amount of BOOST to repeg in UnfarmBuyBurn (resp. in MintSellFarm)
-     * @motivation: calling _swapCallback is more gas efficient than calling the router —- in effect we're using it as an efficient and secure call to the router
+     * @dev the pool uses _swapCallback to buy (resp to sell) the desired amount of BOOST to repeg in UnfarmBuyBurn (resp. in MintSellFarm)
+     * @dev calling _swapCallback is more gas efficient than calling the router —- in effect we're using it as an efficient and secure call to the router
      */
     function _swapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) internal {
         if (msg.sender != pool) revert UntrustedCaller(msg.sender);
@@ -237,7 +223,6 @@ contract V3AMO is IV3AMO, MasterAMO {
      * @param amount1Owed represent BOOST and USD — depends on order
      * @param callData of the addLiquidity which passed to the pool in our case Bypassed
      */
-
     function _mintCallback(uint256 amount0Owed, uint256 amount1Owed, bytes calldata) internal {
         if (msg.sender != pool) revert UntrustedCaller(msg.sender);
 
@@ -332,6 +317,7 @@ contract V3AMO is IV3AMO, MasterAMO {
         // Calculate valid range for USD spent based on BOOST spent and validRangeWidth (in %)
         uint256 allowedBoostDeviation = (boostSpent * validRangeWidth) / FACTOR; // validRange is the width in scaled dollar terms
         if (toBoostAmount(usdSpent) <= boostSpent - allowedBoostDeviation || toBoostAmount(usdSpent) >= boostSpent + allowedBoostDeviation)
+            revert InvalidRatioToAddLiquidity();
 
         emit AddLiquidity(boostSpent, usdSpent, liquidity);
     }
@@ -355,14 +341,9 @@ contract V3AMO is IV3AMO, MasterAMO {
         uint256 minBoostRemove,
         uint256 minUsdRemove
     )
-    internal
-    override
-    returns (
-        uint256 boostRemoved,
-        uint256 usdRemoved,
-        uint256 usdAmountIn,
-        uint256 boostAmountOut
-    )
+        internal
+        override
+        returns (uint256 boostRemoved, uint256 usdRemoved, uint256 usdAmountIn, uint256 boostAmountOut)
     {
         // Step 1: Remove liquidity from the pool
         // Remove liquidity and store the amounts of USD and BOOST tokens received

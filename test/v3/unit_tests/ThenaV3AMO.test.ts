@@ -265,7 +265,6 @@ describe("ThenaV3AMO", function() {
     describe("setParams", function() {
       it("Should set params correctly", async function() {
         await expect(v3AMO.connect(setter).setParams(
-          POOL_TYPE,
           QUOTER_ADDRESS,
           boostMultiplier + BigInt(100),
           validRangeWidth + BigInt(100),
@@ -275,7 +274,6 @@ describe("ThenaV3AMO", function() {
           boostUpperPriceBuy + BigInt(100)
         )).to.emit(v3AMO, "ParamsSet")
           .withArgs(
-            POOL_TYPE,
             QUOTER_ADDRESS,
             boostMultiplier + BigInt(100),
             validRangeWidth + BigInt(100),
@@ -294,7 +292,6 @@ describe("ThenaV3AMO", function() {
 
       it("Should revert when called by non-setter", async function() {
         await expect(v3AMO.connect(user).setParams(
-          POOL_TYPE,
           QUOTER_ADDRESS,
           boostMultiplier + BigInt(100),
           validRangeWidth + BigInt(100),
@@ -308,7 +305,6 @@ describe("ThenaV3AMO", function() {
 
       it("Should revert when value is out of range", async function() {
         await expect(v3AMO.connect(setter).setParams(
-          POOL_TYPE,
           QUOTER_ADDRESS,
           boostMultiplier + BigInt(100),
           ethers.parseUnits("1.1", 6),
@@ -319,7 +315,6 @@ describe("ThenaV3AMO", function() {
         )).to.be.revertedWithCustomError(v3AMO, "InvalidRatioValue");
 
         await expect(v3AMO.connect(setter).setParams(
-          POOL_TYPE,
           QUOTER_ADDRESS,
           boostMultiplier + BigInt(100),
           validRangeWidth + BigInt(100),
@@ -330,7 +325,6 @@ describe("ThenaV3AMO", function() {
         )).to.be.revertedWithCustomError(v3AMO, "InvalidRatioValue");
 
         await expect(v3AMO.connect(setter).setParams(
-          POOL_TYPE,
           QUOTER_ADDRESS,
           boostMultiplier + BigInt(100),
           validRangeWidth + BigInt(100),
