@@ -363,6 +363,9 @@ contract V2AMO is IV2AMO, MasterAMO {
             );
         }
 
+        uint256 price = boostPrice();
+        if (price >= FACTOR + validRangeWidth) revert PriceNotInRange(price);
+
         usdAmountIn = amounts[0];
         boostAmountOut = amounts[1];
         IBoostStablecoin(boost).burn(boostRemoved + boostAmountOut);
