@@ -3,7 +3,7 @@ pragma solidity 0.8.19;
 import "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import "@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol";
 import "./MasterAMO.sol";
-import "./interfaces/v3/IUniswapV3Pool.sol";
+import "./interfaces/v3/quoter/IQuoterV2.sol";
 import {ISolidlyV3Pool} from "./interfaces/v3/ISolidlyV3Pool.sol";
 import {ISolidlyV3Factory} from "./interfaces/v3/ISolidlyV3Factory.sol";
 import {IRewardsDistributor} from "./interfaces/v3/IRewardsDistributor.sol";
@@ -13,7 +13,11 @@ import {IUniswapV3Pool} from "./interfaces/v3/IUniswapV3Pool.sol";
 contract V3AMO is IV3AMO, MasterAMO {
     /* ========== ERRORS ========== */
     error ExcessiveLiquidityRemoval(uint256 liquidity, uint256 unusedUsdAmount);
+    error UntrustedCaller(address caller);
+    error InvalidDelta();
+    error InvalidOwed();
     error InsufficientTokenSpent();
+
 
     /* ========== EVENTS ========== */
     event AddLiquidity(uint256 boostSpent, uint256 usdSpent, uint256 liquidity);
@@ -30,6 +34,7 @@ contract V3AMO is IV3AMO, MasterAMO {
     event TickBoundsSet(int24 tickLower, int24 tickUpper);
     event TargetSqrtPriceX96Set(uint160 targetSqrtPriceX96);
     event ParamsSet(
+        address quoter,
         uint256 boostMultiplier,
         uint24 validRangeWidth,
         uint24 validRemovingRatio,
@@ -37,7 +42,6 @@ contract V3AMO is IV3AMO, MasterAMO {
         uint256 boostLowerPriceSell,
         uint256 boostUpperPriceBuy
     );
-
     /* ========== VARIABLES ========== */
     /// @inheritdoc IV3AMO
     uint24 public override usdUsageRatio;
@@ -47,6 +51,8 @@ contract V3AMO is IV3AMO, MasterAMO {
     int24 public override tickUpper;
     /// @inheritdoc IV3AMO
     uint160 public override targetSqrtPriceX96;
+    /// @inheritdoc IV3AMO
+    address public override quoter;
 
     /* ========== CONSTANTS ========== */
     uint160 internal constant MIN_SQRT_RATIO = 4295128739;
@@ -62,6 +68,7 @@ contract V3AMO is IV3AMO, MasterAMO {
         address boost_,
         address usd_,
         address pool_,
+        address quoter_,
         address boostMinter_,
         int24 tickLower_,
         int24 tickUpper_,
@@ -79,6 +86,7 @@ contract V3AMO is IV3AMO, MasterAMO {
         setTickBounds(tickLower_, tickUpper_);
         setTargetSqrtPriceX96(targetSqrtPriceX96_);
         setParams(
+            quoter_,
             boostMultiplier_,
             validRangeWidth_,
             validRemovingRatio_,
@@ -105,7 +113,9 @@ contract V3AMO is IV3AMO, MasterAMO {
     }
 
     /// @inheritdoc IV3AMO
+    /// @inheritdoc IV3AMO
     function setParams(
+        address quoter_,
         uint256 boostMultiplier_,
         uint24 validRangeWidth_,
         uint24 validRemovingRatio_,
@@ -116,8 +126,8 @@ contract V3AMO is IV3AMO, MasterAMO {
         if (validRangeWidth_ > FACTOR || validRemovingRatio_ < FACTOR || usdUsageRatio_ > FACTOR)
             revert InvalidRatioValue();
         // validRangeWidth is a few percentage points (scaled with FACTOR). So it needs to be lower than 1 (scaled with FACTOR)
-        // validRemovingRatio nedds to be greater than 1 (we remove more BOOST than USD otherwise the pool is balanced )
-
+        // validRemovingRatio needs to be greater than 1 (we remove more BOOST than USD otherwise the pool is balanced)
+        quoter = quoter_;
         boostMultiplier = boostMultiplier_;
         validRangeWidth = validRangeWidth_;
         validRemovingRatio = validRemovingRatio_;
@@ -125,6 +135,7 @@ contract V3AMO is IV3AMO, MasterAMO {
         boostLowerPriceSell = boostLowerPriceSell_;
         boostUpperPriceBuy = boostUpperPriceBuy_;
         emit ParamsSet(
+            quoter,
             boostMultiplier,
             validRangeWidth,
             validRemovingRatio,
@@ -134,6 +145,31 @@ contract V3AMO is IV3AMO, MasterAMO {
         );
     }
 
+    /**
+    * @dev Internal function to handle swap callbacks from Uniswap V3 pools.
+     * @param amount0Delta Amount of token0 involved in the swap.
+     * @param amount1Delta Amount of token1 involved in the swap.
+     * @param data Encoded swap type data.
+     */
+    function _swapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) internal {
+        if (msg.sender != pool) revert UntrustedCaller(msg.sender);
+
+        (int256 boostDelta, int256 usdDelta) = sortAmounts(amount0Delta, amount1Delta);
+        SwapType swapType = abi.decode(data, (SwapType));
+        if (swapType == SwapType.SELL) {
+            uint256 boostAmountIn = uint256(boostDelta);
+            uint256 usdAmountOut = uint256(-usdDelta);
+            if (balanceOfToken(usd) < usdAmountOut || boostAmountIn > toBoostAmount(usdAmountOut))
+                revert InvalidDelta();
+            IMinter(boostMinter).protocolMint(pool, boostAmountIn);
+        } else if (swapType == SwapType.BUY) {
+            uint256 usdAmountIn = uint256(usdDelta);
+            uint256 boostAmountOut = uint256(-boostDelta);
+            if (balanceOfToken(boost) < boostAmountOut || usdAmountIn > toUsdAmount(boostAmountOut))
+                revert InvalidDelta();
+            IERC20Upgradeable(usd).safeTransfer(pool, usdAmountIn);
+        }
+    }
     ////////////////////////// AMO_ROLE ACTIONS //////////////////////////
     function _mintAndSellBoost(
         uint256 boostAmount,
@@ -173,16 +209,37 @@ contract V3AMO is IV3AMO, MasterAMO {
         emit MintSell(boostAmountIn, usdAmountOut);
     }
 
+    /**
+    * @notice Calculates the liquidity required to match a given USD amount.
+     * @dev This function ensures accurate liquidity estimation by using the current pool state and tick bounds.
+     *      It avoids inaccuracies by leveraging the Uniswap V3 price and liquidity formulas.
+     * @param usdAmount The amount of USD for which the corresponding liquidity is to be calculated.
+     * @return liquidity The calculated liquidity amount corresponding to the given USD amount.
+     */
     function _getLiquidityForUsdAmount(uint256 usdAmount) internal view returns (uint256 liquidity) {
+        // Step 1: Fetch the current price and pool data
         uint160 sqrtRatioX96;
         (sqrtRatioX96, , , ) = ISolidlyV3Pool(pool).slot0();
+
+        // Step 2: Fetch the price bounds corresponding to the tickLower and tickUpper
         uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(tickLower);
         uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(tickUpper);
+
+        // Step 3: Sort amounts to determine the maximum amounts of token0 (BOOST) and token1 (USD)
         (uint256 amount0, uint256 amount1) = sortAmounts(type(uint128).max, usdAmount);
+
+        // Step 4: Use the Uniswap V3 LiquidityAmounts library to calculate liquidity
         liquidity = uint256(
-            LiquidityAmounts.getLiquidityForAmounts(sqrtRatioX96, sqrtRatioAX96, sqrtRatioBX96, amount0, amount1)
+            LiquidityAmounts.getLiquidityForAmounts(
+                sqrtRatioX96, // Current pool price
+                sqrtRatioAX96, // Lower bound price
+                sqrtRatioBX96, // Upper bound price
+                amount0, // Maximum BOOST
+                amount1 // Maximum USD
+            )
         );
     }
+
 
     function _addLiquidity(
         uint256 usdAmount,
@@ -208,17 +265,35 @@ contract V3AMO is IV3AMO, MasterAMO {
         emit AddLiquidity(boostSpent, usdSpent, liquidity);
     }
 
+
+    /**
+     * @notice Removes liquidity, swaps USD for BOOST to stabilize the price, and burns excess BOOST.
+     * @dev Fixes the issue of incorrectly estimating liquidity in V3 pools by using `quoteSwap`
+     *      to calculate the required amount of liquidity based on the deviation from the target price.
+     *      This ensures the liquidity removed and USD swapped are calculated precisely.
+     * @param liquidity Amount of liquidity to remove from the pool.
+     * @param minBoostRemove Minimum amount of BOOST tokens to remove when withdrawing liquidity.
+     * @param minUsdRemove Minimum amount of USD tokens to remove when withdrawing liquidity.
+     * @return boostRemoved Amount of BOOST tokens removed from the pool.
+     * @return usdRemoved Amount of USD tokens removed from the pool.
+     * @return usdAmountIn Amount of USD tokens swapped into BOOST.
+     * @return boostAmountOut Amount of BOOST tokens bought and burned.
+     */
     function _unfarmBuyBurn(
         uint256 liquidity,
         uint256 minBoostRemove,
-        uint256 minUsdRemove,
-        uint256 minBoostAmountOut,
-        uint256 deadline
+        uint256 minUsdRemove
     )
-        internal
-        override
-        returns (uint256 boostRemoved, uint256 usdRemoved, uint256 usdAmountIn, uint256 boostAmountOut)
+    internal
+    override
+    returns (
+        uint256 boostRemoved,
+        uint256 usdRemoved,
+        uint256 usdAmountIn,
+        uint256 boostAmountOut
+    )
     {
+        // Step 1: Remove liquidity from the pool
         (uint256 amount0Min, uint256 amount1Min) = sortAmounts(minBoostRemove, minUsdRemove);
         // Remove liquidity and store the amounts of USD and BOOST tokens received
         uint256 amount0FromBurn;
@@ -242,35 +317,34 @@ contract V3AMO is IV3AMO, MasterAMO {
             type(uint128).max
         );
         (uint256 boostCollected, uint256 usdCollected) = sortAmounts(amount0Collected, amount1Collected);
+
+        // Step 3: Validate that the removed liquidity adheres to the required ratio
+        if ((boostRemoved * validRemovingRatio) / FACTOR < toBoostAmount(usdRemoved)) {
+            revert InvalidRatioToRemoveLiquidity();
+        }
         // Approve the transfer of usd tokens to the pool
         IERC20Upgradeable(usd).approve(pool, usdRemoved);
 
-        // Execute the swap and store the amounts of tokens involved
-        (int256 amount0, int256 amount1) = ISolidlyV3Pool(pool).swap(
-            address(this),
-            boost > usd, // Determines if we are swapping USD for BOOST (true) or BOOST for USD (false)
-            int256(usdRemoved),
-            targetSqrtPriceX96,
-            minBoostAmountOut,
-            deadline
+        // Step 4: Use quoteSwap to determine the USD needed to bring the price back to peg
+        (int256 amount0, int256 amount1, , , ) = ISolidlyV3Pool(pool).quoteSwap(
+            boost > usd, // zeroForOne
+            int256(usdRemoved), // Maximum USD to use for the swap
+            targetSqrtPriceX96 // Target price for the swap
         );
 
-        // Revoke approval from the pool
-        IERC20Upgradeable(usd).approve(pool, 0);
-
+        // Step 5: Execute the swap
         (int256 boostDelta, int256 usdDelta) = sortAmounts(amount0, amount1);
-        usdAmountIn = uint256(usdDelta);
-        boostAmountOut = uint256(-boostDelta);
-        // Ensure the BOOST output is sufficient relative to the USD input
-        if (toUsdAmount(boostAmountOut) <= usdAmountIn)
-            revert InsufficientOutputAmount({outputAmount: toUsdAmount(boostAmountOut), minRequired: usdAmountIn});
-        // Check the USD usage ratio to ensure it is within limits
-        if ((FACTOR * usdAmountIn) / usdRemoved < usdUsageRatio)
-            revert ExcessiveLiquidityRemoval({liquidity: liquidity, unusedUsdAmount: usdRemoved - usdAmountIn});
+        usdAmountIn = uint256(usdDelta); // USD spent in the swap
+        boostAmountOut = uint256(-boostDelta); // BOOST tokens received from the swap
 
-        // // Burn the BOOST tokens collected from liquidity removal, collected owed tokens and swap
+        // Step 6: Calculate unused USD amount and add it back as liquidity
+        uint256 unusedUsdAmount = usdRemoved - usdAmountIn;
+        if (unusedUsdAmount > 0) _addLiquidity(unusedUsdAmount, 1, 1);
+
+        // Step 7: Burn BOOST tokens collected and obtained from the swap
         IBoostStablecoin(boost).burn(boostCollected + boostAmountOut);
 
+        // Emit event for the UnfarmBuyBurn operation
         emit UnfarmBuyBurn(
             boostRemoved,
             usdRemoved,
@@ -308,25 +382,47 @@ contract V3AMO is IV3AMO, MasterAMO {
         newBoostPrice = boostPrice();
     }
 
+    /**
+    * @notice Removes liquidity, stabilizes BOOST price, and calculates the new price post-operation.
+     * @dev Fixes the issue of relying on incorrect liquidity calculations by using `quoteSwap`
+     *      to estimate the required USD amount and `_getLiquidityForUsdAmount` to determine the corresponding liquidity.
+     *      Ensures the operation only removes the necessary liquidity to achieve the target price, preventing overshooting.
+     * @return liquidity Amount of liquidity removed from the pool.
+     * @return newBoostPrice The updated BOOST price after the operation.
+     */
     function _unfarmBuyBurn() internal override returns (uint256 liquidity, uint256 newBoostPrice) {
-        uint256 totalLiquidity = ISolidlyV3Pool(pool).liquidity();
-        uint256 boostBalance = IERC20Upgradeable(boost).balanceOf(pool);
-        uint256 usdBalance = toBoostAmount(IERC20Upgradeable(usd).balanceOf(pool)); // scaled
-        if (boostBalance <= usdBalance) revert PriceNotInRange(boostPrice());
+        // Step 1: Fetch the current position's total liquidity
+        (uint256 positionLiquidity, , ) = position();
 
-        liquidity = (totalLiquidity * (boostBalance - usdBalance)) / (boostBalance + usdBalance);
-        liquidity = (liquidity * LIQUIDITY_COEFF) / FACTOR;
-
-        _unfarmBuyBurn(
-            liquidity,
-            1, // minBoostRemove
-            1, // minUsdRemove
-            1, // minBoostAmountOut
-            block.timestamp + 1 // deadline
+        // Step 2: Use `quoteSwap` to calculate the USD amount needed to bring BOOST to the target price
+        uint256 amountIn;
+        (int256 amount0, int256 amount1, , , ) = ISolidlyV3Pool(pool).quoteSwap(
+            boost > usd, // Determine swap direction: USD to BOOST
+            type(int256).max, // Maximum amount of USD to swap
+            targetSqrtPriceX96 // Target price for BOOST
         );
 
+        // Extract the USD amount required for the swap
+        (, int256 usdDelta) = sortAmounts(amount0, amount1);
+        amountIn = uint256(usdDelta); // USD required for the swap
+
+        // Step 3: Determine the liquidity corresponding to the calculated USD amount
+        liquidity = _getLiquidityForUsdAmount(amountIn);
+
+        // Step 4: Ensure the liquidity to be removed does not exceed the current position's liquidity
+        if (liquidity > positionLiquidity) liquidity = positionLiquidity;
+
+        // Step 5: Call the internal `_unfarmBuyBurn` function to execute the operation
+        _unfarmBuyBurn(
+            liquidity,
+            1, // Minimum BOOST to remove
+            1  // Minimum USD to remove
+        );
+
+        // Step 6: Calculate the new BOOST price after the operation
         newBoostPrice = boostPrice();
     }
+
 
     function _validateSwap(bool boostForUsd) internal view override {}
 
@@ -369,5 +465,16 @@ contract V3AMO is IV3AMO, MasterAMO {
             price = ((sqrtDecimals * Q96) / sqrtPriceX96) ** 2 / 10 ** PRICE_DECIMALS;
         }
     }
+
+    function position() public view override returns (uint256 liquidity, uint256 boostOwed, uint256 usdOwed) {
+        bytes32 key = keccak256(abi.encodePacked(address(this), tickLower, tickUpper));
+        uint128 _liquidity;
+        uint128 tokensOwed0;
+        uint128 tokensOwed1;
+        (_liquidity, tokensOwed0, tokensOwed1) = ISolidlyV3Pool(pool).positions(key);
+        if (_liquidity > 0) liquidity = uint256(_liquidity);
+        (boostOwed, usdOwed) = sortAmounts(uint256(tokensOwed0), uint256(tokensOwed1));
+    }
+
 
 }
