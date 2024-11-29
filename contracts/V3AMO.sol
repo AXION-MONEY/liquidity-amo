@@ -142,10 +142,12 @@ contract V3AMO is IV3AMO, MasterAMO {
     }
 
     /**
-    * @dev Internal function to handle swap callbacks from Uniswap V3 pools.
+     * @dev Internal function to handle swap callbacks from Uniswap V3 pools.
      * @param amount0Delta Amount of token0 involved in the swap.
      * @param amount1Delta Amount of token1 involved in the swap.
      * @param data Encoded swap type data.
+     * @description the pool uses _swapCallback to buy (resp to sell) the desired amount of BOOST to repeg in UnfarmBuyBurn (resp. in MintSellFarm)
+     * @motivation: calling _swapCallback is more gas efficient than calling the router —- in effect we're using it as an efficient and secure call to the router
      */
     function _swapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) internal {
         if (msg.sender != pool) revert UntrustedCaller(msg.sender);
