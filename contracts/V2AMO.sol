@@ -425,7 +425,7 @@ contract V2AMO is IV2AMO, MasterAMO {
         _unfarmBuyBurn(
             liquidity,
             (liquidity * boostReserve) / totalLp, // the minBoostRemove argument
-            toUsdAmount(usdNeeded) // the minUsdRemove argument
+            toUsdAmount((liquidity * usdReserve) / totalLp) // the minUsdRemove argument. Note that we recalculate minUSD to cover loss of precision
         );
 
         newBoostPrice = boostPrice();
