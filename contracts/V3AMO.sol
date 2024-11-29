@@ -318,7 +318,8 @@ contract V3AMO is IV3AMO, MasterAMO {
 
     /**
      * @notice Removes liquidity, swaps USD for BOOST to stabilize the price, and burns excess BOOST.
-     * @dev Fixes the issue of incorrectly estimating liquidity in V3 pools by using `quoteSwap`
+     * @dev Fixes the issue of incorrectly estimating liquidity in V3 pools by using `quoteSwap` for solidly and
+            Quoter contract for other univ3 forks like algebra
      *      to calculate the required amount of liquidity based on the deviation from the target price.
      *      This ensures the liquidity removed and USD swapped are calculated precisely.
      * @param liquidity Amount of liquidity to remove from the pool.
@@ -424,7 +425,7 @@ contract V3AMO is IV3AMO, MasterAMO {
 
     /**
      * @notice Removes liquidity, stabilizes BOOST price, and calculates the new price post-operation.
-     * @dev Fixes the issue of relying on incorrect liquidity calculations by using `quoteSwap`
+     * @dev Fixes the issue of relying on incorrect liquidity calculations by using `quoteSwap` or Quoter Contract
      *      to estimate the required USD amount and `_getLiquidityForUsdAmount` to determine the corresponding liquidity.
      *      Ensures the operation only removes the necessary liquidity to achieve the target price, preventing overshooting.
      * @return liquidity Amount of liquidity removed from the pool.
