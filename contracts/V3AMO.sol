@@ -490,6 +490,22 @@ contract V3AMO is IV3AMO, MasterAMO {
 
     function _validateSwap(bool boostForUsd) internal view override {}
 
+    function _getSqrtPriceX96() internal view returns (uint160 _sqrtPriceX96) {
+        if (poolType == PoolType.SOLIDLY_V3) {
+            (_sqrtPriceX96, , , ) = ISolidlyV3Pool(pool).slot0();
+        } else if (poolType == PoolType.CL) {
+            (_sqrtPriceX96, , , , , ) = ICLPool(pool).slot0();
+        } else if (poolType == PoolType.ALGEBRA_V1_0) {
+            (_sqrtPriceX96, , , , , , ) = IAlgebraV10Pool(pool).globalState();
+        } else if (poolType == PoolType.ALGEBRA_V1_9) {
+            (_sqrtPriceX96, , , , , , , ) = IAlgebraV19Pool(pool).globalState();
+        } else if (poolType == PoolType.ALGEBRA_INTEGRAL) {
+            (_sqrtPriceX96, , , , , ) = IAlgebraIntegralPool(pool).globalState();
+        } else {
+            (_sqrtPriceX96, , , , , , ) = IUniswapV3Pool(pool).slot0();
+        }
+    }
+
     ////////////////////////// VIEW FUNCTIONS //////////////////////////
 
     /**
@@ -554,21 +570,5 @@ contract V3AMO is IV3AMO, MasterAMO {
         }
         if (_liquidity > 0) liquidity = uint256(_liquidity);
         (boostOwed, usdOwed) = sortAmounts(uint256(tokensOwed0), uint256(tokensOwed1));
-    }
-
-    function _getSqrtPriceX96() internal view returns (uint160 _sqrtPriceX96) {
-        if (poolType == PoolType.SOLIDLY_V3) {
-            (_sqrtPriceX96, , , ) = ISolidlyV3Pool(pool).slot0();
-        } else if (poolType == PoolType.CL) {
-            (_sqrtPriceX96, , , , , ) = ICLPool(pool).slot0();
-        } else if (poolType == PoolType.ALGEBRA_V1_0) {
-            (_sqrtPriceX96, , , , , , ) = IAlgebraV10Pool(pool).globalState();
-        } else if (poolType == PoolType.ALGEBRA_V1_9) {
-            (_sqrtPriceX96, , , , , , , ) = IAlgebraV19Pool(pool).globalState();
-        } else if (poolType == PoolType.ALGEBRA_INTEGRAL) {
-            (_sqrtPriceX96, , , , , ) = IAlgebraIntegralPool(pool).globalState();
-        } else {
-            (_sqrtPriceX96, , , , , , ) = IUniswapV3Pool(pool).slot0();
-        }
     }
 }
