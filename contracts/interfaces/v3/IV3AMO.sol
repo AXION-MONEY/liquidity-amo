@@ -56,6 +56,7 @@ interface IV3AMO {
     /**
      * @notice This function sets various params for the contract
      * @dev Can only be called by an account with the SETTER_ROLE
+     * @param quoter_ The new quoter contract address
      * @param boostMultiplier_ The multiplier used to calculate the amount of boost to mint in addLiquidity()
      * —— this factor makes it possible to mint marginally less than what is needed to revert to peg ( avoids risk of reverting )
      * @param validRangeWidth_ The valid range width for addLiquidity()
@@ -66,7 +67,6 @@ interface IV3AMO {
      * @param boostUpperPriceBuy_ The new upper price bound for buying BOOST
      */
     function setParams(
-        PoolType poolType_,
         address quoter_,
         uint256 boostMultiplier_,
         uint24 validRangeWidth_,

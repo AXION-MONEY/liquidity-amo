@@ -292,9 +292,9 @@ contract V2AMO is IV2AMO, MasterAMO {
         uint256 minBoostRemove,
         uint256 minUsdRemove
     )
-    internal
-    override
-    returns (uint256 boostRemoved, uint256 usdRemoved, uint256 usdAmountIn, uint256 boostAmountOut)
+        internal
+        override
+        returns (uint256 boostRemoved, uint256 usdRemoved, uint256 usdAmountIn, uint256 boostAmountOut)
     {
         // Withdraw from gauge
         IGauge(gauge).withdraw(liquidity);
