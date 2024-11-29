@@ -123,10 +123,22 @@ contract V3AMO is IV3AMO, MasterAMO {
         emit TargetSqrtPriceX96Set(targetSqrtPriceX96);
     }
 
-    /// @inheritdoc IV3AMO 
+    /**
+     * @notice This function sets various params for the contract
+     * @dev Can only be called by an account with the SETTER_ROLE
+     * @param quoter_ the quoter contract address that would be set to use calculate how much for swap or mint
+     * @param boostMultiplier_ The multiplier used to calculate the amount of boost to mint in addLiquidity()
+     * —— this factor makes it possible to mint marginally less than what is needed to revert to peg ( avoids risk of reverting )
+     * @param validRangeWidth_ The valid range width for addLiquidity()
+     * —— we only add liquidity if price has reverted close to 1.
+     * @param validRemovingRatio_ Set the price (<1$) on which the unfarmBuyBurn() is allowed
+     * @param usdUsageRatio_ The minimum valid ratio of usdAmountIn to usdRemoved in unfarmBuyBurn()
+     * @param boostLowerPriceSell_ The new lower price bound for selling BOOST
+     * @param boostUpperPriceBuy_ The new upper price bound for buying BOOST
+     */
     function setParams(
-        PoolType poolType_, // !!!FIXME!!! we need to change and initialise with the contract // notice -> we initialise with the underlying tech ( algebra, solidly v3,...)
-        address quoter_,    // !!Fixme - brief comment!!
+        PoolType poolType_,
+        address quoter_,
         uint256 boostMultiplier_,     
         uint24 validRangeWidth_,      
         uint24 validRemovingRatio_,   
@@ -163,7 +175,7 @@ contract V3AMO is IV3AMO, MasterAMO {
      * @param amount0Delta Amount of token0 involved in the swap.
      * @param amount1Delta Amount of token1 involved in the swap.
      * @param data Encoded swap type data.
-     * @description the pool uses _swapCallback to buy (resp to sell) the desired amount of BOOST to repeg in unfarmbuyburn (resp. in mintsellfarm)
+     * @description the pool uses _swapCallback to buy (resp to sell) the desired amount of BOOST to repeg in UnfarmBuyBurn (resp. in MintSellFarm)
      * @motivation: calling _swapCallback is more gas efficient than calling the router —- in effect we're using it as an efficient and secure call to the router
      */
     function _swapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) internal {
@@ -221,8 +233,9 @@ contract V3AMO is IV3AMO, MasterAMO {
 
     /**
      * @dev internal function called by the pool to transfer the USD and BOOST
-     * @param amount0Owed/amount1Owed represent BOOST and USD — depends on order
-     * @param calldata    Bypassed
+     * @param amount0Owed represent BOOST and USD — depends on order
+     * @param amount1Owed represent BOOST and USD — depends on order
+     * @param callData of the addLiquidity which passed to the pool in our case Bypassed
      */
 
     function _mintCallback(uint256 amount0Owed, uint256 amount1Owed, bytes calldata) internal {
