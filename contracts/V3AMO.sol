@@ -135,6 +135,12 @@ contract V3AMO is IV3AMO, MasterAMO {
         _mintCallback(amount0Owed, amount1Owed, data);
     }
 
+    /**
+     * @dev internal function called by the pool to transfer the USD and BOOST
+     * @param amount0Owed represent BOOST and USD — depends on order
+     * @param amount1Owed represent BOOST and USD — depends on order
+     * @param callData of the addLiquidity which passed to the pool in our case Bypassed
+     */
     function _mintCallback(uint256 amount0Owed, uint256 amount1Owed, bytes calldata) internal {
         if (msg.sender != pool) revert UntrustedCaller(msg.sender);
 
@@ -203,7 +209,7 @@ contract V3AMO is IV3AMO, MasterAMO {
     ) internal override returns (uint256 boostSpent, uint256 usdSpent, uint256 liquidity) {
         liquidity = _getLiquidityForUsdAmount(usdAmount);
 
-        // Add liquidity to the BOOST-USD pool within the specified tick range
+        // Add liquidity to the BOOST-USD pool within the specified tick range (we are full range in this version)
         uint256 amount0;
         uint256 amount1;
 
@@ -212,9 +218,9 @@ contract V3AMO is IV3AMO, MasterAMO {
         (boostSpent, usdSpent) = sortAmounts(amount0, amount1);
         if (boostSpent < minBoostSpend || usdSpent < minUsdSpend) revert InsufficientTokenSpent();
 
-        // Calculate valid range for USD spent based on BOOST spent and validRangeWidth
-        uint256 validRange = (boostSpent * validRangeWidth) / FACTOR;
-        if (toBoostAmount(usdSpent) <= boostSpent - validRange || toBoostAmount(usdSpent) >= boostSpent + validRange)
+        // Calculate valid range for USD spent based on BOOST spent and validRangeWidth (in %)
+        uint256 allowedBoostDeviation = (boostSpent * validRangeWidth) / FACTOR;
+        if (toBoostAmount(usdSpent) <= boostSpent - allowedBoostDeviation || toBoostAmount(usdSpent) >= boostSpent + allowedBoostDeviation)
             revert InvalidRatioToAddLiquidity();
 
         emit AddLiquidity(boostSpent, usdSpent, liquidity);
