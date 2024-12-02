@@ -221,7 +221,6 @@ contract V3AMO is IV3AMO, MasterAMO {
      * @dev internal function called by the pool to transfer the USD and BOOST
      * @param amount0Owed represent BOOST and USD — depends on order
      * @param amount1Owed represent BOOST and USD — depends on order
-     * @param callData of the addLiquidity which passed to the pool in our case Bypassed
      */
     function _mintCallback(uint256 amount0Owed, uint256 amount1Owed, bytes calldata) internal {
         if (msg.sender != pool) revert UntrustedCaller(msg.sender);
