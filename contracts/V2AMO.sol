@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
+import "@openzeppelin/contracts/utils/math/Math.sol";
 import "./MasterAMO.sol";
 import {IGauge} from "./interfaces/v2/IGauge.sol";
 import {ISolidlyRouter} from "./interfaces/v2/ISolidlyRouter.sol";
@@ -402,7 +403,7 @@ contract V2AMO is IV2AMO, MasterAMO {
     function _mintSellFarm() internal override returns (uint256 liquidity, uint256 newBoostPrice) {
         (uint256 boostReserve, uint256 usdReserve) = getReserves();
 
-        uint256 boostAmountIn = ((sqrt(usdReserve * boostReserve) - boostReserve) * boostSellRatio) / FACTOR;
+        uint256 boostAmountIn = ((Math.sqrt(usdReserve * boostReserve) - boostReserve) * boostSellRatio) / FACTOR;
 
         (, , , , liquidity) = _mintSellFarm(
             boostAmountIn,
