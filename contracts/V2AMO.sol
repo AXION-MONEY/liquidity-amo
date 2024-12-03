@@ -417,7 +417,7 @@ contract V2AMO is IV2AMO, MasterAMO {
     function _unfarmBuyBurn() internal override returns (uint256 liquidity, uint256 newBoostPrice) {
         (uint256 boostReserve, uint256 usdReserve) = getReserves();
 
-        uint256 usdNeeded = (((boostReserve - usdReserve) / 2) * usdBuyRatio) / FACTOR;
+        uint256 usdNeeded = ((Math.sqrt(boostReserve * usdReserve) - usdReserve) * usdBuyRatio) / FACTOR;
         uint256 totalLp = IERC20Upgradeable(pool).totalSupply();
         liquidity = (usdNeeded * totalLp) / usdReserve;
 
