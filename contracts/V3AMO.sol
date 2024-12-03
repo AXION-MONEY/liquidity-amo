@@ -269,7 +269,7 @@ contract V3AMO is IV3AMO, MasterAMO {
         uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(tickLower);
         uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(tickUpper);
 
-        // Step 3: Sort amounts to determine the maximum amounts of token0 (BOOST) and token1 (USD)
+        // Step 3: Sort amounts to determine amount0 and amount1
         (uint256 amount0, uint256 amount1) = sortAmounts(type(uint128).max, usdAmount);
 
         // Step 4: Use the Uniswap V3 LiquidityAmounts library to calculate liquidity
@@ -278,8 +278,8 @@ contract V3AMO is IV3AMO, MasterAMO {
                 sqrtRatioX96, // Current pool price
                 sqrtRatioAX96, // Lower bound price
                 sqrtRatioBX96, // Upper bound price
-                amount0, // Maximum BOOST
-                amount1 // Maximum USD
+                amount0, // Amount of token0 being sent in
+                amount1 // Amount of token1 being sent in
             )
         );
     }
