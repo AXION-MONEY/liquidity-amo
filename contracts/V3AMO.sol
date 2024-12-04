@@ -501,7 +501,7 @@ contract V3AMO is IV3AMO, MasterAMO {
         } else if (poolType == PoolType.ALGEBRA_V1_0) {
             (_sqrtPriceX96, , , , , , ) = IAlgebraV10Pool(pool).globalState();
         } else if (poolType == PoolType.ALGEBRA_V1_9) {
-            (_sqrtPriceX96, , , , , , , ) = IAlgebraV19Pool(pool).globalState();
+            (_sqrtPriceX96, ) = IAlgebraV19Pool(pool).globalState();
         } else if (poolType == PoolType.ALGEBRA_INTEGRAL) {
             (_sqrtPriceX96, , , , , ) = IAlgebraIntegralPool(pool).globalState();
         } else {
