@@ -63,6 +63,7 @@ describe("ThenaV3AMO", function() {
   const POOL_TYPE: PoolType = PoolType.ALGEBRA_V1_0;  //ALGEBRA_V1_0 for Thena
   const POOL_FACTORY_ADDRESS = "0x306F06C147f064A010530292A1EB6737c3e378e4";
   const QUOTER_ADDRESS = "0xeA68020D6A9532EeC42D4dB0f92B83580c39b2cA";
+  const POOL_CUSTOM_DEPLOYER_ADDRESS = "0x0000000000000000000000000000000000000000";
   const MIN_SQRT_RATIO = BigInt("4295128739"); // Minimum sqrt price ratio
   const MAX_SQRT_RATIO = BigInt("1461446703485210103287273052203988822378723970342"); // Maximum sqrt price ratio
   let sqrtPriceX96: bigint;
@@ -157,6 +158,7 @@ describe("ThenaV3AMO", function() {
       poolAddress,
       POOL_TYPE,
       QUOTER_ADDRESS,
+      POOL_CUSTOM_DEPLOYER_ADDRESS,
       minterAddress,
       tickLower,
       tickUpper,
@@ -169,7 +171,7 @@ describe("ThenaV3AMO", function() {
       boostUpperPriceBuy
     ];
     v3AMO = (await upgrades.deployProxy(V3AMOFactory, args, {
-      initializer: "initialize(address,address,address,address,uint8,address, address,int24,int24,uint160,uint256,uint24,uint24,uint24,uint256,uint256)"
+      initializer: "initialize(address,address,address,address,uint8,address,address,address,int24,int24,uint160,uint256,uint24,uint24,uint24,uint256,uint256)"
     })) as unknown as V3AMO;
     await v3AMO.waitForDeployment();
     amoAddress = await v3AMO.getAddress();

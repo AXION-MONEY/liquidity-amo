@@ -63,6 +63,7 @@ describe("VeloV3AMO", function() {
   const POOL_TYPE: PoolType = PoolType.CL;  //CL for Aerodrome
   const POOL_FACTORY_ADDRESS = "0xCc0bDDB707055e04e497aB22a59c2aF4391cd12F";
   const QUOTER_ADDRESS = "0x89D8218ed5fF1e46d8dcd33fb0bbeE3be1621466";
+  const POOL_CUSTOM_DEPLOYER_ADDRESS = "0x0000000000000000000000000000000000000000";
   const MIN_SQRT_RATIO = BigInt("4295128739"); // Minimum sqrt price ratio
   const MAX_SQRT_RATIO = BigInt("1461446703485210103287273052203988822378723970342"); // Maximum sqrt price ratio
   let sqrtPriceX96: bigint;
@@ -157,6 +158,7 @@ describe("VeloV3AMO", function() {
       poolAddress,
       POOL_TYPE,
       QUOTER_ADDRESS,
+      POOL_CUSTOM_DEPLOYER_ADDRESS,
       minterAddress,
       tickLower,
       tickUpper,
@@ -169,7 +171,7 @@ describe("VeloV3AMO", function() {
       boostUpperPriceBuy
     ];
     v3AMO = (await upgrades.deployProxy(V3AMOFactory, args, {
-      initializer: "initialize(address,address,address,address,uint8,address, address,int24,int24,uint160,uint256,uint24,uint24,uint24,uint256,uint256)"
+      initializer: "initialize(address,address,address,address,uint8,address,address,address,int24,int24,uint160,uint256,uint24,uint24,uint24,uint256,uint256)"
     })) as unknown as V3AMO;
     await v3AMO.waitForDeployment();
     amoAddress = await v3AMO.getAddress();

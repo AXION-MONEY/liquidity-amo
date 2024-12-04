@@ -55,6 +55,8 @@ contract V3AMO is IV3AMO, MasterAMO {
     /// @inheritdoc IV3AMO
     PoolType public override poolType;
     /// @inheritdoc IV3AMO
+    address public override poolCustomDeployer;
+    /// @inheritdoc IV3AMO
     uint24 public override usdUsageRatio;
     /// @inheritdoc IV3AMO
     int24 public override tickLower;
@@ -79,6 +81,7 @@ contract V3AMO is IV3AMO, MasterAMO {
         address pool_,
         PoolType poolType_,
         address quoter_,
+        address poolCustomDeployer_,
         address boostMinter_,
         int24 tickLower_,
         int24 tickUpper_,
@@ -92,6 +95,7 @@ contract V3AMO is IV3AMO, MasterAMO {
     ) public initializer {
         super.initialize(admin, boost_, usd_, pool_, boostMinter_);
         poolType = poolType_;
+        poolCustomDeployer = poolCustomDeployer_;
 
         setTickBounds(tickLower_, tickUpper_);
         setTargetSqrtPriceX96(targetSqrtPriceX96_);
@@ -464,13 +468,26 @@ contract V3AMO is IV3AMO, MasterAMO {
                 targetSqrtPriceX96
             );
         } else if (poolType == PoolType.ALGEBRA_INTEGRAL) {
-            IAlgebraQuoter.QuoteExactOutputSingleParams memory params = IAlgebraQuoter.QuoteExactOutputSingleParams({
-                tokenIn: usd,
-                tokenOut: boost,
-                amount: uint256(type(int256).max),
-                limitSqrtPrice: targetSqrtPriceX96
-            });
-            (, amountIn, , , , ) = IAlgebraQuoter(quoter).quoteExactOutputSingle(params);
+            if (poolCustomDeployer == address(0)) {
+                IAlgebraQuoter.QuoteExactOutputSingleParams memory params = IAlgebraQuoter
+                    .QuoteExactOutputSingleParams({
+                        tokenIn: usd,
+                        tokenOut: boost,
+                        amount: uint256(type(int256).max),
+                        limitSqrtPrice: targetSqrtPriceX96
+                    });
+                (, amountIn, , , , ) = IAlgebraQuoter(quoter).quoteExactOutputSingle(params);
+            } else {
+                IAlgebraQuoter.CustomPoolQuoteExactOutputSingleParams memory params = IAlgebraQuoter
+                    .CustomPoolQuoteExactOutputSingleParams({
+                        tokenIn: usd,
+                        tokenOut: boost,
+                        deployer: poolCustomDeployer,
+                        amount: uint256(type(int256).max),
+                        limitSqrtPrice: targetSqrtPriceX96
+                    });
+                (, amountIn, , , , ) = IAlgebraQuoter(quoter).quoteExactOutputSingle(params);
+            }
         } else {
             IQuoterV2.QuoteExactOutputSingleParams memory params = IQuoterV2.QuoteExactOutputSingleParams({
                 tokenIn: usd,

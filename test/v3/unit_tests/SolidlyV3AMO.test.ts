@@ -63,6 +63,7 @@ describe("SolidlyV3AMO", function() {
   const POOL_TYPE: PoolType = PoolType.SOLIDLY_V3;
   const POOL_FACTORY_ADDRESS = "0x70Fe4a44EA505cFa3A57b95cF2862D4fd5F0f687";
   const QUOTER_ADDRESS = ethers.ZeroAddress;
+  const POOL_CUSTOM_DEPLOYER_ADDRESS = "0x0000000000000000000000000000000000000000";
   const MIN_SQRT_RATIO = BigInt("4295128739"); // Minimum sqrt price ratio
   const MAX_SQRT_RATIO = BigInt("1461446703485210103287273052203988822378723970342"); // Maximum sqrt price ratio
   let sqrtPriceX96: bigint;
@@ -148,6 +149,7 @@ describe("SolidlyV3AMO", function() {
       poolAddress,
       POOL_TYPE,
       QUOTER_ADDRESS,
+      POOL_CUSTOM_DEPLOYER_ADDRESS,
       minterAddress,
       tickLower,
       tickUpper,
@@ -160,7 +162,7 @@ describe("SolidlyV3AMO", function() {
       boostUpperPriceBuy
     ];
     solidlyV3AMO = (await upgrades.deployProxy(SolidlyV3AMOFactory, args, {
-      initializer: "initialize(address,address,address,address,uint8,address, address,int24,int24,uint160,uint256,uint24,uint24,uint24,uint256,uint256)"
+      initializer: "initialize(address,address,address,address,uint8,address,address,address,int24,int24,uint160,uint256,uint24,uint24,uint24,uint256,uint256)"
     })) as unknown as V3AMO;
     await solidlyV3AMO.waitForDeployment();
     amoAddress = await solidlyV3AMO.getAddress();
