@@ -315,8 +315,10 @@ contract V3AMO is IV3AMO, MasterAMO {
 
         // Calculate valid range for USD spent based on BOOST spent and validRangeWidth (in %)
         uint256 allowedBoostDeviation = (boostSpent * validRangeWidth) / FACTOR; // validRange is the width in scaled dollar terms
-        if (toBoostAmount(usdSpent) <= boostSpent - allowedBoostDeviation || toBoostAmount(usdSpent) >= boostSpent + allowedBoostDeviation)
-            revert InvalidRatioToAddLiquidity();
+        if (
+            toBoostAmount(usdSpent) <= boostSpent - allowedBoostDeviation ||
+            toBoostAmount(usdSpent) >= boostSpent + allowedBoostDeviation
+        ) revert InvalidRatioToAddLiquidity();
 
         emit AddLiquidity(boostSpent, usdSpent, liquidity);
     }
@@ -494,18 +496,14 @@ contract V3AMO is IV3AMO, MasterAMO {
     function _validateSwap(bool boostForUsd) internal view override {}
 
     function _getSqrtPriceX96() internal view returns (uint160 _sqrtPriceX96) {
-        if (poolType == PoolType.SOLIDLY_V3) {
-            (_sqrtPriceX96, , , ) = ISolidlyV3Pool(pool).slot0();
-        } else if (poolType == PoolType.CL) {
-            (_sqrtPriceX96, , , , , ) = ICLPool(pool).slot0();
-        } else if (poolType == PoolType.ALGEBRA_V1_0) {
-            (_sqrtPriceX96, , , , , , ) = IAlgebraV10Pool(pool).globalState();
-        } else if (poolType == PoolType.ALGEBRA_V1_9) {
-            (_sqrtPriceX96, ) = IAlgebraV19Pool(pool).globalState();
-        } else if (poolType == PoolType.ALGEBRA_INTEGRAL) {
-            (_sqrtPriceX96, , , , , ) = IAlgebraIntegralPool(pool).globalState();
+        if (
+            poolType == PoolType.ALGEBRA_V1_0 ||
+            poolType == PoolType.ALGEBRA_V1_9 ||
+            poolType == PoolType.ALGEBRA_INTEGRAL
+        ) {
+            (_sqrtPriceX96, ) = IAlgebraPool(pool).globalState();
         } else {
-            (_sqrtPriceX96, , , , , , ) = IUniswapV3Pool(pool).slot0();
+            (_sqrtPriceX96, ) = IUniswapV3Pool(pool).slot0();
         }
     }
 

@@ -4,6 +4,14 @@ pragma solidity >=0.5.0;
 /// @title The interface for an Algebra Pool
 interface IAlgebraPool {
     /**
+     * @notice The globalState structure in the pool stores many values but requires only one slot
+     * and is exposed as a single method to save gas when accessed externally.
+     * @return price The current price of the pool as a sqrt(token1/token0) Q64.96 value;
+     * @dev Other return values are ignored
+     */
+    function globalState() external view returns (uint160 price, bytes memory);
+
+    /**
      * @notice Sets the initial price for the pool
      * @dev Price is represented as a sqrt(amountToken1/amountToken0) Q64.96 value
      * @param price the initial sqrt price of the pool as a Q64.96
