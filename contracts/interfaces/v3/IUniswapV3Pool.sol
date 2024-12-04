@@ -2,12 +2,6 @@
 pragma solidity >=0.5.0;
 
 interface IUniswapV3Pool {
-    /// @notice The 0th storage slot in the pool stores many values, and is exposed as a single method to save gas
-    /// when accessed externally.
-    /// @return sqrtPriceX96 The current price of the pool as a sqrt(token1/token0) Q64.96 value
-    /// @dev Other return values are ignored
-    function slot0() external view returns (uint160 sqrtPriceX96, bytes memory);
-
     /// @notice Sets the initial price for the pool
     /// @dev Price is represented as a sqrt(amountToken1/amountToken0) Q64.96 value
     /// @param sqrtPriceX96 the initial sqrt price of the pool as a Q64.96

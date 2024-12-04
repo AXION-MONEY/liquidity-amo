@@ -513,15 +513,17 @@ contract V3AMO is IV3AMO, MasterAMO {
     function _validateSwap(bool boostForUsd) internal view override {}
 
     function _getSqrtPriceX96() internal view returns (uint160 _sqrtPriceX96) {
+        bytes memory data;
         if (
             poolType == PoolType.ALGEBRA_V1_0 ||
             poolType == PoolType.ALGEBRA_V1_9 ||
             poolType == PoolType.ALGEBRA_INTEGRAL
         ) {
-            (_sqrtPriceX96, ) = IAlgebraPool(pool).globalState();
+            (, data) = pool.staticcall(abi.encodeWithSignature("globalState()"));
         } else {
-            (_sqrtPriceX96, ) = IUniswapV3Pool(pool).slot0();
+            (, data) = pool.staticcall(abi.encodeWithSignature("slot0()"));
         }
+        _sqrtPriceX96 = abi.decode(data, (uint160));
     }
 
     ////////////////////////// VIEW FUNCTIONS //////////////////////////
