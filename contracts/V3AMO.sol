@@ -93,10 +93,9 @@ contract V3AMO is IV3AMO, MasterAMO {
         super.initialize(admin, boost_, usd_, pool_, boostMinter_);
         poolType = poolType_;
 
+        _grantRole(SETTER_ROLE, msg.sender);
         setTickBounds(tickLower_, tickUpper_);
         setTargetSqrtPriceX96(targetSqrtPriceX96_);
-
-        _grantRole(SETTER_ROLE, msg.sender);
         setParams(
             quoter_,
             boostMultiplier_,
