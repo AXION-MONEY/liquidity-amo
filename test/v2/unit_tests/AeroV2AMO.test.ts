@@ -53,12 +53,13 @@ describe("V2AMO", function () {
     let REWARD_COLLECTOR_ROLE: string;
 
     // Constants
-    const V2_VOTER = "0xE3D1A117dF7DCaC2eB0AC8219341bAd92f18dAC1";
-    const VELO_FACTORY = "0xF1046053aa5682b4F9a81b5481394DA16BE5FF5a"; // Add VELO factory address
-    const WETH = "0x21be370D5312f44cB42ce377BC9b8a0cEF1A4C83";
-    const VELO_ROUTER = "0xa062aE8A9c5e11aaA026fc2670B0D65cCc8B2858";
-
-
+    const WETH = "0x4200000000000000000000000000000000000006 ";
+    const AeroPoolFactory = "0x420DD381b31aEf6683db6B902084cB0FFECe40Da";
+    const AeroRouter = "0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43";
+    const AeroForwarder = "0x15e62707FCA7352fbE35F51a8D6b0F8066A05DCc";
+    const AeroFactoryRegistry = "0x5C3F18F06CC09CA1910767A34a20F771039E37C0";
+    const AeroVoter = "0x16613524e02ad97eDfeF371bC883F2F5d6C480A5";
+    const AeroPool = "0xA4e46b4f701c62e14DF11B48dCe76A7d793CD6d7";
     // Amounts and addresses
     const boostDesired = ethers.parseUnits("11000000", 18);
     const usdDesired = ethers.parseUnits("11000000", 6);
@@ -120,14 +121,19 @@ describe("V2AMO", function () {
 
     async function setupVELO_LIKEEnvironment() {
         try {
-            // Real Velodrome v2 addresses
-            const VELO_FACTORY = "0xF1046053aa5682b4F9a81b5481394DA16BE5FF5a";
-            const VELO_ROUTER = "0xa062aE8A9c5e11aaA026fc2670B0D65cCc8B2858";
-            const VELO_VOTER = "0x41C914ee0c7E1A5edCD0295623e6dC557B5aBf3C";
+
+
+            const WETH = "0x4200000000000000000000000000000000000006 ";
+            const AeroPoolFactory = "0x420DD381b31aEf6683db6B902084cB0FFECe40Da";
+            const AeroRouter = "0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43";
+            const AeroForwarder = "0x15e62707FCA7352fbE35F51a8D6b0F8066A05DCc";
+            const AeroFactoryRegistry = "0x5C3F18F06CC09CA1910767A34a20F771039E37C0";
+            const AeroVoter = "0x16613524e02ad97eDfeF371bC883F2F5d6C480A5";
+            const AeroPool = "0xA4e46b4f701c62e14DF11B48dCe76A7d793CD6d7";
 
             // Get contracts with proper interfaces
-            factory = await ethers.getContractAt("IPoolFactory", VELO_FACTORY);
-            router = await ethers.getContractAt("IVRouter", VELO_ROUTER);
+            factory = await ethers.getContractAt("IPoolFactory", AeroPoolFactory);
+            router = await ethers.getContractAt("IVRouter", AeroRouter);
 
             // Sort tokens (required by Velodrome)
             const [token0, token1] = boostAddress.toLowerCase() < usdAddress.toLowerCase()
@@ -155,16 +161,16 @@ describe("V2AMO", function () {
                 token0,
                 token1,
                 true,
-                VELO_FACTORY
+                AeroPoolFactory
             );
 
             // Approve tokens for router
-            await boost.approve(VELO_ROUTER, boostDesired);
-            await testUSD.approve(VELO_ROUTER, usdDesired);
+            await boost.approve(AeroRouter, boostDesired);
+            await testUSD.approve(AeroRouter, usdDesired);
 
 
             // Setup gauge using real voter
-            v2Voter = await ethers.getContractAt("IVeloVoter", VELO_VOTER);
+            v2Voter = await ethers.getContractAt("IVeloVoter", AeroVoter);
 
             // Get the governor address from epochGovernor instead of governor
             const epochGovernor = await v2Voter.epochGovernor();
@@ -185,7 +191,7 @@ describe("V2AMO", function () {
 
             // Create gauge transaction
             const createGaugeTx = await v2Voter.connect(governorSigner).createGauge(
-                VELO_FACTORY,
+                AeroPoolFactory,
                 poolAddress
             );
             await createGaugeTx.wait();
@@ -212,8 +218,8 @@ describe("V2AMO", function () {
                     usdAddress,
                     1, // VELO_LIKE
                     minterAddress,
-                    VELO_FACTORY,
-                    VELO_ROUTER,
+                    AeroPoolFactory,
+                    AeroRouter,
                     gaugeAddress,
                     rewardVault.address,
                     0,
@@ -257,7 +263,7 @@ describe("V2AMO", function () {
 
     async function setupGauge() {
         try {
-            v2Voter = await ethers.getContractAt("IV2Voter", V2_VOTER);
+            v2Voter = await ethers.getContractAt("IV2Voter", AeroVoter);
             const governor = await v2Voter.governor();
             await network.provider.request({
                 method: "hardhat_impersonateAccount",
@@ -343,8 +349,8 @@ describe("V2AMO", function () {
             params: [
                 {
                     forking: {
-                        jsonRpcUrl: "https://optimism.rpc.subquery.network/public",
-                        blockNumber: 128216000, // Optional: specify a block number
+                        jsonRpcUrl: "https://base-rpc.publicnode.com",
+                        blockNumber: 23255640, // Optional: specify a block number
                     }
                 }
             ]
@@ -387,8 +393,8 @@ describe("V2AMO", function () {
             params: [
                 {
                     forking: {
-                        jsonRpcUrl: "https://optimism.rpc.subquery.network/public",
-                        blockNumber: 128216000, // Optional: specify a block number
+                        jsonRpcUrl: "https://base-rpc.publicnode.com",
+                        blockNumber: 23255640, // Optional: specify a block number
                     }
                 }
             ]
@@ -405,7 +411,7 @@ describe("V2AMO", function () {
 
         describe("Initialization", () => {
             it("should initialize with correct parameters", async function () {
-                expect(await v2AMO.router()).to.equal(VELO_ROUTER);
+                expect(await v2AMO.router()).to.equal(AeroRouter);
                 expect(await v2AMO.boost()).to.equal(boostAddress);
                 expect(await v2AMO.usd()).to.equal(usdAddress);
                 expect(await v2AMO.poolType()).to.equal(1); // VELO_LIKE
@@ -420,8 +426,8 @@ describe("V2AMO", function () {
             });
 
             it("should use default factory when factory is zero address", async function () {
-                const veloRouter = await ethers.getContractAt("IVRouter", VELO_ROUTER);
-                const defaultFactory = await veloRouter.defaultFactory();
+                const AeroRouteris = await ethers.getContractAt("IVRouter", AeroRouter);
+                const defaultFactory = await AeroRouteris.defaultFactory();
 
                 const SolidlyV2LiquidityAMOFactory = await ethers.getContractFactory("V2AMO");
                 const args = [
@@ -431,7 +437,7 @@ describe("V2AMO", function () {
                     1, // VELO_LIKE
                     minterAddress,
                     ethers.ZeroAddress,
-                    VELO_ROUTER, // Use the actual router address
+                    AeroRouter, // Use the actual router address
                     gaugeAddress,
                     rewardVault.address,
                     0,
@@ -530,6 +536,7 @@ describe("V2AMO", function () {
             describe("Public AMO Functions", function () {
                 describe("mintSellFarm", function () {
 
+
                     it("should execute public mintSellFarm when price above 1", async function () {
                         // Add initial liquidity first
                         const initialBoostAmount = ethers.parseUnits("10000000", 18);
@@ -538,8 +545,8 @@ describe("V2AMO", function () {
                         await boost.connect(boostMinter).mint(admin.address, initialBoostAmount);
                         await testUSD.connect(admin).mint(admin.address, initialUsdAmount);
 
-                        await boost.connect(admin).approve(VELO_ROUTER, initialBoostAmount);
-                        await testUSD.connect(admin).approve(VELO_ROUTER, initialUsdAmount);
+                        await boost.connect(admin).approve(AeroRouter, initialBoostAmount);
+                        await testUSD.connect(admin).approve(AeroRouter, initialUsdAmount);
 
                         // Add initial liquidity
                         await router.connect(admin).addLiquidity(
@@ -561,13 +568,13 @@ describe("V2AMO", function () {
                         // Push price above peg with larger amount
                         const usdToBuy = ethers.parseUnits("5000000", 6);
                         await testUSD.connect(admin).mint(user.address, usdToBuy);
-                        await testUSD.connect(user).approve(VELO_ROUTER, usdToBuy);
+                        await testUSD.connect(user).approve(AeroRouter, usdToBuy);
 
                         const routeBuyBoost = [{
                             from: usdAddress,
                             to: boostAddress,
                             stable: true,
-                            factory: VELO_FACTORY
+                            factory: AeroPoolFactory
                         }];
 
 
@@ -587,6 +594,7 @@ describe("V2AMO", function () {
                         ).to.emit(v2AMO, "PublicMintSellFarmExecuted");
                     });
 
+
                     it("should correctly return boostPrice", async function () {
                         expect(await v2AMO.boostPrice()).to.be.approximately(
                             ethers.parseUnits("1", 6),
@@ -604,6 +612,13 @@ describe("V2AMO", function () {
                     });
 
 
+                });
+
+
+                it("Should revert mintSellFarm when price is 1", async function () {
+                    // Use amoBot instead of amoAddress since it's a proper signer
+                    await expect(v2AMO.connect(amoBot).mintSellFarm())
+                        .to.be.revertedWithCustomError(v2AMO, "InvalidReserveRatio");
                 });
 
 
@@ -634,8 +649,8 @@ describe("V2AMO", function () {
                         ]);
 
                         // Approve and add liquidity
-                        await boost.connect(amoSigner).approve(VELO_ROUTER, initialBoostAmount);
-                        await testUSD.connect(amoSigner).approve(VELO_ROUTER, initialUsdAmount);
+                        await boost.connect(amoSigner).approve(AeroRouter, initialBoostAmount);
+                        await testUSD.connect(amoSigner).approve(AeroRouter, initialUsdAmount);
 
                         const addLiquidityTx = await router.connect(amoSigner).addLiquidity(
                             usdAddress,
@@ -668,13 +683,13 @@ describe("V2AMO", function () {
                         // Push price below peg
                         const boostToBuy = ethers.parseUnits("3000000", 18);
                         await boost.connect(boostMinter).mint(user.address, boostToBuy);
-                        await boost.connect(user).approve(VELO_ROUTER, boostToBuy);
+                        await boost.connect(user).approve(AeroRouter, boostToBuy);
 
                         const routeSellBoost = [{
                             from: boostAddress,
                             to: usdAddress,
                             stable: true,
-                            factory: VELO_FACTORY
+                            factory: AeroPoolFactory
                         }];
 
 
@@ -696,6 +711,8 @@ describe("V2AMO", function () {
                         ).to.emit(v2AMO, "PublicUnfarmBuyBurnExecuted");
                     });
 
+
+
                     it("should correctly return boostPrice after operations", async function () {
                         expect(await v2AMO.boostPrice()).to.be.approximately(
                             ethers.parseUnits("1", 6),
@@ -703,13 +720,15 @@ describe("V2AMO", function () {
                         );
                     });
 
-                    it("Should revert mintSellFarm when price is 1", async function () {
-                        // Use amoBot instead of amoAddress since it's a proper signer
-                        await expect(v2AMO.connect(amoBot).mintSellFarm())
+                    it("Should revert unfarmBuyBurn when price is 1", async function () {
+                        // Use amoBot instead of amoAddress
+                        await expect(v2AMO.connect(amoBot).unfarmBuyBurn())
                             .to.be.revertedWithCustomError(v2AMO, "InvalidReserveRatio");
                     });
                 });
             });
+
+
 
 
             describe("Price and Reserve Functions", function () {
@@ -736,6 +755,9 @@ describe("V2AMO", function () {
                     expect(usdReserve).to.be.gt(0);
                 });
 
+
+
+
                 it("should validate swaps correctly", async function () {
                     // Provide initial liquidity first
                     await provideLiquidityForVelo();
@@ -758,9 +780,9 @@ describe("V2AMO", function () {
 
 
 
-            describe("MintAndSellBoost", () => {
+            describe("MintAndSeelBoost", () => {
 
-                it("Call mintAndSellBoost Succesfully", async function () {
+                it("Should call mintAndSellBoost Succesfully", async function () {
                     // Add initial liquidity first
                     const initialBoostAmount = ethers.parseUnits("5000000", 18);
                     const initialUsdAmount = ethers.parseUnits("5000000", 6);
@@ -768,8 +790,8 @@ describe("V2AMO", function () {
                     await boost.connect(boostMinter).mint(admin.address, initialBoostAmount);
                     await testUSD.connect(admin).mint(admin.address, initialUsdAmount);
 
-                    await boost.connect(admin).approve(VELO_ROUTER, initialBoostAmount);
-                    await testUSD.connect(admin).approve(VELO_ROUTER, initialUsdAmount);
+                    await boost.connect(admin).approve(AeroRouter, initialBoostAmount);
+                    await testUSD.connect(admin).approve(AeroRouter, initialUsdAmount);
 
                     // Add initial liquidity
                     await router.connect(admin).addLiquidity(
@@ -789,13 +811,13 @@ describe("V2AMO", function () {
                     const swapAmount = usdToBuy / 3n; // Split into three parts using BigInt division
 
                     await testUSD.connect(admin).mint(admin.address, usdToBuy);
-                    await testUSD.connect(admin).approve(VELO_ROUTER, usdToBuy);
+                    await testUSD.connect(admin).approve(AeroRouter, usdToBuy);
 
                     const routes = [{
                         from: usdAddress,
                         to: boostAddress,
                         stable: true,
-                        factory: VELO_FACTORY
+                        factory: AeroPoolFactory
                     }];
 
 
@@ -857,6 +879,15 @@ describe("V2AMO", function () {
                     const [boostReserve, usdReserve] = await v2AMO.getReserves();
                     expect(boostReserve).to.be.gt(0);
                     expect(usdReserve).to.be.gt(0);
+                });
+
+                it("Should revert addLiquidity when called by non-amo", async function () {
+                    const usdBalance = ethers.parseUnits("980000", 6);
+                    await expect(v2AMO.connect(user).addLiquidity(
+                        usdBalance,
+                        1,
+                        1
+                    )).to.be.revertedWith(`AccessControl: account ${user.address.toLowerCase()} is missing role ${AMO_ROLE}`);
                 });
             });
 
@@ -922,7 +953,7 @@ describe("V2AMO", function () {
                     );
                 });
 
-                it("should only allow AMO_ROLE to call addLiquidity", async function () {
+                it("should call addLiquidity succesfully", async function () {
                     const usdAmountToAdd = ethers.parseUnits("1000", 6);
                     const boostMinAmount = ethers.parseUnits("900", 18);
                     const usdMinAmount = ethers.parseUnits("900", 6);
@@ -1001,6 +1032,10 @@ describe("V2AMO", function () {
             });
 
 
+
+
+
+
             describe("MasterAMO DAO Functions", function () {
                 describe("pause", function () {
                     it("should allow pauser to pause the contract", async function () {
@@ -1035,6 +1070,11 @@ describe("V2AMO", function () {
                             .to.be.revertedWith("Pausable: paused");
                     });
 
+
+
+
+
+
                 });
 
             });
@@ -1055,7 +1095,6 @@ describe("V2AMO", function () {
                         .to.be.revertedWith(reverteMessage);
                 });
             });
-
 
 
         });
