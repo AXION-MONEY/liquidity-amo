@@ -48,4 +48,37 @@ interface IAlgebraQuoter {
             uint256 gasEstimate,
             uint16 fee
         );
+
+    struct CustomPoolQuoteExactOutputSingleParams {
+        address tokenIn;
+        address tokenOut;
+        address deployer;
+        uint256 amount;
+        uint160 limitSqrtPrice;
+    }
+
+    /// @notice Returns the amount in required to receive the given exact output amount but for a swap of a single pool
+    /// @param params The params for the quote, encoded as `QuoteExactOutputSingleParams`
+    /// tokenIn The token being swapped in
+    /// tokenOut The token being swapped out
+    /// amountOut The desired output amount
+    /// limitSqrtPrice The price limit of the pool that cannot be exceeded by the swap
+    /// @return amountOut The amount of the last token that would be received
+    /// @return amountIn The amount required as the input for the swap in order to receive `amountOut`
+    /// @return sqrtPriceX96After The sqrt price of the pool after the swap
+    /// @return initializedTicksCrossed The number of initialized ticks that the swap crossed
+    /// @return gasEstimate The estimate of the gas that the swap consumes
+    /// @return fee The fee value used for swap in the pool
+    function quoteExactOutputSingle(
+        CustomPoolQuoteExactOutputSingleParams memory params
+    )
+        external
+        returns (
+            uint256 amountOut,
+            uint256 amountIn,
+            uint160 sqrtPriceX96After,
+            uint32 initializedTicksCrossed,
+            uint256 gasEstimate,
+            uint16 fee
+        );
 }
