@@ -301,7 +301,6 @@ describe("V2AMO", function () {
     beforeEach(async function () {
       await deployBaseContracts();
       await setupSolidlyV2Environment();
-      //await setupGauge();
       await provideLiquidity();
       await depositToGauge();
       await setupRoles();

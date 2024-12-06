@@ -280,7 +280,7 @@ describe("V2AMO", function () {
             ).to.emit(v2AMO, "ParamsSet");
         });
 
-        it("should only allow AMO_ROLE to call addLiquidity", async function () {
+        it("should call addLiquidity succesfully", async function () {
             // Setup amounts
             const usdAmountToAdd = ethers.parseUnits("1000", 6);
             const boostMinAmount = ethers.parseUnits("900", 18);
@@ -392,47 +392,46 @@ describe("V2AMO", function () {
 
 
 
-        /*
-                it("should only allow PAUSER_ROLE to pause and UNPAUSER_ROLE to unpause", async function () {
-                    // Grant roles
-                    await v2AMO.grantRole(AMO_ROLE, amoBot.address);
-                    await v2AMO.grantRole(PAUSER_ROLE, pauser.address);
-                    await v2AMO.grantRole(UNPAUSER_ROLE, unpauser.address);
-        
-                    // Test pause
-                    await expect(
-                        v2AMO.connect(pauser).pause()
-                    ).to.emit(v2AMO, "Paused")
-                        .withArgs(pauser.address);
-        
-                    // Test operation while paused
-                    const boostAmount = ethers.parseUnits("1000", 18);
-                    await expect(
-                        v2AMO.connect(amoBot).mintAndSellBoost(boostAmount)
-                    ).to.be.revertedWith("Pausable: paused");
-        
-                    // Test unpause
-                    await expect(
-                        v2AMO.connect(unpauser).unpause()
-                    ).to.emit(v2AMO, "Unpaused")
-                        .withArgs(unpauser.address);
-                });
-        
-                it("should allow WITHDRAWER_ROLE to withdraw ERC20 tokens", async function () {
-                    // Transfer some tokens to the contract
-                    await testUSD.connect(user).mint(amoAddress, ethers.parseUnits("1000", 6));
-        
-                    // Try withdrawing tokens without WITHDRAWER_ROLE
-                    await expect(
-                        v2AMO.connect(user).withdrawERC20(usdAddress, ethers.parseUnits("1000", 6), user.address)
-                    ).to.be.revertedWith(`AccessControl: account ${user.address.toLowerCase()} is missing role ${WITHDRAWER_ROLE}`);
-        
-                    // Withdraw tokens with WITHDRAWER_ROLE
-                    await v2AMO.connect(withdrawer).withdrawERC20(usdAddress, ethers.parseUnits("1000", 6), user.address);
-                    const usdBalanceOfUser = await testUSD.balanceOf(await user.getAddress());
-                    expect(usdBalanceOfUser).to.be.equal(ethers.parseUnits("1000", 6));
-                });
-           */
+
+        it("should only allow PAUSER_ROLE to pause and UNPAUSER_ROLE to unpause", async function () {
+            // Grant roles
+            await v2AMO.grantRole(AMO_ROLE, amoBot.address);
+            await v2AMO.grantRole(PAUSER_ROLE, pauser.address);
+            await v2AMO.grantRole(UNPAUSER_ROLE, unpauser.address);
+
+            // Test pause
+            await expect(
+                v2AMO.connect(pauser).pause()
+            ).to.emit(v2AMO, "Paused")
+                .withArgs(pauser.address);
+
+            // Test operation while paused
+            const boostAmount = ethers.parseUnits("1000", 18);
+            await expect(
+                v2AMO.connect(amoBot).mintAndSellBoost(boostAmount)
+            ).to.be.revertedWith("Pausable: paused");
+
+            // Test unpause
+            await expect(
+                v2AMO.connect(unpauser).unpause()
+            ).to.emit(v2AMO, "Unpaused")
+                .withArgs(unpauser.address);
+        });
+
+        it("should allow WITHDRAWER_ROLE to withdraw ERC20 tokens", async function () {
+            // Transfer some tokens to the contract
+            await testUSD.connect(user).mint(amoAddress, ethers.parseUnits("1000", 6));
+
+            // Try withdrawing tokens without WITHDRAWER_ROLE
+            await expect(
+                v2AMO.connect(user).withdrawERC20(usdAddress, ethers.parseUnits("1000", 6), user.address)
+            ).to.be.revertedWith(`AccessControl: account ${user.address.toLowerCase()} is missing role ${WITHDRAWER_ROLE}`);
+
+            // Withdraw tokens with WITHDRAWER_ROLE
+            await v2AMO.connect(withdrawer).withdrawERC20(usdAddress, ethers.parseUnits("1000", 6), user.address);
+            const usdBalanceOfUser = await testUSD.balanceOf(await user.getAddress());
+            expect(usdBalanceOfUser).to.be.equal(ethers.parseUnits("1000", 6));
+        });
 
 
 
