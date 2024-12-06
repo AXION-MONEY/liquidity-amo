@@ -583,6 +583,64 @@ describe("V2AMO", function () {
             }
         });
 
+
+        describe("MasterAMO DAO Functions", function () {
+            describe("pause", function () {
+                it("should allow pauser to pause the contract", async function () {
+                    await expect(v2AMO.connect(pauser).pause()).to.not.be.reverted;
+                    expect(await v2AMO.paused()).to.equal(true);
+                });
+
+                it("should not allow non-pauser to pause the contract", async function () {
+                    const reverteMessage = `AccessControl: account ${user.address.toLowerCase()} is missing role ${PAUSER_ROLE}`;
+                    await expect(v2AMO.connect(user).pause())
+                        .to.be.revertedWith(reverteMessage);
+                });
+
+                it("should not allow operations when paused", async function () {
+                    // Use proper signers instead of addresses
+                    await v2AMO.connect(pauser).pause();
+
+                    const boostAmount = ethers.parseUnits("990000", 18);
+                    const usdBalance = await testUSD.balanceOf(await v2AMO.getAddress());
+
+                    // Use amoBot for all operations
+                    await expect(v2AMO.connect(amoBot).mintAndSellBoost(boostAmount))
+                        .to.be.revertedWith("Pausable: paused");
+
+                    await expect(v2AMO.connect(amoBot).addLiquidity(usdBalance, 1, 1))
+                        .to.be.revertedWith("Pausable: paused");
+
+                    await expect(v2AMO.connect(amoBot).mintSellFarm())
+                        .to.be.revertedWith("Pausable: paused");
+
+                    await expect(v2AMO.connect(amoBot).unfarmBuyBurn())
+                        .to.be.revertedWith("Pausable: paused");
+                });
+
+            });
+
+        });
+
+        describe("unpause", function () {
+            it("should allow unpauser to unpause the contract", async function () {
+                await v2AMO.connect(pauser).pause();
+                expect(await v2AMO.paused()).to.equal(true);
+
+                await expect(v2AMO.connect(unpauser).unpause()).to.not.be.reverted;
+                expect(await v2AMO.paused()).to.equal(false);
+            });
+
+            it("should not allow non-unpauser to unpause the contract", async function () {
+                await v2AMO.connect(pauser).pause();
+                const reverteMessage = `AccessControl: account ${user.address.toLowerCase()} is missing role ${UNPAUSER_ROLE}`;
+                await expect(v2AMO.connect(user).unpause())
+                    .to.be.revertedWith(reverteMessage);
+            });
+        });
+
+
+
         describe("get reward", async function () {
             const tokens = [];
             it("should revert when token is not whitelisted", async function () {
