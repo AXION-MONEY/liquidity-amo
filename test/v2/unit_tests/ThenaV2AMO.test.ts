@@ -319,7 +319,7 @@ describe("V2AMO", function () {
 
 
 
-  describe("SolidlyV2 Pool Tests", function () {
+  describe("Thena V2Pool Tests", function () {
     beforeEach(async function () {
       await deployBaseContracts();
       await setupSolidlyV2Environment();

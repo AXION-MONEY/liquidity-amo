@@ -396,7 +396,7 @@ describe("V2AMO", function () {
     });
 
 
-    describe("VELO_LIKE Pool Tests", function () {
+    describe("Velodrome V2Pool Tests", function () {
         beforeEach(async function () {
             await deployBaseContracts();
             await setupVELO_LIKEEnvironment();
