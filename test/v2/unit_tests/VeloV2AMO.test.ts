@@ -456,6 +456,8 @@ describe("V2AMO", function () {
                 expect(await newAMO.factory()).to.equal(defaultFactory);
             });
 
+
+            
             describe("Setter Role Actions", function () {
 
                 describe("setParams", function () {
