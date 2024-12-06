@@ -19,7 +19,7 @@ describe("VeloV3AMO", function() {
       params: [
         {
           forking: {
-            jsonRpcUrl: "https://optimism.drpc.org",
+            jsonRpcUrl: "https://1rpc.io/op",
             blockNumber: 128475300
           }
         }
