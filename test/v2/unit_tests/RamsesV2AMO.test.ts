@@ -3,15 +3,15 @@ import { ethers, network, upgrades } from "hardhat";
 // @ts-ignore
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import {
-    Minter,
-    BoostStablecoin,
-    MockERC20,
-    V2AMO,
-    IV2Voter,
-    IFactory,
-    MockRouter,
-    IGauge,
-    IERC20
+  Minter,
+  BoostStablecoin,
+  MockERC20,
+  V2AMO,
+  IV2Voter,
+  IFactory,
+  IGauge,
+  IERC20,
+  ISolidlyRouter,
 } from "../../../typechain-types";
 import { setBalance } from "@nomicfoundation/hardhat-network-helpers";
 
@@ -22,7 +22,7 @@ describe("V2AMO", function () {
     let boost: BoostStablecoin;
     let testUSD: MockERC20;
     let minter: Minter;
-    let router: MockRouter;
+    let router: ISolidlyRouter;
     let v2Voter: IV2Voter;
     let factory: IFactory;
     let gauge: IGauge;
@@ -47,6 +47,7 @@ describe("V2AMO", function () {
 
     const V2_VOTER = "0xAAA2564DEb34763E3d05162ed3f5C2658691f499"; // Rmases DEX Voter
     const V2_FACTORY = "0xAAA20D08e59F6561f242b08513D36266C5A29415"; // Ramses DEX PairFactory
+    const ROUTER = "0xAAA87963EFeB6f7E0a2711F397663105Acb1805e"; // Ramses DEX Router
     const WETH = "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1"; // Wrapped ArbOne
     const boostDesired = ethers.parseUnits("11000000", 18); // 11M
     const usdDesired = ethers.parseUnits("11000000", 6); // 11M
@@ -105,11 +106,8 @@ describe("V2AMO", function () {
         await factory.connect(admin).createPair(boostAddress, usdAddress, true);
         poolAddress = await factory.getPair(boostAddress, usdAddress, true);
 
-        // Deploy Router
-        const RouterFactory = await ethers.getContractFactory("MockRouter");
-        router = await RouterFactory.deploy(V2_FACTORY, WETH);
-        await router.waitForDeployment();
-        routerAddress = await router.getAddress();
+        router = await ethers.getContractAt("ISolidlyRouter", ROUTER);
+        routerAddress = ROUTER;
 
 
         await setupGauge();
@@ -249,7 +247,7 @@ describe("V2AMO", function () {
     });
 
 
-    describe("SolidlyV2 Pool Tests", function () {
+    describe("Ramses V2Pool Tests", function () {
         beforeEach(async function () {
             await deployBaseContracts();
             await setupSolidlyV2Environment();
@@ -433,16 +431,12 @@ describe("V2AMO", function () {
             expect(usdBalanceOfUser).to.be.equal(ethers.parseUnits("1000", 6));
         });
 
-
-
-
-
         it("should execute public mintSellFarm when price above 1", async function () {
             console.log("\nInitializing mintSellFarm test...");
 
             try {
                 // 1. Setup initial parameters with BigNumber
-                const usdToBuy = ethers.parseUnits("1000000", 6);
+                const usdToBuy = ethers.parseUnits("2000000", 6);
 
                 // 2. Setup required parameters
                 await v2AMO.connect(setter).setTokenId(0, true);
@@ -462,17 +456,12 @@ describe("V2AMO", function () {
                 console.log("Boost reserve:", initialBoostReserve.toString());
                 console.log("USD reserve:", initialUsdReserve.toString());
 
-
-
-
                 // Create initial imbalance
                 const routeBuyBoost = [{
                     from: usdAddress,
                     to: boostAddress,
                     stable: true
                 }];
-
-
                 const amountsOut = await router.getAmountsOut(usdToBuy, routeBuyBoost);
                 const expectedOutput = amountsOut[amountsOut.length - 1];
                 console.log("Expected output:", expectedOutput.toString());
@@ -507,9 +496,7 @@ describe("V2AMO", function () {
 
                 // 6. Execute mintSellFarm
                 console.log("\nExecuting public mintSellFarm...");
-                const tx = await v2AMO.connect(user).mintSellFarm({
-                    gasLimit: 5000000
-                });
+                const tx = await v2AMO.connect(user).mintSellFarm();
 
                 const receipt = await tx.wait();
 
