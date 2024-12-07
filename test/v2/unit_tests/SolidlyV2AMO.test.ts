@@ -507,8 +507,8 @@ describe("V2AMO", function () {
 
 
       it("should execute unfarmBuyBurn succesfully", async function () {
-        const boostToBuy = ethers.parseUnits("1000000", 18);
-        const minUsdReceive = ethers.parseUnits("990000", 6);
+        const boostToBuy = ethers.parseUnits("2000000", 18);
+        const minUsdReceive = ethers.parseUnits("1990000", 6);
         const routeSellBoost = [{
           from: boostAddress,
           to: usdAddress,
@@ -623,8 +623,8 @@ describe("V2AMO", function () {
 
       describe("unfarmBuyBurn", function () {
         it("should execute unfarmBuyBurn succesfully", async function () {
-          const boostToBuy = ethers.parseUnits("1000000", 18);
-          const minUsdReceive = ethers.parseUnits("990000", 6);
+          const boostToBuy = ethers.parseUnits("2000000", 18);
+          const minUsdReceive = ethers.parseUnits("1990000", 6);
           const routeSellBoost = [{
             from: boostAddress,
             to: usdAddress,
@@ -658,7 +658,7 @@ describe("V2AMO", function () {
 
           try {
             // 1. Setup initial parameters with BigNumber
-            const usdToBuy = ethers.parseUnits("1000000", 6);
+            const usdToBuy = ethers.parseUnits("2000000", 6);
 
             // 2. Setup required parameters
             await v2AMO.connect(setter).setTokenId(0, true);
@@ -745,8 +745,8 @@ describe("V2AMO", function () {
 
       describe("unfarmBuyBurn", function () {
         it("should execute unfarmBuyBurn below 1", async function () {
-          const boostToBuy = ethers.parseUnits("1000000", 18);
-          const minUsdReceive = ethers.parseUnits("990000", 6);
+          const boostToBuy = ethers.parseUnits("2000000", 18);
+          const minUsdReceive = ethers.parseUnits("1990000", 6);
           const routeSellBoost = [{
             from: boostAddress,
             to: usdAddress,

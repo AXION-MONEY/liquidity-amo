@@ -536,8 +536,8 @@ describe("V2AMO", function () {
 
 
       it("should execute unfarmBuyBurn succesfully", async function () {
-        const boostToBuy = ethers.parseUnits("1000000", 18);
-        const minUsdReceive = ethers.parseUnits("990000", 6);
+        const boostToBuy = ethers.parseUnits("2000000", 18);
+        const minUsdReceive = ethers.parseUnits("1990000", 6);
         const routeSellBoost = [{
           from: boostAddress,
           to: usdAddress,
@@ -621,8 +621,8 @@ describe("V2AMO", function () {
 
       describe("mintSellFarm", function () {
         it("should execute public mintSellFarm succesfully", async function () {
-          const usdToBuy = ethers.parseUnits("1000000", 6);
-          const minBoostReceive = ethers.parseUnits("990000", 18);
+          const usdToBuy = ethers.parseUnits("2000000", 6);
+          const minBoostReceive = ethers.parseUnits("1990000", 18);
           const routeBuyBoost = [{
             from: usdAddress,
             to: boostAddress,
@@ -660,8 +660,8 @@ describe("V2AMO", function () {
 
       describe("unfarmBuyBurn", function () {
         it("should execute unfarmBuyBurn succesfully", async function () {
-          const boostToBuy = ethers.parseUnits("1000000", 18);
-          const minUsdReceive = ethers.parseUnits("990000", 6);
+          const boostToBuy = ethers.parseUnits("2000000", 18);
+          const minUsdReceive = ethers.parseUnits("1990000", 6);
           const routeSellBoost = [{
             from: boostAddress,
             to: usdAddress,
@@ -692,8 +692,8 @@ describe("V2AMO", function () {
     describe("Public AMO Functions", function () {
       describe("mintSellFarm", function () {
         it("should execute public mintSellFarm above 1 ", async function () {
-          const usdToBuy = ethers.parseUnits("1000000", 6);
-          const minBoostReceive = ethers.parseUnits("990000", 18);
+          const usdToBuy = ethers.parseUnits("2000000", 6);
+          const minBoostReceive = ethers.parseUnits("1990000", 18);
           const routeBuyBoost = [{
             from: usdAddress,
             to: boostAddress,
@@ -725,8 +725,8 @@ describe("V2AMO", function () {
 
       describe("unfarmBuyBurn", function () {
         it("should execute unfarmBuyBurn below 1", async function () {
-          const boostToBuy = ethers.parseUnits("1000000", 18);
-          const minUsdReceive = ethers.parseUnits("990000", 6);
+          const boostToBuy = ethers.parseUnits("2000000", 18);
+          const minUsdReceive = ethers.parseUnits("1990000", 6);
           const routeSellBoost = [{
             from: boostAddress,
             to: usdAddress,
