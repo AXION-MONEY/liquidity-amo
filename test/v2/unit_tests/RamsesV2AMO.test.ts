@@ -440,8 +440,6 @@ describe("V2AMO", function () {
     });
 
     it("should execute public mintSellFarm when price above 1", async function () {
-      console.log("\nInitializing mintSellFarm test...");
-
       try {
         // 1. Setup initial parameters with BigNumber
         const usdToBuy = ethers.parseUnits("2000000", 6);
@@ -452,18 +450,9 @@ describe("V2AMO", function () {
         await minter.grantRole(await minter.AMO_ROLE(), v2AMO.getAddress());
 
         // 3. Create initial imbalance
-        console.log("\nInitial price:", (await v2AMO.boostPrice()).toString());
-
         // Mint and approve USD
         await testUSD.connect(admin).mint(user.address, usdToBuy);
         await testUSD.connect(user).approve(routerAddress, usdToBuy);
-
-        // Get initial reserves
-        const [initialBoostReserve, initialUsdReserve] =
-          await v2AMO.getReserves();
-        console.log("\nInitial reserves:");
-        console.log("Boost reserve:", initialBoostReserve.toString());
-        console.log("USD reserve:", initialUsdReserve.toString());
 
         // Create initial imbalance
         const routeBuyBoost = [
@@ -475,11 +464,9 @@ describe("V2AMO", function () {
         ];
         const amountsOut = await router.getAmountsOut(usdToBuy, routeBuyBoost);
         const expectedOutput = amountsOut[amountsOut.length - 1];
-        console.log("Expected output:", expectedOutput.toString());
 
         // Set a lower minOutput to allow for slippage using BigInt arithmetic
         const minOutput = (expectedOutput * 99n) / 100n; // 5% slippage tolerance
-        console.log("Minimum output:", minOutput.toString());
 
         await router
           .connect(user)
@@ -493,14 +480,7 @@ describe("V2AMO", function () {
 
         // 4. Verify price and prepare for mintSellFarm
         const priceBeforeOperation = await v2AMO.boostPrice();
-        console.log("Price before operation:", priceBeforeOperation.toString());
         expect(priceBeforeOperation).to.be.gt(ethers.parseUnits("1", 6));
-
-        // Get reserves before mintSellFarm
-        const [boostReserve, usdReserve] = await v2AMO.getReserves();
-        console.log("\nReserves before mintSellFarm:");
-        console.log("Boost reserve:", boostReserve.toString());
-        console.log("USD reserve:", usdReserve.toString());
 
         // 5. Setup approvals for mintSellFarm
         const maxApproval = ethers.parseUnits("1000000000", 18);
@@ -508,14 +488,12 @@ describe("V2AMO", function () {
         await testUSD.connect(admin).approve(routerAddress, maxApproval);
 
         // 6. Execute mintSellFarm
-        console.log("\nExecuting public mintSellFarm...");
         const tx = await v2AMO.connect(user).mintSellFarm();
 
         const receipt = await tx.wait();
 
         // 7. Verify final state
         const finalPrice = await v2AMO.boostPrice();
-        console.log("\nFinal price:", finalPrice.toString());
 
         expect(finalPrice).to.be.approximately(
           ethers.parseUnits("1", 6),
