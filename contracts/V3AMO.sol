@@ -467,26 +467,27 @@ contract V3AMO is IV3AMO, MasterAMO {
                 targetSqrtPriceX96
             );
         } else if (poolType == PoolType.ALGEBRA_INTEGRAL) {
-            if (poolCustomDeployer == address(0)) {
-                IAlgebraQuoter.QuoteExactOutputSingleParams memory params = IAlgebraQuoter
-                    .QuoteExactOutputSingleParams({
-                        tokenIn: usd,
-                        tokenOut: boost,
-                        amount: uint256(type(int256).max),
-                        limitSqrtPrice: targetSqrtPriceX96
-                    });
-                (, amountIn, , , , ) = IAlgebraQuoter(quoter).quoteExactOutputSingle(params);
-            } else {
-                IAlgebraQuoter.CustomPoolQuoteExactOutputSingleParams memory params = IAlgebraQuoter
-                    .CustomPoolQuoteExactOutputSingleParams({
-                        tokenIn: usd,
-                        tokenOut: boost,
-                        deployer: poolCustomDeployer,
-                        amount: uint256(type(int256).max),
-                        limitSqrtPrice: targetSqrtPriceX96
-                    });
-                (, amountIn, , , , ) = IAlgebraQuoter(quoter).quoteExactOutputSingle(params);
-            }
+            (bool success, bytes memory data) = quoter.call(
+                abi.encodeWithSignature(
+                    "quoteExactOutputSingle((address,address,address,uint256,uint160))",
+                    usd,
+                    boost,
+                    poolCustomDeployer,
+                    uint256(type(int256).max),
+                    targetSqrtPriceX96
+                )
+            );
+            if (!success)
+                (, data) = quoter.call(
+                    abi.encodeWithSignature(
+                        "quoteExactOutputSingle((address,address,uint256,uint160))",
+                        usd,
+                        boost,
+                        uint256(type(int256).max),
+                        targetSqrtPriceX96
+                    )
+                );
+            (, amountIn) = abi.decode(data, (uint256, uint256));
         } else {
             IQuoterV2.QuoteExactOutputSingleParams memory params = IQuoterV2.QuoteExactOutputSingleParams({
                 tokenIn: usd,
