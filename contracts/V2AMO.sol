@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
+import "@openzeppelin/contracts/utils/math/Math.sol";
 import "./MasterAMO.sol";
 import {IGauge} from "./interfaces/v2/IGauge.sol";
 import {ISolidlyRouter} from "./interfaces/v2/ISolidlyRouter.sol";
@@ -16,6 +17,7 @@ contract V2AMO is IV2AMO, MasterAMO {
     error UsdAmountOutMismatch(uint256 routerOutput, uint256 balanceChange);
     error LpAmountOutMismatch(uint256 routerOutput, uint256 balanceChange);
     error InvalidReserveRatio(uint256 ratio);
+    error PriceAlreadyInRange(uint256 price);
 
     /* ========== EVENTS ========== */
     event AddLiquidityAndDeposit(uint256 boostSpent, uint256 usdSpent, uint256 liquidity, uint256 indexed tokenId);
@@ -402,7 +404,7 @@ contract V2AMO is IV2AMO, MasterAMO {
     function _mintSellFarm() internal override returns (uint256 liquidity, uint256 newBoostPrice) {
         (uint256 boostReserve, uint256 usdReserve) = getReserves();
 
-        uint256 boostAmountIn = ((sqrt(usdReserve * boostReserve) - boostReserve) * boostSellRatio) / FACTOR;
+        uint256 boostAmountIn = ((Math.sqrt(usdReserve * boostReserve) - boostReserve) * boostSellRatio) / FACTOR;
 
         (, , , , liquidity) = _mintSellFarm(
             boostAmountIn,
@@ -416,7 +418,7 @@ contract V2AMO is IV2AMO, MasterAMO {
     function _unfarmBuyBurn() internal override returns (uint256 liquidity, uint256 newBoostPrice) {
         (uint256 boostReserve, uint256 usdReserve) = getReserves();
 
-        uint256 usdNeeded = (((boostReserve - usdReserve) / 2) * usdBuyRatio) / FACTOR;
+        uint256 usdNeeded = ((Math.sqrt(boostReserve * usdReserve) - usdReserve) * usdBuyRatio) / FACTOR;
         uint256 totalLp = IERC20Upgradeable(pool).totalSupply();
         liquidity = (usdNeeded * totalLp) / usdReserve;
 
@@ -435,10 +437,16 @@ contract V2AMO is IV2AMO, MasterAMO {
 
     function _validateSwap(bool boostForUsd) internal view override {
         (uint256 boostReserve, uint256 usdReserve) = getReserves();
-        if (boostForUsd && boostReserve >= usdReserve)
-            revert InvalidReserveRatio({ratio: (FACTOR * usdReserve) / boostReserve});
-        if (!boostForUsd && usdReserve >= boostReserve)
-            revert InvalidReserveRatio({ratio: (FACTOR * usdReserve) / boostReserve});
+        uint256 price = boostPrice();
+        if (boostForUsd) {
+            // mintSellFarm
+            if (boostReserve >= usdReserve) revert InvalidReserveRatio({ratio: (FACTOR * usdReserve) / boostReserve});
+            if (price <= FACTOR + validRangeWidth) revert PriceAlreadyInRange(price);
+        } else {
+            // unfarmBuyBurn
+            if (usdReserve >= boostReserve) revert InvalidReserveRatio({ratio: (FACTOR * usdReserve) / boostReserve});
+            if (price >= FACTOR - validRangeWidth) revert PriceAlreadyInRange(price);
+        }
     }
 
     ////////////////////////// VIEW FUNCTIONS //////////////////////////

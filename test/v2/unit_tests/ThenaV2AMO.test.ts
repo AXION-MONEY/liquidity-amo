@@ -1,5 +1,8 @@
 import { expect } from "chai";
 import { ethers, network, upgrades } from "hardhat";
+import { AbiCoder } from "ethers";
+
+// @ts-ignore
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import {
   Minter,
@@ -9,25 +12,27 @@ import {
   IV2Voter,
   IFactory,
   MockRouter,
+  IGaugeFactory,
+  IVoterV3,
+  IThenaVoterV3,
+  IThenaRouter,
   IGauge,
   IERC20,
-  IPoolFactory,
 } from "../../../typechain-types";
 import { setBalance } from "@nomicfoundation/hardhat-network-helpers";
 
 describe("V2AMO", function () {
-  // Common variables for both pool types
+  const abiCoder = new AbiCoder();
+
   let v2AMO: V2AMO;
   let boost: BoostStablecoin;
   let testUSD: MockERC20;
   let minter: Minter;
-  let router: MockRouter;
-  let v2Voter: IV2Voter;
-  let factory: IFactory | IPoolFactory;
-  let gauge: IGauge;
+  let router: MockRouter | IThenaRouter;
+  let v2Voter: IV2Voter | IVoterV3 | IThenaVoterV3;
+  let factory: IFactory;
+  let gauge: IGauge | IGaugeFactory;
   let pool: IERC20;
-
-  // Signers
   let admin: SignerWithAddress;
   let rewardVault: SignerWithAddress;
   let setter: SignerWithAddress;
@@ -39,7 +44,6 @@ describe("V2AMO", function () {
   let boostMinter: SignerWithAddress;
   let user: SignerWithAddress;
 
-  // Roles
   let SETTER_ROLE: string;
   let AMO_ROLE: string;
   let WITHDRAWER_ROLE: string;
@@ -47,16 +51,19 @@ describe("V2AMO", function () {
   let UNPAUSER_ROLE: string;
   let REWARD_COLLECTOR_ROLE: string;
 
-  // Constants
-  const V2_VOTER = "0x777034fEF3CCBed74536Ea1002faec9620deAe0A";
-  const V2_FACTORY = "0x777de5Fe8117cAAA7B44f396E93a401Cf5c9D4d6";
-  const WETH = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
+  const THENA_VOTER = "0x3A1D0952809F4948d15EBCe8d345962A282C4fCb";
+  const THENA_FACTORY = "0xAFD89d21BdB66d00817d4153E055830B1c2B3970";
+  const THENA_GAUGE_FACTORY = "0x2c788FE40A417612cb654b14a944cd549B5BF130";
+  const THENA_ROUTER = "0xd4ae6eca985340dd434d38f470accce4dc78d109";
+  const Thena_Governor = "0x993Ae2b514677c7AC52bAeCd8871d2b362A9D693";
+  const THENA_TOKEN = "0xF4C8E32EaDEC4BFe97E0F595AdD0f4450a863a11";
+  const VE_THENA = "0xfBBF371C9B0B994EebFcC977CEf603F7f31c070D";
+  const WBNB = "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c";
+  const boostDesired = ethers.parseUnits("11000000", 18); // 11M
+  const usdDesired = ethers.parseUnits("11000000", 6); // 11M
+  const boostMin4Liquidity = ethers.parseUnits("9990000", 18); // 9.99M
+  const usdMin4Liquidity = ethers.parseUnits("9990000", 6); // 9.99M
 
-  // Amounts and addresses
-  const boostDesired = ethers.parseUnits("11000000", 18);
-  const usdDesired = ethers.parseUnits("11000000", 6);
-  const boostMin4Liquidity = ethers.parseUnits("9990000", 18);
-  const usdMin4Liquidity = ethers.parseUnits("9990000", 6);
   let boostAddress: string;
   let usdAddress: string;
   let minterAddress: string;
@@ -66,7 +73,6 @@ describe("V2AMO", function () {
   let amoAddress: string;
   const deadline = Math.floor(Date.now() / 1000) + 60 * 100;
   const delta = ethers.parseUnits("0.001", 6);
-
   const boostMultiplier = ethers.parseUnits("1.1", 6);
   const validRangeWidth = ethers.parseUnits("0.01", 6);
   const validRemovingRatio = ethers.parseUnits("1.01", 6);
@@ -83,7 +89,21 @@ describe("V2AMO", function () {
     ethers.parseUnits("0.8", 6), // boostSellRatio
     ethers.parseUnits("0.8", 6), // usdBuyRatio
   ];
-  // Setup functions
+
+  before(async () => {
+    await network.provider.request({
+      method: "hardhat_reset",
+      params: [
+        {
+          forking: {
+            jsonRpcUrl: "https://bnb.rpc.subquery.network/public",
+            blockNumber: 44322111, // Update with appropriate block number
+          },
+        },
+      ],
+    });
+  });
+
   async function deployBaseContracts() {
     [
       admin,
@@ -125,76 +145,17 @@ describe("V2AMO", function () {
   }
 
   async function setupSolidlyV2Environment() {
-    try {
-      factory = await ethers.getContractAt("IFactory", V2_FACTORY);
-      v2Voter = await ethers.getContractAt(
-        [
-          "function governanceWhitelist(address[] calldata tokens) external",
-          "function whitelist(address token, uint256 tokenId) external",
-          "function isWhitelisted(address) external view returns (bool)",
-          "function createGauge(address) external returns (address)",
-          "function gauges(address) external view returns (address)",
-        ],
-        V2_VOTER,
-      );
+    // Create Pool
+    factory = await ethers.getContractAt("IFactory", THENA_FACTORY);
+    await factory.connect(admin).createPair(boostAddress, usdAddress, true);
+    poolAddress = await factory.getPair(boostAddress, usdAddress, true);
 
-      const createPairTx = await factory
-        .connect(admin)
-        .createPair(boostAddress, usdAddress, true);
-      await createPairTx.wait();
+    // Get Thena Router
+    router = await ethers.getContractAt("IThenaRouter", THENA_ROUTER);
+    routerAddress = THENA_ROUTER;
 
-      poolAddress = await factory.getPair(boostAddress, usdAddress, true);
-
-      const governor = "0x9006550fAC2fe75903f9a7457E0CcF996DAd396A";
-      await network.provider.send("hardhat_setBalance", [
-        governor,
-        "0x1000000000000000000",
-      ]);
-      await network.provider.request({
-        method: "hardhat_impersonateAccount",
-        params: [governor],
-      });
-
-      const governorSigner = await ethers.getSigner(governor);
-
-      // Attempt whitelisting
-      try {
-        await v2Voter
-          .connect(governorSigner)
-          .governanceWhitelist([boostAddress, usdAddress, poolAddress], {
-            gasLimit: 5000000,
-          });
-      } catch (error) {}
-
-      // Verify whitelist status
-      const isBoostWhitelisted = await v2Voter.isWhitelisted(boostAddress);
-      const isUsdWhitelisted = await v2Voter.isWhitelisted(usdAddress);
-      const isPoolWhitelisted = await v2Voter.isWhitelisted(poolAddress);
-
-      // Attempt to create gauge
-      if (isBoostWhitelisted && isUsdWhitelisted && isPoolWhitelisted) {
-        const createGaugeTx = await v2Voter
-          .connect(governorSigner)
-          .createGauge(poolAddress, { gasLimit: 5000000 });
-        await createGaugeTx.wait();
-        gaugeAddress = await v2Voter.gauges(poolAddress);
-      } else {
-        throw new Error("Failed to whitelist all required components");
-      }
-
-      const RouterFactory = await ethers.getContractFactory("MockRouter");
-      router = await RouterFactory.deploy(V2_FACTORY, WETH);
-      await router.waitForDeployment();
-      routerAddress = await router.getAddress();
-
-      await network.provider.request({
-        method: "hardhat_stopImpersonatingAccount",
-        params: [governor],
-      });
-    } catch (error) {
-      console.error("Setup failed:", error);
-      throw error;
-    }
+    // Setup gauge and wait for it
+    await setupGauge();
 
     // Deploy AMO
     const SolidlyV2LiquidityAMOFactory =
@@ -209,17 +170,11 @@ describe("V2AMO", function () {
         minterAddress,
         ethers.ZeroAddress, // No factory needed for Solidly
         routerAddress,
-        gaugeAddress,
+        gaugeAddress, // Now we're sure this is set
         rewardVault.address,
         0, // tokenId
         false, // useTokenId
-        ethers.parseUnits("1.1", 6), // boostMultiplier
-        ethers.parseUnits("0.01", 6), // validRangeWidth
-        ethers.parseUnits("1.01", 6), // validRemovingRatio
-        ethers.parseUnits("0.99", 6), // boostLowerPriceSell
-        ethers.parseUnits("1.01", 6), // boostUpperPriceBuy
-        ethers.parseUnits("0.8", 6), // boostSellRatio
-        ethers.parseUnits("0.8", 6), // usdBuyRatio
+        ...params,
       ],
       {
         initializer:
@@ -229,6 +184,81 @@ describe("V2AMO", function () {
     );
     await v2AMO.waitForDeployment();
     amoAddress = await v2AMO.getAddress();
+  }
+
+  async function setupGauge() {
+    try {
+      // Setup Gauge
+      const gaugeFactory = await ethers.getContractAt(
+        "IGaugeFactory",
+        THENA_GAUGE_FACTORY,
+      );
+      v2Voter = await ethers.getContractAt("IThenaVoterV3", THENA_VOTER);
+
+      // Fund the governor account with more ETH to ensure enough gas
+      await network.provider.send("hardhat_setBalance", [
+        Thena_Governor,
+        "0x1000000000000000000",
+      ]);
+
+      await network.provider.request({
+        method: "hardhat_impersonateAccount",
+        params: [Thena_Governor],
+      });
+
+      const governorSigner = await ethers.getSigner(Thena_Governor);
+
+      // Check if tokens are already whitelisted
+      const isBoostWhitelisted = await v2Voter.isWhitelisted(boostAddress);
+      const isUsdWhitelisted = await v2Voter.isWhitelisted(usdAddress);
+
+      if (!isBoostWhitelisted || !isUsdWhitelisted) {
+        // Whitelist tokens one by one to avoid potential issues
+        if (!isBoostWhitelisted) {
+          await v2Voter.connect(governorSigner).whitelist([boostAddress]);
+        }
+        if (!isUsdWhitelisted) {
+          await v2Voter.connect(governorSigner).whitelist([usdAddress]);
+        }
+      }
+
+      // Check if gauge already exists
+      let existingGauge = await v2Voter.gauges(poolAddress);
+
+      if (existingGauge === ethers.ZeroAddress) {
+        // Create gauge only if it doesn't exist
+        const tx = await v2Voter
+          .connect(governorSigner)
+          .createGauge(poolAddress, 0);
+        await tx.wait();
+        existingGauge = await v2Voter.gauges(poolAddress);
+      }
+
+      gaugeAddress = existingGauge;
+      //console.log("Gauge Address:", gaugeAddress);
+
+      // Stop impersonating
+      await network.provider.request({
+        method: "hardhat_stopImpersonatingAccount",
+        params: [Thena_Governor],
+      });
+
+      if (!gaugeAddress || gaugeAddress === ethers.ZeroAddress) {
+        throw new Error("Gauge address not set properly");
+      }
+
+      return gaugeAddress;
+    } catch (error) {
+      console.error("Comprehensive Error in setupGauge:", error);
+      // Log more details about the error
+      if (error.transaction) {
+        console.error("Transaction:", error.transaction);
+      }
+      if (error.receipt) {
+        console.error("Receipt:", error.receipt);
+      }
+      throw error;
+    }
   }
 
   async function provideLiquidity() {
@@ -250,27 +280,6 @@ describe("V2AMO", function () {
       );
   }
 
-  async function depositToGauge() {
-    pool = await ethers.getContractAt(
-      "@openzeppelin/contracts/token/ERC20/IERC20.sol:IERC20",
-      poolAddress,
-    );
-    let lpBalance = await pool.balanceOf(amoAddress);
-    await network.provider.request({
-      method: "hardhat_impersonateAccount",
-      params: [amoAddress],
-    });
-    await setBalance(amoAddress, ethers.parseEther("1"));
-    const amoSigner = await ethers.getSigner(amoAddress);
-    await pool.connect(amoSigner).approve(gaugeAddress, lpBalance);
-    gauge = await ethers.getContractAt("IGauge", gaugeAddress);
-    await gauge.connect(amoSigner)["deposit(uint256,uint256)"](lpBalance, 0);
-    await network.provider.request({
-      method: "hardhat_stopImpersonatingAccount",
-      params: [amoAddress],
-    });
-  }
-
   async function setupRoles() {
     SETTER_ROLE = await v2AMO.SETTER_ROLE();
     AMO_ROLE = await v2AMO.AMO_ROLE();
@@ -288,24 +297,46 @@ describe("V2AMO", function () {
     await minter.grantRole(await minter.AMO_ROLE(), amoAddress);
   }
 
+  async function depositToGauge() {
+    pool = await ethers.getContractAt(
+      "@openzeppelin/contracts/token/ERC20/IERC20.sol:IERC20",
+      poolAddress,
+    );
+    let lpBalance = await pool.balanceOf(amoAddress);
+    await network.provider.request({
+      method: "hardhat_impersonateAccount",
+      params: [amoAddress],
+    });
+    await setBalance(amoAddress, ethers.parseEther("1"));
+    const amoSigner = await ethers.getSigner(amoAddress);
+    await pool.connect(amoSigner).approve(gaugeAddress, lpBalance);
+    gauge = await ethers.getContractAt("IGauge", gaugeAddress);
+    await gauge.connect(amoSigner)["deposit(uint256)"](lpBalance);
+    await network.provider.request({
+      method: "hardhat_stopImpersonatingAccount",
+      params: [amoAddress],
+    });
+  }
+
   before(async () => {
     await network.provider.request({
       method: "hardhat_reset",
       params: [
         {
           forking: {
-            jsonRpcUrl: "https://ethereum-rpc.publicnode.com",
-            blockNumber: 21328013,
+            jsonRpcUrl: "https://bnb.rpc.subquery.network/public",
+            blockNumber: 44322111, // Update with appropriate block number
           },
         },
       ],
     });
   });
 
-  describe("SolidlyV2 Pool Tests", function () {
+  describe("Thena V2Pool Tests", function () {
     beforeEach(async function () {
       await deployBaseContracts();
       await setupSolidlyV2Environment();
+      await setupGauge();
       await provideLiquidity();
       await depositToGauge();
       await setupRoles();
@@ -590,53 +621,38 @@ describe("V2AMO", function () {
       });
 
       describe("addLiquidity", function () {
-        it("should addLiquidity succesfully ", async function () {
-          // Setup amounts
+        it("Should execute addLiquidity successfully", async function () {
           const usdAmountToAdd = ethers.parseUnits("1000", 6);
           const boostMinAmount = ethers.parseUnits("900", 18);
           const usdMinAmount = ethers.parseUnits("900", 6);
 
-          try {
-            // 1. Setup roles and permissions
-            await v2AMO.grantRole(AMO_ROLE, amoBot.address);
-            await minter.grantRole(await minter.AMO_ROLE(), v2AMO.getAddress());
+          await testUSD.connect(admin).mint(amoAddress, usdAmountToAdd);
 
-            // 2. Setup parameters with tokenId
+          // Test with non-AMO role (user)
+          await expect(
+            v2AMO
+              .connect(user)
+              .addLiquidity(usdAmountToAdd, boostMinAmount, usdMinAmount),
+          ).to.be.revertedWith(
+            `AccessControl: account ${user.address.toLowerCase()} is missing role ${AMO_ROLE}`,
+          );
 
-            await v2AMO.connect(setter).setTokenId(0, true); // Set tokenId to 0 and enable it
-
-            // 3. Mint USD to AMO contract
-            await testUSD
-              .connect(admin)
-              .mint(await v2AMO.getAddress(), usdAmountToAdd);
-
-            // Test non-AMO role access
-            await expect(
-              v2AMO
-                .connect(user)
-                .addLiquidity(usdAmountToAdd, boostMinAmount, usdMinAmount),
-            ).to.be.revertedWith(
-              `AccessControl: account ${user.address.toLowerCase()} is missing role ${AMO_ROLE}`,
-            );
-
-            // Execute addLiquidity with AMO role
-            const tx = await v2AMO
+          // Test with tokenId set
+          await v2AMO.connect(setter).setTokenId(1, true);
+          await expect(
+            v2AMO
               .connect(amoBot)
-              .addLiquidity(usdAmountToAdd, boostMinAmount, usdMinAmount, {
-                gasLimit: 5000000,
-              });
+              .addLiquidity(usdAmountToAdd, boostMinAmount, usdMinAmount),
+          ).to.be.revertedWithoutReason();
 
-            const receipt = await tx.wait();
-          } catch (error) {
-            console.log("\nDetailed error information:");
-            console.log("Error message:", error.message);
-            console.log("Error data:", error.data || "No error data");
-            console.log(
-              "Transaction hash:",
-              error.transactionHash || "No transaction hash",
-            );
-            throw error;
-          }
+          await v2AMO.connect(setter).setTokenId(0, false);
+
+          // Test with AMO role
+          await expect(
+            v2AMO
+              .connect(amoBot)
+              .addLiquidity(usdAmountToAdd, boostMinAmount, usdMinAmount),
+          ).to.emit(v2AMO, "AddLiquidityAndDeposit");
         });
 
         it("Should revert addLiquidity when called by non-amo", async function () {
@@ -650,6 +666,47 @@ describe("V2AMO", function () {
       });
 
       describe("mintSellFarm", function () {
+        it("should execute public mintSellFarm succesfully", async function () {
+          const usdToBuy = ethers.parseUnits("2000000", 6);
+          const minBoostReceive = ethers.parseUnits("1990000", 18);
+          const routeBuyBoost = [
+            {
+              from: usdAddress,
+              to: boostAddress,
+              stable: true,
+            },
+          ];
+          await testUSD.connect(admin).mint(user.address, usdToBuy);
+          await testUSD.connect(user).approve(routerAddress, usdToBuy);
+          await router
+            .connect(user)
+            .swapExactTokensForTokens(
+              usdToBuy,
+              minBoostReceive,
+              routeBuyBoost,
+              user.address,
+              deadline,
+            );
+
+          expect(await v2AMO.boostPrice()).to.be.gt(ethers.parseUnits("1", 6));
+
+          await expect(v2AMO.connect(user).mintSellFarm()).to.be.emit(
+            v2AMO,
+            "PublicMintSellFarmExecuted",
+          );
+          expect(await v2AMO.boostPrice()).to.be.approximately(
+            ethers.parseUnits("1", 6),
+            delta,
+          );
+        });
+
+        it("should correctly return boostPrice", async function () {
+          expect(await v2AMO.boostPrice()).to.be.approximately(
+            ethers.parseUnits("1", 6),
+            delta,
+          );
+        });
+
         it("Should revert mintSellFarm when called by non-amo", async function () {
           const boostAmount = ethers.parseUnits("990000", 18);
           await expect(
@@ -699,84 +756,38 @@ describe("V2AMO", function () {
 
     describe("Public AMO Functions", function () {
       describe("mintSellFarm", function () {
-        it("should execute public mintSellFarm when price above 1", async function () {
-          try {
-            // 1. Setup initial parameters with BigNumber
-            const usdToBuy = ethers.parseUnits("2000000", 6);
-
-            // 2. Setup required parameters
-            await v2AMO.connect(setter).setTokenId(0, true);
-
-            await minter.grantRole(await minter.AMO_ROLE(), v2AMO.getAddress());
-
-            // Mint and approve USD
-            await testUSD.connect(admin).mint(user.address, usdToBuy);
-            await testUSD.connect(user).approve(routerAddress, usdToBuy);
-
-            // Get initial reserves
-            const [initialBoostReserve, initialUsdReserve] =
-              await v2AMO.getReserves();
-
-            // Create initial imbalance
-            const routeBuyBoost = [
-              {
-                from: usdAddress,
-                to: boostAddress,
-                stable: true,
-              },
-            ];
-
-            const amountsOut = await router.getAmountsOut(
+        it("should execute public mintSellFarm above 1 ", async function () {
+          const usdToBuy = ethers.parseUnits("2000000", 6);
+          const minBoostReceive = ethers.parseUnits("1990000", 18);
+          const routeBuyBoost = [
+            {
+              from: usdAddress,
+              to: boostAddress,
+              stable: true,
+            },
+          ];
+          await testUSD.connect(admin).mint(user.address, usdToBuy);
+          await testUSD.connect(user).approve(routerAddress, usdToBuy);
+          await router
+            .connect(user)
+            .swapExactTokensForTokens(
               usdToBuy,
+              minBoostReceive,
               routeBuyBoost,
+              user.address,
+              deadline,
             );
-            const expectedOutput = amountsOut[amountsOut.length - 1];
 
-            // Set a lower minOutput to allow for slippage using BigInt arithmetic
-            const minOutput = (expectedOutput * 99n) / 100n; // 5% slippage tolerance
+          expect(await v2AMO.boostPrice()).to.be.gt(ethers.parseUnits("1", 6));
 
-            await router
-              .connect(user)
-              .swapExactTokensForTokens(
-                usdToBuy,
-                minOutput,
-                routeBuyBoost,
-                user.address,
-                deadline,
-              );
-
-            // 4. Verify price and prepare for mintSellFarm
-            const priceBeforeOperation = await v2AMO.boostPrice();
-            expect(priceBeforeOperation).to.be.gt(ethers.parseUnits("1", 6));
-
-            // Get reserves before mintSellFarm
-            const [boostReserve, usdReserve] = await v2AMO.getReserves();
-
-            // 5. Setup approvals for mintSellFarm
-            const maxApproval = ethers.parseUnits("1000000000", 18);
-            await boost.connect(admin).approve(routerAddress, maxApproval);
-            await testUSD.connect(admin).approve(routerAddress, maxApproval);
-
-            // 6. Execute mintSellFarm
-            const tx = await v2AMO.connect(user).mintSellFarm({
-              gasLimit: 5000000,
-            });
-
-            const receipt = await tx.wait();
-
-            // 7. Verify final state
-            const finalPrice = await v2AMO.boostPrice();
-
-            expect(finalPrice).to.be.approximately(
-              ethers.parseUnits("1", 6),
-              ethers.parseUnits("0.01", 6),
-            );
-          } catch (error) {
-            console.log("\nDetailed error information:");
-            console.log("Error message:", error.message);
-            console.log("Stack trace:", error.stack);
-            throw error;
-          }
+          await expect(v2AMO.connect(user).mintSellFarm()).to.be.emit(
+            v2AMO,
+            "PublicMintSellFarmExecuted",
+          );
+          expect(await v2AMO.boostPrice()).to.be.approximately(
+            ethers.parseUnits("1", 6),
+            delta,
+          );
         });
 
         it("Should revert unfarmBuyBurn when price is 1", async function () {

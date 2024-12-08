@@ -22,6 +22,9 @@ interface IV3AMO {
     /// @notice Returns the pool type
     function poolType() external view returns (PoolType);
 
+    /// @notice Returns the deployer address for Algebra integral custom pools and zero address for other pools
+    function poolCustomDeployer() external view returns (address);
+
     /// @notice Returns the quoter address
     function quoter() external view returns (address);
 

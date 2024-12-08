@@ -55,6 +55,8 @@ contract V3AMO is IV3AMO, MasterAMO {
     /// @inheritdoc IV3AMO
     PoolType public override poolType;
     /// @inheritdoc IV3AMO
+    address public override poolCustomDeployer;
+    /// @inheritdoc IV3AMO
     uint24 public override usdUsageRatio;
     /// @inheritdoc IV3AMO
     int24 public override tickLower;
@@ -79,6 +81,7 @@ contract V3AMO is IV3AMO, MasterAMO {
         address pool_,
         PoolType poolType_,
         address quoter_,
+        address poolCustomDeployer_,
         address boostMinter_,
         int24 tickLower_,
         int24 tickUpper_,
@@ -92,11 +95,11 @@ contract V3AMO is IV3AMO, MasterAMO {
     ) public initializer {
         super.initialize(admin, boost_, usd_, pool_, boostMinter_);
         poolType = poolType_;
-
-        setTickBounds(tickLower_, tickUpper_);
-        setTargetSqrtPriceX96(targetSqrtPriceX96_);
+        poolCustomDeployer = poolCustomDeployer_;
 
         _grantRole(SETTER_ROLE, msg.sender);
+        setTickBounds(tickLower_, tickUpper_);
+        setTargetSqrtPriceX96(targetSqrtPriceX96_);
         setParams(
             quoter_,
             boostMultiplier_,
@@ -269,7 +272,7 @@ contract V3AMO is IV3AMO, MasterAMO {
         uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(tickLower);
         uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(tickUpper);
 
-        // Step 3: Sort amounts to determine the maximum amounts of token0 (BOOST) and token1 (USD)
+        // Step 3: Sort amounts to determine amount0 and amount1
         (uint256 amount0, uint256 amount1) = sortAmounts(type(uint128).max, usdAmount);
 
         // Step 4: Use the Uniswap V3 LiquidityAmounts library to calculate liquidity
@@ -278,8 +281,8 @@ contract V3AMO is IV3AMO, MasterAMO {
                 sqrtRatioX96, // Current pool price
                 sqrtRatioAX96, // Lower bound price
                 sqrtRatioBX96, // Upper bound price
-                amount0, // Maximum BOOST
-                amount1 // Maximum USD
+                amount0, // Amount of token0 being sent in
+                amount1 // Amount of token1 being sent in
             )
         );
     }
@@ -464,13 +467,26 @@ contract V3AMO is IV3AMO, MasterAMO {
                 targetSqrtPriceX96
             );
         } else if (poolType == PoolType.ALGEBRA_INTEGRAL) {
-            IAlgebraQuoter.QuoteExactOutputSingleParams memory params = IAlgebraQuoter.QuoteExactOutputSingleParams({
-                tokenIn: usd,
-                tokenOut: boost,
-                amount: uint256(type(int256).max),
-                limitSqrtPrice: targetSqrtPriceX96
-            });
-            (, amountIn, , , , ) = IAlgebraQuoter(quoter).quoteExactOutputSingle(params);
+            if (poolCustomDeployer == address(0)) {
+                IAlgebraQuoter.QuoteExactOutputSingleParams memory params = IAlgebraQuoter
+                    .QuoteExactOutputSingleParams({
+                        tokenIn: usd,
+                        tokenOut: boost,
+                        amount: uint256(type(int256).max),
+                        limitSqrtPrice: targetSqrtPriceX96
+                    });
+                (, amountIn, , , , ) = IAlgebraQuoter(quoter).quoteExactOutputSingle(params);
+            } else {
+                IAlgebraQuoter.CustomPoolQuoteExactOutputSingleParams memory params = IAlgebraQuoter
+                    .CustomPoolQuoteExactOutputSingleParams({
+                        tokenIn: usd,
+                        tokenOut: boost,
+                        deployer: poolCustomDeployer,
+                        amount: uint256(type(int256).max),
+                        limitSqrtPrice: targetSqrtPriceX96
+                    });
+                (, amountIn, , , , ) = IAlgebraQuoter(quoter).quoteExactOutputSingle(params);
+            }
         } else {
             IQuoterV2.QuoteExactOutputSingleParams memory params = IQuoterV2.QuoteExactOutputSingleParams({
                 tokenIn: usd,
@@ -496,19 +512,17 @@ contract V3AMO is IV3AMO, MasterAMO {
     function _validateSwap(bool boostForUsd) internal view override {}
 
     function _getSqrtPriceX96() internal view returns (uint160 _sqrtPriceX96) {
-        if (poolType == PoolType.SOLIDLY_V3) {
-            (_sqrtPriceX96, , , ) = ISolidlyV3Pool(pool).slot0();
-        } else if (poolType == PoolType.CL) {
-            (_sqrtPriceX96, , , , , ) = ICLPool(pool).slot0();
-        } else if (poolType == PoolType.ALGEBRA_V1_0) {
-            (_sqrtPriceX96, , , , , , ) = IAlgebraV10Pool(pool).globalState();
-        } else if (poolType == PoolType.ALGEBRA_V1_9) {
-            (_sqrtPriceX96, , , , , , , ) = IAlgebraV19Pool(pool).globalState();
-        } else if (poolType == PoolType.ALGEBRA_INTEGRAL) {
-            (_sqrtPriceX96, , , , , ) = IAlgebraIntegralPool(pool).globalState();
+        bytes memory data;
+        if (
+            poolType == PoolType.ALGEBRA_V1_0 ||
+            poolType == PoolType.ALGEBRA_V1_9 ||
+            poolType == PoolType.ALGEBRA_INTEGRAL
+        ) {
+            (, data) = pool.staticcall(abi.encodeWithSignature("globalState()"));
         } else {
-            (_sqrtPriceX96, , , , , , ) = IUniswapV3Pool(pool).slot0();
+            (, data) = pool.staticcall(abi.encodeWithSignature("slot0()"));
         }
+        _sqrtPriceX96 = abi.decode(data, (uint160));
     }
 
     ////////////////////////// VIEW FUNCTIONS //////////////////////////
