@@ -46,7 +46,6 @@ contract V3AMO is IV3AMO, MasterAMO {
         uint256 boostMultiplier,
         uint24 validRangeWidth,
         uint24 validRemovingRatio,
-        uint24 usdUsageRatio,
         uint256 boostLowerPriceSell,
         uint256 boostUpperPriceBuy
     );
@@ -56,8 +55,6 @@ contract V3AMO is IV3AMO, MasterAMO {
     PoolType public override poolType;
     /// @inheritdoc IV3AMO
     address public override poolCustomDeployer;
-    /// @inheritdoc IV3AMO
-    uint24 public override usdUsageRatio;
     /// @inheritdoc IV3AMO
     int24 public override tickLower;
     /// @inheritdoc IV3AMO
@@ -89,7 +86,6 @@ contract V3AMO is IV3AMO, MasterAMO {
         uint256 boostMultiplier_,
         uint24 validRangeWidth_,
         uint24 validRemovingRatio_,
-        uint24 usdUsageRatio_,
         uint256 boostLowerPriceSell_,
         uint256 boostUpperPriceBuy_
     ) public initializer {
@@ -105,7 +101,6 @@ contract V3AMO is IV3AMO, MasterAMO {
             boostMultiplier_,
             validRangeWidth_,
             validRemovingRatio_,
-            usdUsageRatio_,
             boostLowerPriceSell_,
             boostUpperPriceBuy_
         );
@@ -133,19 +128,16 @@ contract V3AMO is IV3AMO, MasterAMO {
         uint256 boostMultiplier_,
         uint24 validRangeWidth_,
         uint24 validRemovingRatio_,
-        uint24 usdUsageRatio_,
         uint256 boostLowerPriceSell_,
         uint256 boostUpperPriceBuy_
     ) public override onlyRole(SETTER_ROLE) {
-        if (validRangeWidth_ > FACTOR || validRemovingRatio_ < FACTOR || usdUsageRatio_ > FACTOR)
-            revert InvalidRatioValue();
+        if (validRangeWidth_ > FACTOR || validRemovingRatio_ < FACTOR) revert InvalidRatioValue();
         // validRangeWidth is a few percentage points (scaled with FACTOR). So it needs to be lower than 1 (scaled with FACTOR)
         // validRemovingRatio needs to be greater than 1 (we remove more BOOST than USD otherwise the pool is balanced)
         quoter = quoter_;
         boostMultiplier = boostMultiplier_;
         validRangeWidth = validRangeWidth_;
         validRemovingRatio = validRemovingRatio_;
-        usdUsageRatio = usdUsageRatio_;
         boostLowerPriceSell = boostLowerPriceSell_;
         boostUpperPriceBuy = boostUpperPriceBuy_;
         emit ParamsSet(
@@ -153,7 +145,6 @@ contract V3AMO is IV3AMO, MasterAMO {
             boostMultiplier,
             validRangeWidth,
             validRemovingRatio,
-            usdUsageRatio,
             boostLowerPriceSell,
             boostUpperPriceBuy
         );
