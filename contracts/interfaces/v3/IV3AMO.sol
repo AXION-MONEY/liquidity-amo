@@ -28,9 +28,6 @@ interface IV3AMO {
     /// @notice Returns the quoter address
     function quoter() external view returns (address);
 
-    /// @notice Returns the USD usage ratio to check excessive liquidity removal (in 6 decimals)
-    function usdUsageRatio() external view returns (uint24);
-
     /// @notice Returns The lower tick of the position in which to add or remove liquidity
     function tickLower() external view returns (int24);
 
@@ -65,7 +62,6 @@ interface IV3AMO {
      * @param validRangeWidth_ The valid range width for addLiquidity()
      * —— we only add liquidity if price has reverted close to 1.
      * @param validRemovingRatio_ Set the price (<1$) on which the unfarmBuyBurn() is allowed
-     * @param usdUsageRatio_ The minimum valid ratio of usdAmountIn to usdRemoved in unfarmBuyBurn()
      * @param boostLowerPriceSell_ The new lower price bound for selling BOOST
      * @param boostUpperPriceBuy_ The new upper price bound for buying BOOST
      */
@@ -74,7 +70,6 @@ interface IV3AMO {
         uint256 boostMultiplier_,
         uint24 validRangeWidth_,
         uint24 validRemovingRatio_,
-        uint24 usdUsageRatio_,
         uint256 boostLowerPriceSell_,
         uint256 boostUpperPriceBuy_
     ) external;

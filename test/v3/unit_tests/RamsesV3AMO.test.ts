@@ -80,7 +80,6 @@ describe("RamsesV3AMO", function () {
   const boostMultiplier = ethers.parseUnits("1.1", 6);
   const validRangeWidth = ethers.parseUnits("0.01", 6);
   const validRemovingRatio = ethers.parseUnits("1.01", 6);
-  const usdUsageRatio = ethers.parseUnits("0.95", 6);
   const boostLowerPriceSell = ethers.parseUnits("0.99", 6);
   const boostUpperPriceBuy = ethers.parseUnits("1.01", 6);
   const errorTolerance = 0.001; // 0.1%
@@ -197,13 +196,12 @@ describe("RamsesV3AMO", function () {
       boostMultiplier,
       validRangeWidth,
       validRemovingRatio,
-      usdUsageRatio,
       boostLowerPriceSell,
       boostUpperPriceBuy,
     ];
     v3AMO = (await upgrades.deployProxy(V3AMOFactory, args, {
       initializer:
-        "initialize(address,address,address,address,uint8,address,address,address,int24,int24,uint160,uint256,uint24,uint24,uint24,uint256,uint256)",
+        "initialize(address,address,address,address,uint8,address,address,address,int24,int24,uint160,uint256,uint24,uint24,uint256,uint256)",
     })) as unknown as V3AMO;
     await v3AMO.waitForDeployment();
     amoAddress = await v3AMO.getAddress();
@@ -240,7 +238,6 @@ describe("RamsesV3AMO", function () {
       expect(await v3AMO.boostMultiplier()).to.equal(boostMultiplier);
       expect(await v3AMO.validRangeWidth()).to.equal(validRangeWidth);
       expect(await v3AMO.validRemovingRatio()).to.equal(validRemovingRatio);
-      expect(await v3AMO.usdUsageRatio()).to.equal(usdUsageRatio);
       expect(await v3AMO.boostLowerPriceSell()).to.equal(boostLowerPriceSell);
       expect(await v3AMO.boostUpperPriceBuy()).to.equal(boostUpperPriceBuy);
     });
@@ -315,7 +312,6 @@ describe("RamsesV3AMO", function () {
               boostMultiplier + BigInt(100),
               validRangeWidth + BigInt(100),
               validRemovingRatio + BigInt(100),
-              usdUsageRatio + BigInt(100),
               boostLowerPriceSell + BigInt(100),
               boostUpperPriceBuy + BigInt(100),
             ),
@@ -326,7 +322,6 @@ describe("RamsesV3AMO", function () {
             boostMultiplier + BigInt(100),
             validRangeWidth + BigInt(100),
             validRemovingRatio + BigInt(100),
-            usdUsageRatio + BigInt(100),
             boostLowerPriceSell + BigInt(100),
             boostUpperPriceBuy + BigInt(100),
           );
@@ -338,9 +333,6 @@ describe("RamsesV3AMO", function () {
         );
         expect(await v3AMO.validRemovingRatio()).to.equal(
           validRemovingRatio + BigInt(100),
-        );
-        expect(await v3AMO.usdUsageRatio()).to.equal(
-          usdUsageRatio + BigInt(100),
         );
         expect(await v3AMO.boostLowerPriceSell()).to.equal(
           boostLowerPriceSell + BigInt(100),
@@ -359,7 +351,6 @@ describe("RamsesV3AMO", function () {
               boostMultiplier + BigInt(100),
               validRangeWidth + BigInt(100),
               validRemovingRatio + BigInt(100),
-              usdUsageRatio + BigInt(100),
               boostLowerPriceSell + BigInt(100),
               boostUpperPriceBuy + BigInt(100),
             ),
@@ -377,7 +368,6 @@ describe("RamsesV3AMO", function () {
               boostMultiplier + BigInt(100),
               ethers.parseUnits("1.1", 6),
               validRemovingRatio + BigInt(100),
-              usdUsageRatio + BigInt(100),
               boostLowerPriceSell + BigInt(100),
               boostUpperPriceBuy + BigInt(100),
             ),
@@ -391,7 +381,6 @@ describe("RamsesV3AMO", function () {
               boostMultiplier + BigInt(100),
               validRangeWidth + BigInt(100),
               ethers.parseUnits("0.99", 6),
-              usdUsageRatio + BigInt(100),
               boostLowerPriceSell + BigInt(100),
               boostUpperPriceBuy + BigInt(100),
             ),
@@ -693,11 +682,6 @@ describe("RamsesV3AMO", function () {
           10,
         );
         expect(await boost.balanceOf(amoAddress)).to.be.equal(0);
-        expect(await testUSD.balanceOf(amoAddress)).to.be.lt(
-          Math.floor(
-            (Number(boostToBuy) * (10 ** 6 - Number(usdUsageRatio))) / 10 ** 18,
-          ),
-        );
       });
 
       it("Should revert unfarmBuyBurn when price is 1", async function () {
