@@ -72,7 +72,6 @@ async function deployV3AMO(
   const boostMultiplier = ethers.parseUnits("1.1", 6);
   const validRangeWidth = ethers.parseUnits("0.01", 6);
   const validRemovingRatio = ethers.parseUnits("1.01", 6);
-  const usdUsageRatio = ethers.parseUnits("0.95", 6);
   const boostLowerPriceSell = ethers.parseUnits("0.99", 6);
   const boostUpperPriceBuy = ethers.parseUnits("1.01", 6);
 
@@ -91,7 +90,6 @@ async function deployV3AMO(
     boostMultiplier,
     validRangeWidth,
     validRemovingRatio,
-    usdUsageRatio,
     boostLowerPriceSell,
     boostUpperPriceBuy,
   ];
