@@ -113,6 +113,16 @@ async function main() {
       tokenId: 0,
       useTokenId: false,
     },
+    fenix: {
+      chain: Chain.BLAST,
+      usdAddress: "",
+      poolType: PoolType.SOLIDLY_V2,
+      factoryAddress: "0xa19C51D91891D3DF7C13Ed22a2f89d328A82950f",
+      routerAddress: "0xbD571125856975DBfC2E9b6d1DE496D614D7BAEE",
+      gaugeAddress: "",
+      tokenId: 0,
+      useTokenId: false,
+    },
     ramses: {
       chain: Chain.ARB1,
       usdAddress: "",
