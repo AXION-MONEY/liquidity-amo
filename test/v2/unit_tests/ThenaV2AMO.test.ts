@@ -1,6 +1,5 @@
 import { expect } from "chai";
 import { ethers, network, upgrades } from "hardhat";
-import { AbiCoder } from "ethers";
 
 // @ts-ignore
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
@@ -22,7 +21,7 @@ import {
 import { setBalance } from "@nomicfoundation/hardhat-network-helpers";
 
 describe("V2AMO", function () {
-  const abiCoder = new AbiCoder();
+  const stable = false;
 
   let v2AMO: V2AMO;
   let boost: BoostStablecoin;
@@ -147,8 +146,8 @@ describe("V2AMO", function () {
   async function setupSolidlyV2Environment() {
     // Create Pool
     factory = await ethers.getContractAt("IFactory", THENA_FACTORY);
-    await factory.connect(admin).createPair(boostAddress, usdAddress, true);
-    poolAddress = await factory.getPair(boostAddress, usdAddress, true);
+    await factory.connect(admin).createPair(boostAddress, usdAddress, stable);
+    poolAddress = await factory.getPair(boostAddress, usdAddress, stable);
 
     // Get Thena Router
     router = await ethers.getContractAt("IThenaRouter", THENA_ROUTER);
@@ -166,6 +165,7 @@ describe("V2AMO", function () {
         admin.address,
         boostAddress,
         usdAddress,
+        stable,
         0, // SOLIDLY_V2
         minterAddress,
         ethers.ZeroAddress, // No factory needed for Solidly
@@ -178,7 +178,7 @@ describe("V2AMO", function () {
       ],
       {
         initializer:
-          "initialize(address,address,address,uint8,address,address,address,address,address,uint256,bool,uint256,uint24,uint24,uint256,uint256,uint256,uint256)",
+          "initialize(address,address,address,bool,uint8,address,address,address,address,address,uint256,bool,uint256,uint24,uint24,uint256,uint256,uint256,uint256)",
         timeout: 0,
       },
     );
@@ -270,7 +270,7 @@ describe("V2AMO", function () {
       .addLiquidity(
         usdAddress,
         boostAddress,
-        true,
+        stable,
         usdDesired,
         boostDesired,
         usdMin4Liquidity,
@@ -458,7 +458,7 @@ describe("V2AMO", function () {
             {
               from: usdAddress,
               to: boostAddress,
-              stable: true,
+              stable: stable,
             },
           ];
 
@@ -586,7 +586,7 @@ describe("V2AMO", function () {
           {
             from: boostAddress,
             to: usdAddress,
-            stable: true,
+            stable: stable,
           },
         ];
         await boost.connect(boostMinter).mint(user.address, boostToBuy);
@@ -673,7 +673,7 @@ describe("V2AMO", function () {
             {
               from: usdAddress,
               to: boostAddress,
-              stable: true,
+              stable: stable,
             },
           ];
           await testUSD.connect(admin).mint(user.address, usdToBuy);
@@ -725,7 +725,7 @@ describe("V2AMO", function () {
             {
               from: boostAddress,
               to: usdAddress,
-              stable: true,
+              stable: stable,
             },
           ];
           await boost.connect(boostMinter).mint(user.address, boostToBuy);
@@ -763,7 +763,7 @@ describe("V2AMO", function () {
             {
               from: usdAddress,
               to: boostAddress,
-              stable: true,
+              stable: stable,
             },
           ];
           await testUSD.connect(admin).mint(user.address, usdToBuy);
@@ -806,7 +806,7 @@ describe("V2AMO", function () {
             {
               from: boostAddress,
               to: usdAddress,
-              stable: true,
+              stable: stable,
             },
           ];
           await boost.connect(boostMinter).mint(user.address, boostToBuy);

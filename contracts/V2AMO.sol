@@ -44,6 +44,8 @@ contract V2AMO is IV2AMO, MasterAMO {
 
     /* ========== VARIABLES ========== */
     /// @inheritdoc IV2AMO
+    bool public override stable;
+    /// @inheritdoc IV2AMO
     PoolType public override poolType;
     /// @inheritdoc IV2AMO
     address public override factory;
@@ -70,6 +72,7 @@ contract V2AMO is IV2AMO, MasterAMO {
         address admin,
         address boost_,
         address usd_,
+        bool stable_,
         PoolType poolType_,
         address boostMinter_,
         address factory_, // newly added variable, If 0 passed default factory will be initialized
@@ -88,6 +91,7 @@ contract V2AMO is IV2AMO, MasterAMO {
     ) public initializer {
         if (router_ == address(0) || gauge_ == address(0)) revert ZeroAddress();
         poolType = poolType_;
+        stable = stable_;
         address pool_;
         if (poolType == PoolType.VELO_LIKE) {
             // If factory is zero address, get default factory from IVRouter
@@ -97,9 +101,9 @@ contract V2AMO is IV2AMO, MasterAMO {
                 factory = factory_;
             }
             // Get pool address using the determined factory
-            pool_ = IVRouter(router_).poolFor(usd_, boost_, true, factory);
+            pool_ = IVRouter(router_).poolFor(usd_, boost_, stable_, factory);
         } else {
-            pool_ = ISolidlyRouter(router_).pairFor(usd_, boost_, true);
+            pool_ = ISolidlyRouter(router_).pairFor(usd_, boost_, stable_);
         }
 
         super.initialize(admin, boost_, usd_, pool_, boostMinter_);
@@ -195,7 +199,7 @@ contract V2AMO is IV2AMO, MasterAMO {
             routes[0] = IVRouter.Route({
                 from: boost,
                 to: usd,
-                stable: true,
+                stable: stable,
                 factory: factory // Using factory from state variable(initialized already), Its necessary for Velodrome/Aerodrome DEXs
             });
             uint256[] memory amounts = IVRouter(router).swapExactTokensForTokens(
@@ -210,7 +214,7 @@ contract V2AMO is IV2AMO, MasterAMO {
         } else {
             // For standard Solidly style routers
             ISolidlyRouter.route[] memory routes = new ISolidlyRouter.route[](1);
-            routes[0] = ISolidlyRouter.route({from: boost, to: usd, stable: true});
+            routes[0] = ISolidlyRouter.route({from: boost, to: usd, stable: stable});
             uint256[] memory amounts = ISolidlyRouter(router).swapExactTokensForTokens(
                 boostAmount,
                 minUsdAmountOut,
@@ -258,7 +262,7 @@ contract V2AMO is IV2AMO, MasterAMO {
         (boostSpent, usdSpent, liquidity) = ISolidlyRouter(router).addLiquidity(
             boost,
             usd,
-            true,
+            stable,
             boostAmount,
             usdAmount,
             minBoostSpend,
@@ -309,7 +313,7 @@ contract V2AMO is IV2AMO, MasterAMO {
             (boostRemoved, usdRemoved) = IVRouter(router).removeLiquidity(
                 boost,
                 usd,
-                true,
+                stable,
                 liquidity,
                 minBoostRemove,
                 minUsdRemove,
@@ -320,7 +324,7 @@ contract V2AMO is IV2AMO, MasterAMO {
             (boostRemoved, usdRemoved) = ISolidlyRouter(router).removeLiquidity(
                 boost,
                 usd,
-                true,
+                stable,
                 liquidity,
                 minBoostRemove,
                 minUsdRemove,
@@ -343,7 +347,7 @@ contract V2AMO is IV2AMO, MasterAMO {
         uint256[] memory amounts;
         if (poolType == PoolType.VELO_LIKE) {
             IVRouter.Route[] memory routes = new IVRouter.Route[](1);
-            routes[0] = IVRouter.Route({from: usd, to: boost, stable: true, factory: factory});
+            routes[0] = IVRouter.Route({from: usd, to: boost, stable: stable, factory: factory});
 
             amounts = IVRouter(router).swapExactTokensForTokens(
                 usdRemoved,
@@ -354,7 +358,7 @@ contract V2AMO is IV2AMO, MasterAMO {
             );
         } else {
             ISolidlyRouter.route[] memory routes = new ISolidlyRouter.route[](1);
-            routes[0] = ISolidlyRouter.route(usd, boost, true);
+            routes[0] = ISolidlyRouter.route(usd, boost, stable);
 
             amounts = ISolidlyRouter(router).swapExactTokensForTokens(
                 usdRemoved,

@@ -13,6 +13,9 @@ interface IV2AMO {
     function REWARD_COLLECTOR_ROLE() external view returns (bytes32);
 
     /* ========== VARIABLES ========== */
+    /// @notice True if pool is stable, false if volatile
+    function stable() external view returns (bool);
+
     /// @notice Returns the pool type
     function poolType() external view returns (PoolType);
 

@@ -18,6 +18,7 @@ import {
 import { setBalance } from "@nomicfoundation/hardhat-network-helpers";
 
 describe("V2AMO", function () {
+  const stable = false;
   // Common variables for both pool types
   let v2AMO: V2AMO;
   let boost: BoostStablecoin;
@@ -151,15 +152,13 @@ describe("V2AMO", function () {
       ]);
 
       // Create pool through factory
-      const createPoolTx = await factory.connect(admin).createPool(
-        token0,
-        token1,
-        true, // stable
-      );
+      const createPoolTx = await factory
+        .connect(admin)
+        .createPool(token0, token1, stable);
       const receipt = await createPoolTx.wait();
 
       // Get pool address through router (more reliable than factory.getPool)
-      poolAddress = await router.poolFor(token0, token1, true, VELO_FACTORY);
+      poolAddress = await router.poolFor(token0, token1, stable, VELO_FACTORY);
 
       // Approve tokens for router
       await boost.approve(VELO_ROUTER, boostDesired);
@@ -212,6 +211,7 @@ describe("V2AMO", function () {
           admin.address,
           boostAddress,
           usdAddress,
+          stable,
           1, // VELO_LIKE
           minterAddress,
           VELO_FACTORY,
@@ -230,7 +230,7 @@ describe("V2AMO", function () {
         ],
         {
           initializer:
-            "initialize(address,address,address,uint8,address,address,address,address,address,uint256,bool,uint256,uint24,uint24,uint256,uint256,uint256,uint256)",
+            "initialize(address,address,address,bool,uint8,address,address,address,address,address,uint256,bool,uint256,uint24,uint24,uint256,uint256,uint256,uint256)",
         },
       );
       await v2AMO.waitForDeployment();
@@ -240,7 +240,7 @@ describe("V2AMO", function () {
       await router.addLiquidity(
         token0,
         token1,
-        true,
+        stable,
         token0 === boostAddress ? boostDesired : usdDesired,
         token1 === usdAddress ? usdDesired : boostDesired,
         0, // min amounts = 0 for testing
@@ -291,7 +291,7 @@ describe("V2AMO", function () {
       .addLiquidity(
         usdAddress,
         boostAddress,
-        true,
+        stable,
         usdDesired,
         boostDesired,
         usdMin4Liquidity,
@@ -372,7 +372,7 @@ describe("V2AMO", function () {
     await router.connect(admin).addLiquidity(
       token0,
       token1,
-      true, // stable
+      stable,
       token0 === boostAddress ? boostDesired : usdDesired,
       token1 === usdAddress ? usdDesired : boostDesired,
       0, // min amounts = 0 for testing
@@ -430,6 +430,7 @@ describe("V2AMO", function () {
           admin.address,
           boostAddress,
           usdAddress,
+          stable,
           1, // VELO_LIKE
           minterAddress,
           ethers.ZeroAddress,
@@ -452,7 +453,7 @@ describe("V2AMO", function () {
           args,
           {
             initializer:
-              "initialize(address,address,address,uint8,address,address,address,address,address,uint256,bool,uint256,uint24,uint24,uint256,uint256,uint256,uint256)",
+              "initialize(address,address,address,bool,uint8,address,address,address,address,address,uint256,bool,uint256,uint24,uint24,uint256,uint256,uint256,uint256)",
           },
         );
         await newAMO.waitForDeployment();
@@ -572,7 +573,7 @@ describe("V2AMO", function () {
               .addLiquidity(
                 usdAddress,
                 boostAddress,
-                true,
+                stable,
                 initialUsdAmount,
                 initialBoostAmount,
                 0,
@@ -597,7 +598,7 @@ describe("V2AMO", function () {
               {
                 from: usdAddress,
                 to: boostAddress,
-                stable: true,
+                stable: stable,
                 factory: VELO_FACTORY,
               },
             ];
@@ -718,7 +719,7 @@ describe("V2AMO", function () {
               {
                 from: boostAddress,
                 to: usdAddress,
-                stable: true,
+                stable: stable,
                 factory: VELO_FACTORY,
               },
             ];
@@ -822,7 +823,7 @@ describe("V2AMO", function () {
             .addLiquidity(
               usdAddress,
               boostAddress,
-              true,
+              stable,
               initialUsdAmount,
               initialBoostAmount,
               0,
@@ -842,7 +843,7 @@ describe("V2AMO", function () {
             {
               from: usdAddress,
               to: boostAddress,
-              stable: true,
+              stable: stable,
               factory: VELO_FACTORY,
             },
           ];

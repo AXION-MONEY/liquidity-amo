@@ -16,6 +16,7 @@ import {
 import { setBalance } from "@nomicfoundation/hardhat-network-helpers";
 
 describe("V2AMO", function () {
+  const stable = false;
   let v2AMO: V2AMO;
   let boost: BoostStablecoin;
   let testUSD: MockERC20;
@@ -114,8 +115,8 @@ describe("V2AMO", function () {
   async function setupSolidlyV2Environment() {
     // Create Pool
     factory = await ethers.getContractAt("IFactory", V2_FACTORY);
-    await factory.connect(admin).createPair(boostAddress, usdAddress, true);
-    poolAddress = await factory.getPair(boostAddress, usdAddress, true);
+    await factory.connect(admin).createPair(boostAddress, usdAddress, stable);
+    poolAddress = await factory.getPair(boostAddress, usdAddress, stable);
 
     router = await ethers.getContractAt("ISolidlyRouter", ROUTER);
     routerAddress = ROUTER;
@@ -131,6 +132,7 @@ describe("V2AMO", function () {
         admin.address,
         boostAddress,
         usdAddress,
+        stable,
         0, // SOLIDLY_V2
         minterAddress,
         ethers.ZeroAddress, // No factory needed for Solidly
@@ -149,7 +151,7 @@ describe("V2AMO", function () {
       ],
       {
         initializer:
-          "initialize(address,address,address,uint8,address,address,address,address,address,uint256,bool,uint256,uint24,uint24,uint256,uint256,uint256,uint256)",
+          "initialize(address,address,address,bool,uint8,address,address,address,address,address,uint256,bool,uint256,uint24,uint24,uint256,uint256,uint256,uint256)",
         timeout: 0,
       },
     );
@@ -198,7 +200,7 @@ describe("V2AMO", function () {
       .addLiquidity(
         usdAddress,
         boostAddress,
-        true,
+        stable,
         usdDesired,
         boostDesired,
         usdMin4Liquidity,
@@ -355,7 +357,7 @@ describe("V2AMO", function () {
         {
           from: usdAddress,
           to: boostAddress,
-          stable: true,
+          stable: stable,
         },
       ];
 
@@ -459,7 +461,7 @@ describe("V2AMO", function () {
           {
             from: usdAddress,
             to: boostAddress,
-            stable: true,
+            stable: stable,
           },
         ];
         const amountsOut = await router.getAmountsOut(usdToBuy, routeBuyBoost);
@@ -517,7 +519,7 @@ describe("V2AMO", function () {
         {
           from: boostAddress,
           to: usdAddress,
-          stable: true,
+          stable: stable,
         },
       ];
 
