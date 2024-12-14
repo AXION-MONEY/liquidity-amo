@@ -20,6 +20,8 @@ import { setBalance } from "@nomicfoundation/hardhat-network-helpers";
 describe("V2AMO", function () {
   const stable = false;
   const toBuy = stable ? "5000000" : "1000000";
+  const fee = stable ? "0.0005" : "0.003";
+  const poolFee = ethers.parseUnits(fee, 6);
   // Common variables for both pool types
   let v2AMO: V2AMO;
   let boost: BoostStablecoin;
@@ -223,6 +225,7 @@ describe("V2AMO", function () {
           boostAddress,
           usdAddress,
           stable,
+          poolFee,
           1, // VELO_LIKE
           minterAddress,
           AeroPoolFactory,
@@ -241,7 +244,7 @@ describe("V2AMO", function () {
         ],
         {
           initializer:
-            "initialize(address,address,address,bool,uint8,address,address,address,address,address,uint256,bool,uint256,uint24,uint24,uint256,uint256,uint256,uint256)",
+            "initialize(address,address,address,bool,uint256,uint8,address,address,address,address,address,uint256,bool,uint256,uint24,uint24,uint256,uint256,uint256,uint256)",
         },
       );
       await v2AMO.waitForDeployment();
@@ -442,6 +445,7 @@ describe("V2AMO", function () {
           boostAddress,
           usdAddress,
           stable,
+          poolFee,
           1, // VELO_LIKE
           minterAddress,
           ethers.ZeroAddress,
@@ -464,7 +468,7 @@ describe("V2AMO", function () {
           args,
           {
             initializer:
-              "initialize(address,address,address,bool,uint8,address,address,address,address,address,uint256,bool,uint256,uint24,uint24,uint256,uint256,uint256,uint256)",
+              "initialize(address,address,address,bool,uint256,uint8,address,address,address,address,address,uint256,bool,uint256,uint24,uint24,uint256,uint256,uint256,uint256)",
           },
         );
         await newAMO.waitForDeployment();
