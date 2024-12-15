@@ -16,6 +16,9 @@ interface IV2AMO {
     /// @notice True if pool is stable, false if volatile
     function stable() external view returns (bool);
 
+    /// @notice Returns the pool fee
+    function poolFee() external view returns (uint256);
+
     /// @notice Returns the pool type
     function poolType() external view returns (PoolType);
 

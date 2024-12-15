@@ -46,6 +46,8 @@ contract V2AMO is IV2AMO, MasterAMO {
     /// @inheritdoc IV2AMO
     bool public override stable;
     /// @inheritdoc IV2AMO
+    uint256 public override poolFee;
+    /// @inheritdoc IV2AMO
     PoolType public override poolType;
     /// @inheritdoc IV2AMO
     address public override factory;
@@ -73,6 +75,7 @@ contract V2AMO is IV2AMO, MasterAMO {
         address boost_,
         address usd_,
         bool stable_,
+        uint256 poolFee_,
         PoolType poolType_,
         address boostMinter_,
         address factory_, // newly added variable, If 0 passed default factory will be initialized
@@ -92,6 +95,7 @@ contract V2AMO is IV2AMO, MasterAMO {
         if (router_ == address(0) || gauge_ == address(0)) revert ZeroAddress();
         poolType = poolType_;
         stable = stable_;
+        poolFee = poolFee_;
         address pool_;
         if (poolType == PoolType.VELO_LIKE) {
             // If factory is zero address, get default factory from IVRouter
@@ -152,7 +156,7 @@ contract V2AMO is IV2AMO, MasterAMO {
         uint256 usdBuyRatio_
     ) public override onlyRole(SETTER_ROLE) {
         if (validRangeWidth_ > FACTOR || validRemovingRatio_ < FACTOR) revert InvalidRatioValue(); // validRangeWidth is a few percentage points (scaled with factor). So it needs to be lower than 1 (scaled with FACTOR)
-        // validRemovingRatio nedds to be greater than 1 (we remove more BOOST than USD otherwise the pool is balanced )
+        // validRemovingRatio needs to be greater than 1 (we remove more BOOST than USD otherwise the pool is balanced)
         boostMultiplier = boostMultiplier_;
         validRangeWidth = validRangeWidth_;
         validRemovingRatio = validRemovingRatio_;
@@ -409,6 +413,7 @@ contract V2AMO is IV2AMO, MasterAMO {
         (uint256 boostReserve, uint256 usdReserve) = getReserves();
 
         uint256 boostAmountIn = ((Math.sqrt(usdReserve * boostReserve) - boostReserve) * boostSellRatio) / FACTOR;
+        boostAmountIn += (boostAmountIn * poolFee) / FACTOR;
 
         (, , , , liquidity) = _mintSellFarm(
             boostAmountIn,
@@ -423,12 +428,13 @@ contract V2AMO is IV2AMO, MasterAMO {
         (uint256 boostReserve, uint256 usdReserve) = getReserves();
 
         uint256 usdNeeded = ((Math.sqrt(boostReserve * usdReserve) - usdReserve) * usdBuyRatio) / FACTOR;
+        usdNeeded += (usdNeeded * poolFee) / FACTOR;
         uint256 totalLp = IERC20Upgradeable(pool).totalSupply();
         liquidity = (usdNeeded * totalLp) / usdReserve;
 
         // Readjust the LP amount and USD needed to balance price before removing LP
         // ( rationale: we first compute the amount of USD needed to rebalance the price in the pool; then first-order adjust for the fact that removing liquidity/totalLP fraction of the pool increases price impact —— less liquidity needs to be removed )
-        // liquidity -= liquidity ** 2 / totalLp;
+        liquidity -= liquidity ** 2 / totalLp;
 
         _unfarmBuyBurn(
             liquidity,
@@ -456,9 +462,16 @@ contract V2AMO is IV2AMO, MasterAMO {
     ////////////////////////// VIEW FUNCTIONS //////////////////////////
     /// @inheritdoc IMasterAMO
     function boostPrice() public view override returns (uint256 price) {
-        uint256 amountOut = IPair(pool).getAmountOut(10 ** boostDecimals, boost);
-        if (usdDecimals > PRICE_DECIMALS) price = amountOut / 10 ** (usdDecimals - PRICE_DECIMALS);
-        else price = amountOut * 10 ** (PRICE_DECIMALS - usdDecimals);
+        if (!stable) {
+            (uint256 boostReserve, uint256 usdReserve) = getReserves();
+            price = (10 ** PRICE_DECIMALS * usdReserve) / boostReserve;
+        } else {
+            uint256 amountIn = 10 ** boostDecimals;
+            amountIn += (amountIn * poolFee) / FACTOR;
+            uint256 amountOut = IPair(pool).getAmountOut(amountIn, boost);
+            if (usdDecimals > PRICE_DECIMALS) price = amountOut / 10 ** (usdDecimals - PRICE_DECIMALS);
+            else price = amountOut * 10 ** (PRICE_DECIMALS - usdDecimals);
+        }
     }
 
     function getReserves() public view returns (uint256 boostReserve, uint256 usdReserve) {
