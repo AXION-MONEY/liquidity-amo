@@ -17,7 +17,7 @@ import { setBalance } from "@nomicfoundation/hardhat-network-helpers";
 
 describe("V2AMO", function () {
   const stable = false;
-  const toBuy = stable ? "5000000" : "1000000";
+  const toBuy = stable ? "2000000" : "1000000";
   const fee = stable ? "0.0005" : "0.003";
   const poolFee = ethers.parseUnits(fee, 6);
   let v2AMO: V2AMO;
@@ -71,8 +71,8 @@ describe("V2AMO", function () {
     ethers.parseUnits("1.01", 6), // validRemovingRatio
     ethers.parseUnits("0.99", 6), // boostLowerPriceSell
     ethers.parseUnits("1.01", 6), // boostUpperPriceBuy
-    ethers.parseUnits("0.8", 6), // boostSellRatio
-    ethers.parseUnits("0.8", 6), // usdBuyRatio
+    ethers.parseUnits("1", 6), // boostSellRatio
+    ethers.parseUnits("1", 6), // usdBuyRatio
   ];
 
   async function deployBaseContracts() {
@@ -150,8 +150,8 @@ describe("V2AMO", function () {
         ethers.parseUnits("1.01", 6), // validRemovingRatio
         ethers.parseUnits("0.99", 6), // boostLowerPriceSell
         ethers.parseUnits("1.01", 6), // boostUpperPriceBuy
-        ethers.parseUnits("0.8", 6), // boostSellRatio
-        ethers.parseUnits("0.8", 6), // usdBuyRatio
+        ethers.parseUnits("1", 6), // boostSellRatio
+        ethers.parseUnits("1", 6), // usdBuyRatio
       ],
       {
         initializer:
@@ -448,7 +448,7 @@ describe("V2AMO", function () {
     it("should execute public mintSellFarm when price above 1", async function () {
       try {
         // 1. Setup initial parameters with BigNumber
-        const usdToBuy = ethers.parseUnits("2000000", 6);
+        const usdToBuy = ethers.parseUnits(toBuy, 6);
 
         // 2. Setup required parameters
         await v2AMO.connect(setter).setTokenId(0, true);

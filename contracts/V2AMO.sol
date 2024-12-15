@@ -462,11 +462,16 @@ contract V2AMO is IV2AMO, MasterAMO {
     ////////////////////////// VIEW FUNCTIONS //////////////////////////
     /// @inheritdoc IMasterAMO
     function boostPrice() public view override returns (uint256 price) {
-        uint256 amountIn = 10 ** boostDecimals;
-        amountIn += (amountIn * poolFee) / FACTOR;
-        uint256 amountOut = IPair(pool).getAmountOut(amountIn, boost);
-        if (usdDecimals > PRICE_DECIMALS) price = amountOut / 10 ** (usdDecimals - PRICE_DECIMALS);
-        else price = amountOut * 10 ** (PRICE_DECIMALS - usdDecimals);
+        if (!stable) {
+            (uint256 boostReserve, uint256 usdReserve) = getReserves();
+            price = (10 ** PRICE_DECIMALS * usdReserve) / boostReserve;
+        } else {
+            uint256 amountIn = 10 ** boostDecimals;
+            amountIn += (amountIn * poolFee) / FACTOR;
+            uint256 amountOut = IPair(pool).getAmountOut(amountIn, boost);
+            if (usdDecimals > PRICE_DECIMALS) price = amountOut / 10 ** (usdDecimals - PRICE_DECIMALS);
+            else price = amountOut * 10 ** (PRICE_DECIMALS - usdDecimals);
+        }
     }
 
     function getReserves() public view returns (uint256 boostReserve, uint256 usdReserve) {

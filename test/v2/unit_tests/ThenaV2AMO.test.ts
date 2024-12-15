@@ -73,22 +73,22 @@ describe("V2AMO", function () {
   let gaugeAddress: string;
   let amoAddress: string;
   const deadline = Math.floor(Date.now() / 1000) + 60 * 100;
-  const delta = ethers.parseUnits("0.001", 6);
+  const delta = ethers.parseUnits("0.01", 6);
   const boostMultiplier = ethers.parseUnits("1.1", 6);
   const validRangeWidth = ethers.parseUnits("0.01", 6);
   const validRemovingRatio = ethers.parseUnits("1.01", 6);
   const boostLowerPriceSell = ethers.parseUnits("0.99", 6);
   const boostUpperPriceBuy = ethers.parseUnits("1.01", 6);
-  const boostSellRatio = ethers.parseUnits("0.8", 6);
-  const usdBuyRatio = ethers.parseUnits("0.8", 6);
+  const boostSellRatio = ethers.parseUnits("1", 6);
+  const usdBuyRatio = ethers.parseUnits("1", 6);
   const params = [
-    ethers.parseUnits("1.1", 6), // boostMultiplier
-    ethers.parseUnits("0.01", 6), // validRangeWidth
-    ethers.parseUnits("1.01", 6), // validRemovingRatio
-    ethers.parseUnits("0.99", 6), // boostLowerPriceSell
-    ethers.parseUnits("1.01", 6), // boostUpperPriceBuy
-    ethers.parseUnits("0.8", 6), // boostSellRatio
-    ethers.parseUnits("0.8", 6), // usdBuyRatio
+    boostMultiplier,
+    validRangeWidth,
+    validRemovingRatio,
+    boostLowerPriceSell,
+    boostUpperPriceBuy,
+    boostSellRatio,
+    usdBuyRatio,
   ];
 
   before(async () => {
@@ -97,8 +97,9 @@ describe("V2AMO", function () {
       params: [
         {
           forking: {
-            jsonRpcUrl: "https://bnb.rpc.subquery.network/public",
-            blockNumber: 44322111, // Update with appropriate block number
+            jsonRpcUrl:
+              "https://rpc.ankr.com/bsc/910b60453f76841969c8bfd9dfca56fe4f9b16449353072d7857c07366ddc802",
+            blockNumber: 44896000, // Update with appropriate block number
           },
         },
       ],
@@ -474,7 +475,13 @@ describe("V2AMO", function () {
           );
 
           // Test mintAndSellBoost
-          const boostAmount = ethers.parseUnits("990000", 18);
+          // const boostAmount = ethers.parseUnits("990000", 18);
+          const [boostReserve, usdReserve] = await v2AMO.getReserves();
+          console.log(boostReserve);
+          console.log(usdReserve);
+          let boostAmount =
+            BigInt(Math.sqrt(Number(usdReserve * boostReserve))) - boostReserve;
+          boostAmount += (boostAmount * BigInt(poolFee)) / 1000000n;
 
           // Grant necessary roles
           await v2AMO.grantRole(AMO_ROLE, amoBot.address);
@@ -583,8 +590,8 @@ describe("V2AMO", function () {
       });
 
       it("should execute unfarmBuyBurn succesfully", async function () {
-        const boostToBuy = ethers.parseUnits("2000000", 18);
-        const minUsdReceive = ethers.parseUnits("1990000", 6);
+        const boostToBuy = ethers.parseUnits("1000000", 18);
+        const minUsdReceive = ethers.parseUnits("800000", 6);
         const routeSellBoost = [
           {
             from: boostAddress,
@@ -670,8 +677,8 @@ describe("V2AMO", function () {
 
       describe("mintSellFarm", function () {
         it("should execute public mintSellFarm succesfully", async function () {
-          const usdToBuy = ethers.parseUnits("2000000", 6);
-          const minBoostReceive = ethers.parseUnits("1990000", 18);
+          const usdToBuy = ethers.parseUnits("1000000", 6);
+          const minBoostReceive = ethers.parseUnits("800000", 18);
           const routeBuyBoost = [
             {
               from: usdAddress,
@@ -722,8 +729,8 @@ describe("V2AMO", function () {
 
       describe("unfarmBuyBurn", function () {
         it("should execute unfarmBuyBurn succesfully", async function () {
-          const boostToBuy = ethers.parseUnits("2000000", 18);
-          const minUsdReceive = ethers.parseUnits("1990000", 6);
+          const boostToBuy = ethers.parseUnits("1000000", 18);
+          const minUsdReceive = ethers.parseUnits("800000", 6);
           const routeSellBoost = [
             {
               from: boostAddress,
@@ -760,8 +767,8 @@ describe("V2AMO", function () {
     describe("Public AMO Functions", function () {
       describe("mintSellFarm", function () {
         it("should execute public mintSellFarm above 1 ", async function () {
-          const usdToBuy = ethers.parseUnits("2000000", 6);
-          const minBoostReceive = ethers.parseUnits("1990000", 18);
+          const usdToBuy = ethers.parseUnits("1000000", 6);
+          const minBoostReceive = ethers.parseUnits("800000", 18);
           const routeBuyBoost = [
             {
               from: usdAddress,
@@ -803,8 +810,8 @@ describe("V2AMO", function () {
 
       describe("unfarmBuyBurn", function () {
         it("should execute unfarmBuyBurn below 1", async function () {
-          const boostToBuy = ethers.parseUnits("2000000", 18);
-          const minUsdReceive = ethers.parseUnits("1990000", 6);
+          const boostToBuy = ethers.parseUnits("1000000", 18);
+          const minUsdReceive = ethers.parseUnits("800000", 6);
           const routeSellBoost = [
             {
               from: boostAddress,

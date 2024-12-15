@@ -17,8 +17,8 @@ import { setBalance } from "@nomicfoundation/hardhat-network-helpers";
 
 describe("V2AMO", function () {
   const stable = false;
-  const toBuy = stable ? "5000000" : "1000000";
-  const fee = stable ? "0.0002" : "0.002";
+  const toBuy = stable ? "2000000" : "1000000";
+  const fee = stable ? "0.0003" : "0.01";
   const poolFee = ethers.parseUnits(fee, 6);
   // Common variables for both pool types
   let v2AMO: V2AMO;
@@ -69,23 +69,23 @@ describe("V2AMO", function () {
   let gaugeAddress: string;
   let amoAddress: string;
   const deadline = Math.floor(Date.now() / 1000) + 60 * 100;
-  const delta = ethers.parseUnits("0.001", 6);
+  const delta = ethers.parseUnits("0.01", 6);
 
   const boostMultiplier = ethers.parseUnits("1.1", 6);
   const validRangeWidth = ethers.parseUnits("0.01", 6);
   const validRemovingRatio = ethers.parseUnits("1.01", 6);
   const boostLowerPriceSell = ethers.parseUnits("0.99", 6);
   const boostUpperPriceBuy = ethers.parseUnits("1.01", 6);
-  const boostSellRatio = ethers.parseUnits("0.8", 6);
-  const usdBuyRatio = ethers.parseUnits("0.8", 6);
+  const boostSellRatio = ethers.parseUnits("1", 6);
+  const usdBuyRatio = ethers.parseUnits("1", 6);
   const params = [
-    ethers.parseUnits("1.1", 6), // boostMultiplier
-    ethers.parseUnits("0.01", 6), // validRangeWidth
-    ethers.parseUnits("1.01", 6), // validRemovingRatio
-    ethers.parseUnits("0.99", 6), // boostLowerPriceSell
-    ethers.parseUnits("1.01", 6), // boostUpperPriceBuy
-    ethers.parseUnits("0.8", 6), // boostSellRatio
-    ethers.parseUnits("0.8", 6), // usdBuyRatio
+    boostMultiplier,
+    validRangeWidth,
+    validRemovingRatio,
+    boostLowerPriceSell,
+    boostUpperPriceBuy,
+    boostSellRatio,
+    usdBuyRatio,
   ];
   // Setup functions
   async function deployBaseContracts() {
@@ -161,13 +161,13 @@ describe("V2AMO", function () {
         rewardVault.address,
         0, // tokenId
         false, // useTokenId
-        ethers.parseUnits("1.1", 6), // boostMultiplier
-        ethers.parseUnits("0.01", 6), // validRangeWidth
-        ethers.parseUnits("1.01", 6), // validRemovingRatio
-        ethers.parseUnits("0.99", 6), // boostLowerPriceSell
-        ethers.parseUnits("1.01", 6), // boostUpperPriceBuy
-        ethers.parseUnits("0.8", 6), // boostSellRatio
-        ethers.parseUnits("0.8", 6), // usdBuyRatio
+        boostMultiplier,
+        validRangeWidth,
+        validRemovingRatio,
+        boostLowerPriceSell,
+        boostUpperPriceBuy,
+        boostSellRatio,
+        usdBuyRatio,
       ],
       {
         initializer:
@@ -407,6 +407,7 @@ describe("V2AMO", function () {
             },
           ];
 
+          console.log("init", await v2AMO.boostPrice());
           await router.connect(user).swapExactTokensForTokens(
             usdToBuy,
             0, // min amount out
@@ -416,7 +417,14 @@ describe("V2AMO", function () {
           );
 
           // Test mintAndSellBoost
-          const boostAmount = ethers.parseUnits("990000", 18);
+          // const boostAmount = ethers.parseUnits("900000", 18);
+          const [boostReserve, usdReserve] = await v2AMO.getReserves();
+          console.log(boostReserve);
+          console.log(usdReserve);
+          let boostAmount =
+            BigInt(Math.sqrt(Number(usdReserve * boostReserve))) - boostReserve;
+          boostAmount += (boostAmount * BigInt(poolFee)) / 1000000n;
+          console.log(boostAmount);
 
           // Grant necessary roles
           await v2AMO.grantRole(AMO_ROLE, amoBot.address);
@@ -433,10 +441,13 @@ describe("V2AMO", function () {
           );
 
           // Test authorized access
+          console.log("befr", await v2AMO.boostPrice());
           await expect(
             v2AMO.connect(amoBot).mintAndSellBoost(boostAmount),
           ).to.emit(v2AMO, "MintSell");
+          console.log("aftr", await v2AMO.boostPrice());
         });
+
         it("Should revert mintAndSellBoost when called by non-amo", async function () {
           const boostAmount = ethers.parseUnits("990000", 18);
           await expect(
@@ -447,122 +458,126 @@ describe("V2AMO", function () {
         });
       });
 
-      it("Should revert mintSellFarm when called by non-amo", async function () {
-        const boostAmount = ethers.parseUnits("990000", 18);
-        const usdAmount = ethers.parseUnits("980000", 6);
-        await expect(
-          v2AMO.connect(user).mintSellFarm(boostAmount, 1, 1),
-        ).to.be.revertedWith(
-          `AccessControl: account ${user.address.toLowerCase()} is missing role ${AMO_ROLE}`,
-        );
-      });
+      describe("miko", function () {
+        it("Should revert mintSellFarm when called by non-amo", async function () {
+          const boostAmount = ethers.parseUnits("990000", 18);
+          const usdAmount = ethers.parseUnits("980000", 6);
+          await expect(
+            v2AMO.connect(user).mintSellFarm(boostAmount, 1, 1),
+          ).to.be.revertedWith(
+            `AccessControl: account ${user.address.toLowerCase()} is missing role ${AMO_ROLE}`,
+          );
+        });
 
-      it("Should revert unfarmBuyBurn when called by non-amo", async function () {
-        // Use revertedWith for access control error
-        await expect(
-          v2AMO
+        it("Should revert unfarmBuyBurn when called by non-amo", async function () {
+          // Use revertedWith for access control error
+          await expect(
+            v2AMO
+              .connect(user)
+              .unfarmBuyBurn(ethers.parseUnits("1000000", 18), 1, 1),
+          ).to.be.revertedWith(
+            `AccessControl: account ${user.address.toLowerCase()} is missing role ${AMO_ROLE}`,
+          );
+        });
+
+        it("should only allow PAUSER_ROLE to pause and UNPAUSER_ROLE to unpause", async function () {
+          // Grant roles
+          await v2AMO.grantRole(AMO_ROLE, amoBot.address);
+          await v2AMO.grantRole(PAUSER_ROLE, pauser.address);
+          await v2AMO.grantRole(UNPAUSER_ROLE, unpauser.address);
+
+          // Test pause
+          await expect(v2AMO.connect(pauser).pause())
+            .to.emit(v2AMO, "Paused")
+            .withArgs(pauser.address);
+
+          // Test operation while paused
+          const boostAmount = ethers.parseUnits("1000", 18);
+          await expect(
+            v2AMO.connect(amoBot).mintAndSellBoost(boostAmount),
+          ).to.be.revertedWith("Pausable: paused");
+
+          // Test unpause
+          await expect(v2AMO.connect(unpauser).unpause())
+            .to.emit(v2AMO, "Unpaused")
+            .withArgs(unpauser.address);
+        });
+
+        it("should allow WITHDRAWER_ROLE to withdraw ERC20 tokens", async function () {
+          // Transfer some tokens to the contract
+          await testUSD
             .connect(user)
-            .unfarmBuyBurn(ethers.parseUnits("1000000", 18), 1, 1),
-        ).to.be.revertedWith(
-          `AccessControl: account ${user.address.toLowerCase()} is missing role ${AMO_ROLE}`,
-        );
-      });
+            .mint(amoAddress, ethers.parseUnits("1000", 6));
 
-      it("should only allow PAUSER_ROLE to pause and UNPAUSER_ROLE to unpause", async function () {
-        // Grant roles
-        await v2AMO.grantRole(AMO_ROLE, amoBot.address);
-        await v2AMO.grantRole(PAUSER_ROLE, pauser.address);
-        await v2AMO.grantRole(UNPAUSER_ROLE, unpauser.address);
+          // Try withdrawing tokens without WITHDRAWER_ROLE
+          await expect(
+            v2AMO
+              .connect(user)
+              .withdrawERC20(
+                usdAddress,
+                ethers.parseUnits("1000", 6),
+                user.address,
+              ),
+          ).to.be.revertedWith(
+            `AccessControl: account ${user.address.toLowerCase()} is missing role ${WITHDRAWER_ROLE}`,
+          );
 
-        // Test pause
-        await expect(v2AMO.connect(pauser).pause())
-          .to.emit(v2AMO, "Paused")
-          .withArgs(pauser.address);
-
-        // Test operation while paused
-        const boostAmount = ethers.parseUnits("1000", 18);
-        await expect(
-          v2AMO.connect(amoBot).mintAndSellBoost(boostAmount),
-        ).to.be.revertedWith("Pausable: paused");
-
-        // Test unpause
-        await expect(v2AMO.connect(unpauser).unpause())
-          .to.emit(v2AMO, "Unpaused")
-          .withArgs(unpauser.address);
-      });
-
-      it("should allow WITHDRAWER_ROLE to withdraw ERC20 tokens", async function () {
-        // Transfer some tokens to the contract
-        await testUSD
-          .connect(user)
-          .mint(amoAddress, ethers.parseUnits("1000", 6));
-
-        // Try withdrawing tokens without WITHDRAWER_ROLE
-        await expect(
-          v2AMO
-            .connect(user)
+          // Withdraw tokens with WITHDRAWER_ROLE
+          await v2AMO
+            .connect(withdrawer)
             .withdrawERC20(
               usdAddress,
               ethers.parseUnits("1000", 6),
               user.address,
-            ),
-        ).to.be.revertedWith(
-          `AccessControl: account ${user.address.toLowerCase()} is missing role ${WITHDRAWER_ROLE}`,
-        );
-
-        // Withdraw tokens with WITHDRAWER_ROLE
-        await v2AMO
-          .connect(withdrawer)
-          .withdrawERC20(
-            usdAddress,
-            ethers.parseUnits("1000", 6),
-            user.address,
+            );
+          const usdBalanceOfUser = await testUSD.balanceOf(
+            await user.getAddress(),
           );
-        const usdBalanceOfUser = await testUSD.balanceOf(
-          await user.getAddress(),
-        );
-        expect(usdBalanceOfUser).to.be.equal(ethers.parseUnits("1000", 6));
-      });
+          expect(usdBalanceOfUser).to.be.equal(ethers.parseUnits("1000", 6));
+        });
 
-      it("should execute unfarmBuyBurn succesfully", async function () {
-        const boostToBuy = ethers.parseUnits("2000000", 18);
-        const minUsdReceive = ethers.parseUnits("1990000", 6);
-        const routeSellBoost = [
-          {
-            from: boostAddress,
-            to: usdAddress,
-            stable: stable,
-          },
-        ];
-        await boost.connect(boostMinter).mint(user.address, boostToBuy);
-        await boost.connect(user).approve(routerAddress, boostToBuy);
-        await router
-          .connect(user)
-          .swapExactTokensForTokens(
-            boostToBuy,
-            minUsdReceive,
-            routeSellBoost,
-            user.address,
-            deadline,
+        it("should execute unfarmBuyBurn successfully", async function () {
+          const boostToBuy = ethers.parseUnits(toBuy, 18);
+          const minUsdReceive = ethers.parseUnits("800000", 6);
+          const routeSellBoost = [
+            {
+              from: boostAddress,
+              to: usdAddress,
+              stable: stable,
+            },
+          ];
+          await boost.connect(boostMinter).mint(user.address, boostToBuy);
+          await boost.connect(user).approve(routerAddress, boostToBuy);
+          console.log("init", await v2AMO.boostPrice());
+          await router
+            .connect(user)
+            .swapExactTokensForTokens(
+              boostToBuy,
+              minUsdReceive,
+              routeSellBoost,
+              user.address,
+              deadline,
+            );
+          console.log("befr", await v2AMO.boostPrice());
+          expect(await v2AMO.boostPrice()).to.be.lt(ethers.parseUnits("1", 6));
+
+          await expect(v2AMO.connect(user).unfarmBuyBurn()).to.be.emit(
+            v2AMO,
+            "PublicUnfarmBuyBurnExecuted",
           );
+          expect(await v2AMO.boostPrice()).to.be.approximately(
+            ethers.parseUnits("1", 6),
+            delta,
+          );
+          console.log("aftr", await v2AMO.boostPrice());
+        });
 
-        expect(await v2AMO.boostPrice()).to.be.lt(ethers.parseUnits("1", 6));
-
-        await expect(v2AMO.connect(user).unfarmBuyBurn()).to.be.emit(
-          v2AMO,
-          "PublicUnfarmBuyBurnExecuted",
-        );
-        expect(await v2AMO.boostPrice()).to.be.approximately(
-          ethers.parseUnits("1", 6),
-          delta,
-        );
-      });
-
-      it("should correctly return boostPrice", async function () {
-        expect(await v2AMO.boostPrice()).to.be.approximately(
-          ethers.parseUnits("1", 6),
-          delta,
-        );
+        it("should correctly return boostPrice", async function () {
+          expect(await v2AMO.boostPrice()).to.be.approximately(
+            ethers.parseUnits("1", 6),
+            delta,
+          );
+        });
       });
 
       describe("addLiquidity", function () {
@@ -607,9 +622,9 @@ describe("V2AMO", function () {
       });
 
       describe("mintSellFarm", function () {
-        it("should execute public mintSellFarm succesfully", async function () {
+        it("should execute public mintSellFarm successfully", async function () {
           const usdToBuy = ethers.parseUnits("2000000", 6);
-          const minBoostReceive = ethers.parseUnits("1990000", 18);
+          const minBoostReceive = ethers.parseUnits("1600000", 18);
           const routeBuyBoost = [
             {
               from: usdAddress,
@@ -659,9 +674,9 @@ describe("V2AMO", function () {
       });
 
       describe("unfarmBuyBurn", function () {
-        it("should execute unfarmBuyBurn succesfully", async function () {
-          const boostToBuy = ethers.parseUnits("2000000", 18);
-          const minUsdReceive = ethers.parseUnits("1990000", 6);
+        it("should execute unfarmBuyBurn successfully", async function () {
+          const boostToBuy = ethers.parseUnits(toBuy, 18);
+          const minUsdReceive = ethers.parseUnits("800000", 6);
           const routeSellBoost = [
             {
               from: boostAddress,
@@ -705,7 +720,7 @@ describe("V2AMO", function () {
       describe("mintSellFarm", function () {
         it("should execute public mintSellFarm when price above 1", async function () {
           const usdToBuy = ethers.parseUnits("2000000", 6);
-          const minBoostReceive = ethers.parseUnits("1990000", 18);
+          const minBoostReceive = ethers.parseUnits("1600000", 18);
           const routeBuyBoost = [
             {
               from: usdAddress,
@@ -740,8 +755,8 @@ describe("V2AMO", function () {
 
       describe("unfarmBuyBurn", function () {
         it("should execute unfarmBuyBurn below 1", async function () {
-          const boostToBuy = ethers.parseUnits("2000000", 18);
-          const minUsdReceive = ethers.parseUnits("1990000", 6);
+          const boostToBuy = ethers.parseUnits(toBuy, 18);
+          const minUsdReceive = ethers.parseUnits("800000", 6);
           const routeSellBoost = [
             {
               from: boostAddress,

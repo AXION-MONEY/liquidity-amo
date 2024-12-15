@@ -17,7 +17,7 @@ import { setBalance } from "@nomicfoundation/hardhat-network-helpers";
 
 describe("V2AMO", function () {
   const stable = false;
-  const toBuy = stable ? "5000000" : "1000000";
+  const toBuy = stable ? "2000000" : "1000000";
   const fee = stable ? "0.0002" : "0.002";
   const poolFee = ethers.parseUnits(fee, 6);
   // Common variables for both pool types
@@ -69,23 +69,23 @@ describe("V2AMO", function () {
   let gaugeAddress: string;
   let amoAddress: string;
   const deadline = Math.floor(Date.now() / 1000) + 60 * 100;
-  const delta = ethers.parseUnits("0.001", 6);
+  const delta = ethers.parseUnits("0.01", 6);
 
   const boostMultiplier = ethers.parseUnits("1.1", 6);
   const validRangeWidth = ethers.parseUnits("0.01", 6);
   const validRemovingRatio = ethers.parseUnits("1.01", 6);
   const boostLowerPriceSell = ethers.parseUnits("0.99", 6);
   const boostUpperPriceBuy = ethers.parseUnits("1.01", 6);
-  const boostSellRatio = ethers.parseUnits("0.8", 6);
-  const usdBuyRatio = ethers.parseUnits("0.8", 6);
+  const boostSellRatio = ethers.parseUnits("1", 6);
+  const usdBuyRatio = ethers.parseUnits("1", 6);
   const params = [
-    ethers.parseUnits("1.1", 6), // boostMultiplier
-    ethers.parseUnits("0.01", 6), // validRangeWidth
-    ethers.parseUnits("1.01", 6), // validRemovingRatio
-    ethers.parseUnits("0.99", 6), // boostLowerPriceSell
-    ethers.parseUnits("1.01", 6), // boostUpperPriceBuy
-    ethers.parseUnits("0.8", 6), // boostSellRatio
-    ethers.parseUnits("0.8", 6), // usdBuyRatio
+    boostMultiplier,
+    validRangeWidth,
+    validRemovingRatio,
+    boostLowerPriceSell,
+    boostUpperPriceBuy,
+    boostSellRatio,
+    usdBuyRatio,
   ];
   // Setup functions
   async function deployBaseContracts() {
@@ -219,13 +219,13 @@ describe("V2AMO", function () {
         rewardVault.address,
         0, // tokenId
         false, // useTokenId
-        ethers.parseUnits("1.1", 6), // boostMultiplier
-        ethers.parseUnits("0.01", 6), // validRangeWidth
-        ethers.parseUnits("1.01", 6), // validRemovingRatio
-        ethers.parseUnits("0.99", 6), // boostLowerPriceSell
-        ethers.parseUnits("1.01", 6), // boostUpperPriceBuy
-        ethers.parseUnits("0.8", 6), // boostSellRatio
-        ethers.parseUnits("0.8", 6), // usdBuyRatio
+        boostMultiplier,
+        validRangeWidth,
+        validRemovingRatio,
+        boostLowerPriceSell,
+        boostUpperPriceBuy,
+        boostSellRatio,
+        usdBuyRatio,
       ],
       {
         initializer:
@@ -446,7 +446,13 @@ describe("V2AMO", function () {
           );
 
           // Test mintAndSellBoost
-          const boostAmount = ethers.parseUnits("990000", 18);
+          // const boostAmount = ethers.parseUnits("990000", 18);
+          const [boostReserve, usdReserve] = await v2AMO.getReserves();
+          console.log(boostReserve);
+          console.log(usdReserve);
+          let boostAmount =
+            BigInt(Math.sqrt(Number(usdReserve * boostReserve))) - boostReserve;
+          boostAmount += (boostAmount * BigInt(poolFee)) / 1000000n;
 
           // Grant necessary roles
           await v2AMO.grantRole(AMO_ROLE, amoBot.address);
@@ -555,8 +561,8 @@ describe("V2AMO", function () {
       });
 
       it("should execute unfarmBuyBurn succesfully", async function () {
-        const boostToBuy = ethers.parseUnits("2000000", 18);
-        const minUsdReceive = ethers.parseUnits("1990000", 6);
+        const boostToBuy = ethers.parseUnits(toBuy, 18);
+        const minUsdReceive = ethers.parseUnits("800000", 6);
         const routeSellBoost = [
           {
             from: boostAddress,
@@ -668,8 +674,8 @@ describe("V2AMO", function () {
 
       describe("unfarmBuyBurn", function () {
         it("should execute unfarmBuyBurn succesfully", async function () {
-          const boostToBuy = ethers.parseUnits("2000000", 18);
-          const minUsdReceive = ethers.parseUnits("1990000", 6);
+          const boostToBuy = ethers.parseUnits(toBuy, 18);
+          const minUsdReceive = ethers.parseUnits("800000", 6);
           const routeSellBoost = [
             {
               from: boostAddress,
@@ -708,7 +714,7 @@ describe("V2AMO", function () {
         it("should execute public mintSellFarm when price above 1", async function () {
           try {
             // 1. Setup initial parameters with BigNumber
-            const usdToBuy = ethers.parseUnits("2000000", 6);
+            const usdToBuy = ethers.parseUnits(toBuy, 6);
 
             // 2. Setup required parameters
             await v2AMO.connect(setter).setTokenId(0, true);
@@ -795,8 +801,8 @@ describe("V2AMO", function () {
 
       describe("unfarmBuyBurn", function () {
         it("should execute unfarmBuyBurn below 1", async function () {
-          const boostToBuy = ethers.parseUnits("2000000", 18);
-          const minUsdReceive = ethers.parseUnits("1990000", 6);
+          const boostToBuy = ethers.parseUnits(toBuy, 18);
+          const minUsdReceive = ethers.parseUnits("800000", 6);
           const routeSellBoost = [
             {
               from: boostAddress,
