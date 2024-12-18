@@ -25,6 +25,7 @@ contract V2AMO is IV2AMO, MasterAMO {
 
     event GetReward(address[] tokens, uint256[] amounts);
 
+    event PoolFeeSet(uint256 poolFee);
     event VaultSet(address rewardVault);
     event TokenIdSet(uint256 tokenId, bool useTokenId);
     event ParamsSet(
@@ -46,8 +47,6 @@ contract V2AMO is IV2AMO, MasterAMO {
     /// @inheritdoc IV2AMO
     bool public override stable;
     /// @inheritdoc IV2AMO
-    uint256 public override poolFee;
-    /// @inheritdoc IV2AMO
     PoolType public override poolType;
     /// @inheritdoc IV2AMO
     address public override factory;
@@ -56,6 +55,8 @@ contract V2AMO is IV2AMO, MasterAMO {
     /// @inheritdoc IV2AMO
     address public override gauge;
 
+    /// @inheritdoc IV2AMO
+    uint256 public override poolFee;
     /// @inheritdoc IV2AMO
     address public override rewardVault;
     /// @inheritdoc IV2AMO
@@ -95,7 +96,6 @@ contract V2AMO is IV2AMO, MasterAMO {
         if (router_ == address(0) || gauge_ == address(0)) revert ZeroAddress();
         poolType = poolType_;
         stable = stable_;
-        poolFee = poolFee_;
         address pool_;
         if (poolType == PoolType.VELO_LIKE) {
             // If factory is zero address, get default factory from IVRouter
@@ -116,6 +116,7 @@ contract V2AMO is IV2AMO, MasterAMO {
         gauge = gauge_;
 
         _grantRole(SETTER_ROLE, msg.sender);
+        setPoolFee(poolFee_);
         setVault(rewardVault_);
         setTokenId(tokenId_, useTokenId_);
         setParams(
@@ -131,6 +132,12 @@ contract V2AMO is IV2AMO, MasterAMO {
     }
 
     ////////////////////////// SETTER_ROLE ACTIONS //////////////////////////
+    /// @inheritdoc IV2AMO
+    function setPoolFee(uint256 poolFee_) public override onlyRole(SETTER_ROLE) {
+        poolFee = poolFee_;
+        emit PoolFeeSet(poolFee);
+    }
+
     /// @inheritdoc IV2AMO
     function setVault(address rewardVault_) public override onlyRole(SETTER_ROLE) {
         if (rewardVault_ == address(0)) revert ZeroAddress();

@@ -54,7 +54,14 @@ interface IV2AMO {
 
     /* ========== FUNCTIONS ========== */
     /**
-     * @notice This function sets the reward and buyback vault addresses
+     * @notice This function sets the pool fee
+     * @dev Can only be called by an account with the SETTER_ROLE.
+     * @param poolFee_ The pool fee
+     */
+    function setPoolFee(uint256 poolFee_) external;
+
+    /**
+     * @notice This function sets the reward vault address
      * @dev Can only be called by an account with the SETTER_ROLE. Reverts if the provided address is zero
      * @param rewardVault_ The address of the reward vault
      */
