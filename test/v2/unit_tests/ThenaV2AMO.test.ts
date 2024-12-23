@@ -957,7 +957,7 @@ describe("V2AMO", function () {
         });
         it("should get reward", async function () {
           await expect(
-            v2AMO.connect(rewardCollector).getReward(tokens, true),
+            v2AMO.connect(rewardCollector).getReward(tokens, false),
           ).to.emit(v2AMO, "GetReward");
         });
       });

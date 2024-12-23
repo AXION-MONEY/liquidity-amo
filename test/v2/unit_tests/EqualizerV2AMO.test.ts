@@ -776,12 +776,14 @@ describe("V2AMO", function () {
               deadline,
             );
 
+          console.log("Price before unfarmBuyBurn", await v2AMO.boostPrice());
           expect(await v2AMO.boostPrice()).to.be.lt(ethers.parseUnits("1", 6));
 
           await expect(v2AMO.connect(user).unfarmBuyBurn()).to.be.emit(
             v2AMO,
             "PublicUnfarmBuyBurnExecuted",
           );
+          console.log("Price after  unfarmBuyBurn", await v2AMO.boostPrice());
           expect(await v2AMO.boostPrice()).to.be.approximately(
             ethers.parseUnits("1", 6),
             delta,

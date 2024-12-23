@@ -434,14 +434,10 @@ contract V2AMO is IV2AMO, MasterAMO {
     function _unfarmBuyBurn() internal override returns (uint256 liquidity, uint256 newBoostPrice) {
         (uint256 boostReserve, uint256 usdReserve) = getReserves();
 
-        uint256 usdNeeded = ((Math.sqrt(boostReserve * usdReserve) - usdReserve) * usdBuyRatio) / FACTOR;
-        usdNeeded += (usdNeeded * poolFee) / FACTOR;
         uint256 totalLp = IERC20Upgradeable(pool).totalSupply();
-        liquidity = (usdNeeded * totalLp) / usdReserve;
-
-        // Readjust the LP amount and USD needed to balance price before removing LP
-        // ( rationale: we first compute the amount of USD needed to rebalance the price in the pool; then first-order adjust for the fact that removing liquidity/totalLP fraction of the pool increases price impact —— less liquidity needs to be removed )
-        liquidity -= liquidity ** 2 / totalLp;
+        uint256 sqrtResRatio = Math.sqrt(FACTOR ** 2 * usdReserve / boostReserve);
+        uint256 removalPercentage = FACTOR * (FACTOR - sqrtResRatio) / (FACTOR - (poolFee * sqrtResRatio / FACTOR));
+        liquidity = totalLp * removalPercentage / FACTOR;
 
         _unfarmBuyBurn(
             liquidity,
