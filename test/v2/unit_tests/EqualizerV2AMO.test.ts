@@ -646,10 +646,12 @@ describe("V2AMO", function () {
 
           expect(await v2AMO.boostPrice()).to.be.gt(ethers.parseUnits("1", 6));
 
+          console.log("Price before mintSellFarm", await v2AMO.boostPrice());
           await expect(v2AMO.connect(user).mintSellFarm()).to.be.emit(
             v2AMO,
             "PublicMintSellFarmExecuted",
           );
+          console.log("Price after  mintSellFarm", await v2AMO.boostPrice());
           expect(await v2AMO.boostPrice()).to.be.approximately(
             ethers.parseUnits("1", 6),
             delta,

@@ -420,7 +420,7 @@ contract V2AMO is IV2AMO, MasterAMO {
         (uint256 boostReserve, uint256 usdReserve) = getReserves();
 
         uint256 boostAmountIn = ((Math.sqrt(usdReserve * boostReserve) - boostReserve) * boostSellRatio) / FACTOR;
-        boostAmountIn += (boostAmountIn * poolFee) / FACTOR;
+        boostAmountIn += (boostAmountIn * poolFee) / (FACTOR - poolFee);
 
         (, , , , liquidity) = _mintSellFarm(
             boostAmountIn,
@@ -435,9 +435,10 @@ contract V2AMO is IV2AMO, MasterAMO {
         (uint256 boostReserve, uint256 usdReserve) = getReserves();
 
         uint256 totalLp = IERC20Upgradeable(pool).totalSupply();
-        uint256 sqrtResRatio = Math.sqrt(FACTOR ** 2 * usdReserve / boostReserve);
-        uint256 removalPercentage = FACTOR * (FACTOR - sqrtResRatio) / (FACTOR - (poolFee * sqrtResRatio / FACTOR));
-        liquidity = totalLp * removalPercentage / FACTOR;
+        uint256 sqrtResRatio = Math.sqrt((FACTOR ** 2 * usdReserve) / boostReserve);
+        uint256 removalPercentage = (FACTOR * (FACTOR - sqrtResRatio)) / (FACTOR - ((poolFee * sqrtResRatio) / FACTOR));
+        liquidity = (totalLp * removalPercentage) / FACTOR;
+        liquidity = (liquidity * usdBuyRatio) / FACTOR;
 
         _unfarmBuyBurn(
             liquidity,

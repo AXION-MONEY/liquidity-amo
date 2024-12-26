@@ -80,8 +80,8 @@ describe("V2AMO", function () {
   const validRemovingRatio = ethers.parseUnits("1.01", 6);
   const boostLowerPriceSell = ethers.parseUnits("0.99", 6);
   const boostUpperPriceBuy = ethers.parseUnits("1.01", 6);
-  const boostSellRatio = ethers.parseUnits("0.8", 6);
-  const usdBuyRatio = ethers.parseUnits("0.8", 6);
+  const boostSellRatio = ethers.parseUnits("1", 6);
+  const usdBuyRatio = ethers.parseUnits("1", 6);
 
   const params = [
     boostMultiplier,
