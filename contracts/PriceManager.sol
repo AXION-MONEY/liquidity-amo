@@ -28,7 +28,7 @@ struct StakedFrax {
 library StakedUSDeLib {
     uint256 private constant VESTING_PERIOD = 8 hours;
 
-    function totalAssets(StakedUSDe calldata self) public view returns (uint256) {
+    function totalAssets(StakedUSDe memory self) internal view returns (uint256) {
         uint256 timeSinceLastDistribution = block.timestamp - self.lastDistributionTimestamp;
         uint256 unvestedAmount = 0;
         if (timeSinceLastDistribution < VESTING_PERIOD) {
@@ -48,7 +48,7 @@ library StakedFraxLib {
     }
 
     function _calculateRewardsToDistribute(
-        RewardsCycleData calldata _rewardsCycleData,
+        RewardsCycleData memory _rewardsCycleData,
         uint256 _deltaTime
     ) private pure returns (uint256 _rewardToDistribute) {
         _rewardToDistribute =
@@ -57,9 +57,9 @@ library StakedFraxLib {
     }
 
     function calculateRewardsToDistribute(
-        StakedFrax calldata self,
+        StakedFrax memory self,
         uint256 _deltaTime
-    ) public pure returns (uint256 _rewardToDistribute) {
+    ) internal pure returns (uint256 _rewardToDistribute) {
         _rewardToDistribute = _calculateRewardsToDistribute(self.rewardsCycleData, _deltaTime);
 
         // Cap rewards
@@ -70,9 +70,9 @@ library StakedFraxLib {
         }
     }
 
-    function previewDistributeRewards(StakedFrax calldata self) public view returns (uint256 _rewardToDistribute) {
+    function previewDistributeRewards(StakedFrax memory self) internal view returns (uint256 _rewardToDistribute) {
         // Cache state for gas savings
-        RewardsCycleData calldata _rewardsCycleData = self.rewardsCycleData;
+        RewardsCycleData memory _rewardsCycleData = self.rewardsCycleData;
         uint256 _lastRewardsDistribution = self.lastRewardsDistribution;
         uint40 _timestamp = safeCastTo40(block.timestamp);
 
@@ -85,7 +85,7 @@ library StakedFraxLib {
         _rewardToDistribute = calculateRewardsToDistribute(self, _deltaTime);
     }
 
-    function totalAssets(StakedFrax calldata self) public view returns (uint256) {
+    function totalAssets(StakedFrax memory self) internal view returns (uint256) {
         uint256 _rewardToDistribute = previewDistributeRewards(self);
         return self.storedTotalAssets + _rewardToDistribute;
     }
