@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
 import "./libs/StakedUSDeLib.sol";
 import "./libs/StakedFraxLib.sol";
 import "./libs/SavingsDaiLib.sol";
 
-contract PriceManager is AccessControlEnumerable {
-    using Math for uint256;
+contract PriceManager is Initializable, AccessControlEnumerableUpgradeable {
     using StakedUSDeLib for StakedUSDeLib.StakedUSDe;
     using StakedFraxLib for StakedFraxLib.StakedFrax;
     using SavingsDaiLib for SavingsDaiLib.Pot;
@@ -23,13 +22,20 @@ contract PriceManager is AccessControlEnumerable {
     SavingsDaiLib.Pot public pot;
     uint256 public sDaiLastSync;
 
+    error ZeroAddress();
     error InvalidLastDistribution();
 
-    constructor(address admin, address setter) {
+    function initialize(address admin, address setter) public onlyInitializing {
+        __AccessControlEnumerable_init();
+
+        if (admin == address(0)) revert ZeroAddress();
+
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
-        _grantRole(SUSDE_SETTER, setter);
-        _grantRole(SFRAX_SETTER, setter);
-        _grantRole(SDAI_SETTER, setter);
+        if (setter != address(0)) {
+            _grantRole(SUSDE_SETTER, setter);
+            _grantRole(SFRAX_SETTER, setter);
+            _grantRole(SDAI_SETTER, setter);
+        }
     }
 
     function setSUsde(StakedUSDeLib.StakedUSDe calldata _sUSDe) external onlyRole(SUSDE_SETTER) {
