@@ -22,6 +22,10 @@ contract PriceManager is Initializable, AccessControlEnumerableUpgradeable {
     SavingsDaiLib.Pot public pot;
     uint256 public sDaiLastSync;
 
+    event SUsdeSet(StakedUSDeLib.StakedUSDe newStates);
+    event SFraxSet(StakedFraxLib.StakedFrax newStates);
+    event PotSet(SavingsDaiLib.Pot newStates);
+
     error ZeroAddress();
     error InvalidLastDistribution();
 
@@ -42,17 +46,20 @@ contract PriceManager is Initializable, AccessControlEnumerableUpgradeable {
         if (_sUSDe.lastDistributionTimestamp > block.timestamp) revert InvalidLastDistribution();
         sUSDe = _sUSDe;
         sUsdeLastSync = block.timestamp;
+        emit SUsdeSet(_sUSDe);
     }
 
     function setSFrax(StakedFraxLib.StakedFrax calldata _sFRAX) external onlyRole(SFRAX_SETTER) {
         if (_sFRAX.lastRewardsDistribution > block.timestamp) revert InvalidLastDistribution();
         sFRAX = _sFRAX;
         sFraxLastSync = block.timestamp;
+        emit SFraxSet(_sFRAX);
     }
 
     function setPot(SavingsDaiLib.Pot calldata _pot) external onlyRole(SDAI_SETTER) {
         pot = _pot;
         sDaiLastSync = block.timestamp;
+        emit PotSet(_pot);
     }
 
     function sUsdePreviewRedeem(uint256 shares) external view returns (uint256) {
