@@ -1,13 +1,30 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-interface ISolidlyV2AMO {
+interface IV2AMO {
+    enum PoolType {
+        SOLIDLY_V2,
+        VELO_LIKE // Aerodrome, Velodrome
+    }
+
     /* ========== ROLES ========== */
     /// @notice Returns the identifier for the REWARD_COLLECTOR_ROLE
     /// @dev This role allows calling getReward()
     function REWARD_COLLECTOR_ROLE() external view returns (bytes32);
 
     /* ========== VARIABLES ========== */
+    /// @notice True if pool is stable, false if volatile
+    function stable() external view returns (bool);
+
+    /// @notice Returns the pool fee
+    function poolFee() external view returns (uint256);
+
+    /// @notice Returns the pool type
+    function poolType() external view returns (PoolType);
+
+    /// @notice Returns the address of the Solidly factory
+    function factory() external view returns (address);
+
     /// @notice Returns the address of the Solidly router
     function router() external view returns (address);
 
@@ -37,7 +54,14 @@ interface ISolidlyV2AMO {
 
     /* ========== FUNCTIONS ========== */
     /**
-     * @notice This function sets the reward and buyback vault addresses
+     * @notice This function sets the pool fee
+     * @dev Can only be called by an account with the SETTER_ROLE.
+     * @param poolFee_ The pool fee
+     */
+    function setPoolFee(uint256 poolFee_) external;
+
+    /**
+     * @notice This function sets the reward vault address
      * @dev Can only be called by an account with the SETTER_ROLE. Reverts if the provided address is zero
      * @param rewardVault_ The address of the reward vault
      */
