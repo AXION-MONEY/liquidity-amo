@@ -10,6 +10,7 @@ import {
   ICLFactory,
   V3AMO,
   MockUniswapV3PoolCaller,
+  AMOQuoter,
 } from "../../../typechain-types";
 
 describe("AeroV3AMO", function () {
@@ -52,6 +53,7 @@ describe("AeroV3AMO", function () {
   let unpauser: SignerWithAddress;
   let boostMinter: SignerWithAddress;
   let user: SignerWithAddress;
+  let quoter: AMOQuoter;
 
   let SETTER_ROLE: string;
   let AMO_ROLE: string;
@@ -214,6 +216,12 @@ describe("AeroV3AMO", function () {
     await v3AMO.waitForDeployment();
     amoAddress = await v3AMO.getAddress();
 
+    const AMOQuoterFactory = await ethers.getContractFactory("AMOQuoter");
+    quoter = (await AMOQuoterFactory.deploy(
+      amoAddress,
+    )) as unknown as AMOQuoter;
+    await quoter.waitForDeployment();
+
     // Provide liquidity
     await testUSD.transfer(poolCallerAddress, usdDesired);
     await boost.transfer(poolCallerAddress, boostDesired);
@@ -228,10 +236,46 @@ describe("AeroV3AMO", function () {
 
     await v3AMO.grantRole(SETTER_ROLE, setter.address);
     await v3AMO.grantRole(AMO_ROLE, amo.address);
+    await v3AMO.grantRole(AMO_ROLE, await quoter.getAddress());
     await v3AMO.grantRole(WITHDRAWER_ROLE, withdrawer.address);
     await v3AMO.grantRole(PAUSER_ROLE, pauser.address);
     await v3AMO.grantRole(UNPAUSER_ROLE, unpauser.address);
     await minter.grantRole(await minter.AMO_ROLE(), amoAddress);
+  });
+
+  describe.only("AMOQuoter", function () {
+    it("UBB", async function () {
+      let limitSqrtPriceX96: bigint;
+      const zeroForOne = boost2usd;
+      if (zeroForOne) {
+        limitSqrtPriceX96 = MIN_SQRT_RATIO + BigInt(10);
+      } else {
+        limitSqrtPriceX96 = MAX_SQRT_RATIO - BigInt(10);
+      }
+      const boostToBuy = ethers.parseUnits("5000000", 18);
+      await boost.connect(boostMinter).mint(user.address, boostToBuy);
+      await boost.connect(user).transfer(poolCallerAddress, boostToBuy);
+      await poolCaller
+        .connect(user)
+        .swap(
+          user.address,
+          zeroForOne,
+          boostToBuy,
+          limitSqrtPriceX96,
+          abiCoder.encode(["uint8"], [0]),
+        );
+      console.log("Price Before:", await v3AMO.boostPrice());
+      const [liquidity, excessiveLiquidity, newPrice] =
+        await quoter.bestLiquidity.staticCall(10);
+      console.log("Quoter:", liquidity, excessiveLiquidity, newPrice);
+      expect(await v3AMO.connect(amo).unfarmBuyBurn(liquidity, 1, 1)).to.emit(
+        v3AMO,
+        "UnfarmBuyBurn",
+      );
+      const priceAfter = await v3AMO.boostPrice();
+      console.log("Price After: ", priceAfter);
+      expect(priceAfter).to.be.approximately(newPrice, 10);
+    });
   });
 
   describe("Initialization", function () {
