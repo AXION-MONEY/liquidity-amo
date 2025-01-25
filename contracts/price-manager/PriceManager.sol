@@ -45,9 +45,10 @@ contract PriceManager is Initializable, AccessControlEnumerableUpgradeable {
     error OldBlock(uint256 srcBlockTimestamp, uint256 lastBlockTimestamp);
     error InvalidBlock(uint256 srcBlockTimestamp, uint256 currentBlockTimestamp);
 
-    function initialize(address admin, address setter) public onlyInitializing {
+    function initialize(address admin, address setter, address muonClientAddress) public initializer {
         __AccessControlEnumerable_init();
 
+        muonClient = IMuonClient(muonClientAddress);
         if (admin == address(0)) revert ZeroAddress();
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
@@ -111,9 +112,9 @@ contract PriceManager is Initializable, AccessControlEnumerableUpgradeable {
             sig.srcBlock.timestamp,
             _sFRAX.totalSupply,
             _sFRAX.storedTotalAssets,
-            _sFRAX.rewardsCycleData.cycleEnd,
-            _sFRAX.rewardsCycleData.lastSync,
-            _sFRAX.rewardsCycleData.rewardCycleAmount,
+            uint256(_sFRAX.rewardsCycleData.cycleEnd),
+            uint256(_sFRAX.rewardsCycleData.lastSync),
+            uint256(_sFRAX.rewardsCycleData.rewardCycleAmount),
             _sFRAX.lastRewardsDistribution,
             _sFRAX.maxDistributionPerSecondPerAsset
         );

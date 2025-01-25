@@ -5,7 +5,6 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 import "./interfaces/IMuonClient.sol";
 import "./SchnorrSECP256K1Verifier.sol";
-import "hardhat/console.sol";
 
 contract MuonClient is IMuonClient, SchnorrSECP256K1Verifier, AccessControlEnumerable {
     using ECDSA for bytes32;
