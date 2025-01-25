@@ -5,29 +5,45 @@ import "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgrad
 import "./libs/StakedUSDeLib.sol";
 import "./libs/StakedFraxLib.sol";
 import "./libs/SavingsDaiLib.sol";
+import "./muon/interfaces/IMuonClient.sol";
 
 contract PriceManager is Initializable, AccessControlEnumerableUpgradeable {
     using StakedUSDeLib for StakedUSDeLib.StakedUSDe;
     using StakedFraxLib for StakedFraxLib.StakedFrax;
     using SavingsDaiLib for SavingsDaiLib.Pot;
 
+    struct Block {
+        uint256 number;
+        uint256 timestamp;
+    }
+
+    struct MuonSig {
+        Block srcBlock;
+        bytes reqId;
+        IMuonClient.SchnorrSign signature;
+        bytes gatewaySignature;
+    }
+
     bytes32 public constant SUSDE_SETTER = keccak256("SUSDE_SETTER");
     bytes32 public constant SFRAX_SETTER = keccak256("SFRAX_SETTER");
     bytes32 public constant SDAI_SETTER = keccak256("SDAI_SETTER");
 
+    IMuonClient muonClient;
     StakedUSDeLib.StakedUSDe public sUSDe;
-    uint256 public sUsdeLastSync;
+    Block public sUsdeLastBlock;
     StakedFraxLib.StakedFrax public sFRAX;
-    uint256 public sFraxLastSync;
+    Block public sFraxLastBlock;
     SavingsDaiLib.Pot public pot;
-    uint256 public sDaiLastSync;
+    Block public sDaiLastBlock;
 
-    event SUsdeSet(StakedUSDeLib.StakedUSDe newStates);
-    event SFraxSet(StakedFraxLib.StakedFrax newStates);
-    event PotSet(SavingsDaiLib.Pot newStates);
+    event SUsdeSet(StakedUSDeLib.StakedUSDe newStates, Block srcBlock);
+    event SFraxSet(StakedFraxLib.StakedFrax newStates, Block srcBlock);
+    event PotSet(SavingsDaiLib.Pot newStates, Block srcBlock);
 
     error ZeroAddress();
     error InvalidLastDistribution();
+    error OldBlock(uint256 srcBlockTimestamp, uint256 lastBlockTimestamp);
+    error InvalidBlock(uint256 srcBlockTimestamp, uint256 currentBlockTimestamp);
 
     function initialize(address admin, address setter) public onlyInitializing {
         __AccessControlEnumerable_init();
@@ -42,24 +58,85 @@ contract PriceManager is Initializable, AccessControlEnumerableUpgradeable {
         }
     }
 
-    function setSUsde(StakedUSDeLib.StakedUSDe calldata _sUSDe) external onlyRole(SUSDE_SETTER) {
+    function _setSUsde(StakedUSDeLib.StakedUSDe calldata _sUSDe, Block calldata srcBlock) internal {
+        if (srcBlock.timestamp > block.timestamp) revert InvalidBlock(srcBlock.timestamp, block.timestamp);
+        if (srcBlock.timestamp <= sUsdeLastBlock.timestamp)
+            revert OldBlock(srcBlock.timestamp, sUsdeLastBlock.timestamp);
         if (_sUSDe.lastDistributionTimestamp > block.timestamp) revert InvalidLastDistribution();
         sUSDe = _sUSDe;
-        sUsdeLastSync = block.timestamp;
-        emit SUsdeSet(_sUSDe);
+        sUsdeLastBlock = srcBlock;
+        emit SUsdeSet(_sUSDe, srcBlock);
     }
 
-    function setSFrax(StakedFraxLib.StakedFrax calldata _sFRAX) external onlyRole(SFRAX_SETTER) {
+    function setSUsde(
+        StakedUSDeLib.StakedUSDe calldata _sUSDe,
+        Block calldata srcBlock
+    ) external onlyRole(SUSDE_SETTER) {
+        _setSUsde(_sUSDe, srcBlock);
+    }
+
+    function setSUsdeWithSig(StakedUSDeLib.StakedUSDe calldata _sUSDe, MuonSig calldata sig) external {
+        bytes memory data = abi.encode(
+            sig.srcBlock.number,
+            sig.srcBlock.timestamp,
+            _sUSDe.totalSupply,
+            _sUSDe.balance,
+            _sUSDe.lastDistributionTimestamp,
+            _sUSDe.vestingAmount
+        );
+        muonClient.verifyTSSAndGW(data, sig.reqId, sig.signature, sig.gatewaySignature);
+        _setSUsde(_sUSDe, sig.srcBlock);
+    }
+
+    function _setSFrax(StakedFraxLib.StakedFrax calldata _sFRAX, Block calldata srcBlock) internal {
+        if (srcBlock.timestamp > block.timestamp) revert InvalidBlock(srcBlock.timestamp, block.timestamp);
+        if (srcBlock.timestamp <= sFraxLastBlock.timestamp)
+            revert OldBlock(srcBlock.timestamp, sFraxLastBlock.timestamp);
         if (_sFRAX.lastRewardsDistribution > block.timestamp) revert InvalidLastDistribution();
         sFRAX = _sFRAX;
-        sFraxLastSync = block.timestamp;
-        emit SFraxSet(_sFRAX);
+        sFraxLastBlock = srcBlock;
+        emit SFraxSet(_sFRAX, srcBlock);
     }
 
-    function setPot(SavingsDaiLib.Pot calldata _pot) external onlyRole(SDAI_SETTER) {
+    function setSFrax(
+        StakedFraxLib.StakedFrax calldata _sFRAX,
+        Block calldata srcBlock
+    ) external onlyRole(SFRAX_SETTER) {
+        _setSFrax(_sFRAX, srcBlock);
+    }
+
+    function setSFraxWithSig(StakedFraxLib.StakedFrax calldata _sFRAX, MuonSig calldata sig) external {
+        bytes memory data = abi.encode(
+            sig.srcBlock.number,
+            sig.srcBlock.timestamp,
+            _sFRAX.totalSupply,
+            _sFRAX.storedTotalAssets,
+            _sFRAX.rewardsCycleData.cycleEnd,
+            _sFRAX.rewardsCycleData.lastSync,
+            _sFRAX.rewardsCycleData.rewardCycleAmount,
+            _sFRAX.lastRewardsDistribution,
+            _sFRAX.maxDistributionPerSecondPerAsset
+        );
+        muonClient.verifyTSSAndGW(data, sig.reqId, sig.signature, sig.gatewaySignature);
+        _setSFrax(_sFRAX, sig.srcBlock);
+    }
+
+    function _setPot(SavingsDaiLib.Pot calldata _pot, Block calldata srcBlock) internal {
+        if (srcBlock.timestamp > block.timestamp) revert InvalidBlock(srcBlock.timestamp, block.timestamp);
+        if (srcBlock.timestamp <= sDaiLastBlock.timestamp) revert OldBlock(srcBlock.timestamp, sDaiLastBlock.timestamp);
+        if (_pot.rho > block.timestamp) revert InvalidLastDistribution();
         pot = _pot;
-        sDaiLastSync = block.timestamp;
-        emit PotSet(_pot);
+        emit PotSet(_pot, srcBlock);
+    }
+
+    function setPot(SavingsDaiLib.Pot calldata _pot, Block calldata srcBlock) external onlyRole(SDAI_SETTER) {
+        _setPot(_pot, srcBlock);
+    }
+
+    function setSPotWithSig(SavingsDaiLib.Pot calldata _pot, MuonSig calldata sig) external {
+        bytes memory data = abi.encode(sig.srcBlock.number, sig.srcBlock.timestamp, _pot.dsr, _pot.chi, _pot.rho);
+        muonClient.verifyTSSAndGW(data, sig.reqId, sig.signature, sig.gatewaySignature);
+        _setPot(_pot, sig.srcBlock);
     }
 
     function sUsdePreviewRedeem(uint256 shares) external view returns (uint256) {
