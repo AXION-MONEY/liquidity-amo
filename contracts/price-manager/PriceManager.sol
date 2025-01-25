@@ -22,6 +22,7 @@ contract PriceManager is Initializable, AccessControlEnumerableUpgradeable {
         bytes reqId;
         IMuonClient.SchnorrSign signature;
         bytes gatewaySignature;
+        bytes token;
     }
 
     bytes32 public constant SUSDE_SETTER = keccak256("SUSDE_SETTER");
@@ -44,6 +45,7 @@ contract PriceManager is Initializable, AccessControlEnumerableUpgradeable {
     error InvalidLastDistribution();
     error OldBlock(uint256 srcBlockTimestamp, uint256 lastBlockTimestamp);
     error InvalidBlock(uint256 srcBlockTimestamp, uint256 currentBlockTimestamp);
+    error SigTokenMismatch();
 
     function initialize(address admin, address setter, address muonClientAddress) public initializer {
         __AccessControlEnumerable_init();
@@ -77,13 +79,15 @@ contract PriceManager is Initializable, AccessControlEnumerableUpgradeable {
     }
 
     function setSUsdeWithSig(StakedUSDeLib.StakedUSDe calldata _sUSDe, MuonSig calldata sig) external {
+        if (keccak256(sig.token) != keccak256("susde")) revert SigTokenMismatch();
         bytes memory data = abi.encode(
             sig.srcBlock.number,
             sig.srcBlock.timestamp,
             _sUSDe.totalSupply,
             _sUSDe.balance,
             _sUSDe.lastDistributionTimestamp,
-            _sUSDe.vestingAmount
+            _sUSDe.vestingAmount,
+            sig.token
         );
         muonClient.verifyTSSAndGW(data, sig.reqId, sig.signature, sig.gatewaySignature);
         _setSUsde(_sUSDe, sig.srcBlock);
@@ -107,6 +111,7 @@ contract PriceManager is Initializable, AccessControlEnumerableUpgradeable {
     }
 
     function setSFraxWithSig(StakedFraxLib.StakedFrax calldata _sFRAX, MuonSig calldata sig) external {
+        if (keccak256(sig.token) != keccak256("sfrax")) revert SigTokenMismatch();
         bytes memory data = abi.encode(
             sig.srcBlock.number,
             sig.srcBlock.timestamp,
@@ -116,7 +121,8 @@ contract PriceManager is Initializable, AccessControlEnumerableUpgradeable {
             uint256(_sFRAX.rewardsCycleData.lastSync),
             uint256(_sFRAX.rewardsCycleData.rewardCycleAmount),
             _sFRAX.lastRewardsDistribution,
-            _sFRAX.maxDistributionPerSecondPerAsset
+            _sFRAX.maxDistributionPerSecondPerAsset,
+            sig.token
         );
         muonClient.verifyTSSAndGW(data, sig.reqId, sig.signature, sig.gatewaySignature);
         _setSFrax(_sFRAX, sig.srcBlock);
@@ -135,7 +141,15 @@ contract PriceManager is Initializable, AccessControlEnumerableUpgradeable {
     }
 
     function setSPotWithSig(SavingsDaiLib.Pot calldata _pot, MuonSig calldata sig) external {
-        bytes memory data = abi.encode(sig.srcBlock.number, sig.srcBlock.timestamp, _pot.dsr, _pot.chi, _pot.rho);
+        if (keccak256(sig.token) != keccak256("sdai")) revert SigTokenMismatch();
+        bytes memory data = abi.encode(
+            sig.srcBlock.number,
+            sig.srcBlock.timestamp,
+            _pot.dsr,
+            _pot.chi,
+            _pot.rho,
+            sig.token
+        );
         muonClient.verifyTSSAndGW(data, sig.reqId, sig.signature, sig.gatewaySignature);
         _setPot(_pot, sig.srcBlock);
     }
