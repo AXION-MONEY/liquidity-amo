@@ -22,7 +22,7 @@ contract PriceManager is Initializable, AccessControlEnumerableUpgradeable {
         bytes reqId;
         IMuonClient.SchnorrSign signature;
         bytes gatewaySignature;
-        bytes token;
+        string token;
     }
 
     bytes32 public constant SUSDE_SETTER = keccak256("SUSDE_SETTER");
@@ -79,8 +79,8 @@ contract PriceManager is Initializable, AccessControlEnumerableUpgradeable {
     }
 
     function setSUsdeWithSig(StakedUSDeLib.StakedUSDe calldata _sUSDe, MuonSig calldata sig) external {
-        if (keccak256(sig.token) != keccak256("susde")) revert SigTokenMismatch();
-        bytes memory data = abi.encode(
+        if (keccak256(bytes(sig.token)) != keccak256("susde")) revert SigTokenMismatch();
+        bytes memory data = abi.encodePacked(
             sig.srcBlock.number,
             sig.srcBlock.timestamp,
             _sUSDe.totalSupply,
@@ -111,15 +111,15 @@ contract PriceManager is Initializable, AccessControlEnumerableUpgradeable {
     }
 
     function setSFraxWithSig(StakedFraxLib.StakedFrax calldata _sFRAX, MuonSig calldata sig) external {
-        if (keccak256(sig.token) != keccak256("sfrax")) revert SigTokenMismatch();
-        bytes memory data = abi.encode(
+        if (keccak256(bytes(sig.token)) != keccak256("sfrax")) revert SigTokenMismatch();
+        bytes memory data = abi.encodePacked(
             sig.srcBlock.number,
             sig.srcBlock.timestamp,
             _sFRAX.totalSupply,
             _sFRAX.storedTotalAssets,
-            uint256(_sFRAX.rewardsCycleData.cycleEnd),
-            uint256(_sFRAX.rewardsCycleData.lastSync),
-            uint256(_sFRAX.rewardsCycleData.rewardCycleAmount),
+            _sFRAX.rewardsCycleData.cycleEnd,
+            _sFRAX.rewardsCycleData.lastSync,
+            _sFRAX.rewardsCycleData.rewardCycleAmount,
             _sFRAX.lastRewardsDistribution,
             _sFRAX.maxDistributionPerSecondPerAsset,
             sig.token
@@ -141,8 +141,8 @@ contract PriceManager is Initializable, AccessControlEnumerableUpgradeable {
     }
 
     function setSPotWithSig(SavingsDaiLib.Pot calldata _pot, MuonSig calldata sig) external {
-        if (keccak256(sig.token) != keccak256("sdai")) revert SigTokenMismatch();
-        bytes memory data = abi.encode(
+        if (keccak256(bytes(sig.token)) != keccak256("sdai")) revert SigTokenMismatch();
+        bytes memory data = abi.encodePacked(
             sig.srcBlock.number,
             sig.srcBlock.timestamp,
             _pot.dsr,
