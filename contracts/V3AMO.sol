@@ -386,7 +386,7 @@ contract V3AMO is IV3AMO, MasterAMO {
 
         // Ensure the BOOST amount removed from our full-range position is greater than or equal to the USD amount removed
         // this calculation/check is valid because based on our full-range liquidity (not on the aggregate pool liquidity)
-        if ((boostRemoved * validRemovingRatio) / FACTOR < toBoostAmount(usdRemoved))
+        if ((((boostRemoved * validRemovingRatio) / FACTOR) * targetPrice()) / FACTOR < toBoostAmount(usdRemoved))
             revert InvalidRatioToRemoveLiquidity();
 
         // Step 4: Use quoteSwap to determine the USD needed to bring the price back to peg

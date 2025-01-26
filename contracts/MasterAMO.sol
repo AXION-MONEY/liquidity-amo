@@ -210,9 +210,7 @@ abstract contract MasterAMO is
 
         uint256 price = boostPrice();
         uint256 tp = targetPrice();
-        uint256 lowerBound = tp - ((tp * validRangeWidth) / FACTOR);
-        uint256 upperBound = tp + ((tp * validRangeWidth) / FACTOR);
-        if (price > lowerBound && price < upperBound) {
+        if (price > priceLowerBound(tp) && price < priceUpperBound(tp)) {
             uint256 usdBalance = IERC20(usd).balanceOf(address(this));
             (boostSpent, usdSpent, liquidity) = _addLiquidity(usdBalance, minBoostSpend, minUsdSpend);
         }
@@ -334,6 +332,14 @@ abstract contract MasterAMO is
 
     function balanceOfToken(address token) internal view returns (uint256) {
         return IERC20(token).balanceOf(address(this));
+    }
+
+    function priceLowerBound(uint256 price) internal view returns (uint256) {
+        return price - ((price * validRangeWidth) / FACTOR);
+    }
+
+    function priceUpperBound(uint256 price) internal view returns (uint256) {
+        return price + ((price * validRangeWidth) / FACTOR);
     }
 
     ////////////////////////// VIEW FUNCTIONS //////////////////////////

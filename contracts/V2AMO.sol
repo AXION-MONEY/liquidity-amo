@@ -253,7 +253,7 @@ contract V2AMO is IV2AMO, MasterAMO {
 
         if (usdAmountOut < minUsdAmountOut) revert InsufficientOutputAmount(usdAmountOut, minUsdAmountOut);
         uint256 price = boostPrice();
-        if (price <= FACTOR - validRangeWidth) revert PriceNotInRange(price);
+        if (price <= priceLowerBound(targetPrice())) revert PriceNotInRange(price);
         emit MintSell(boostAmount, usdAmountOut);
     }
 
@@ -266,7 +266,8 @@ contract V2AMO is IV2AMO, MasterAMO {
         // Price needs to be in range: 1 +- validRangeRatio / 1e6 == factor +- validRangeRatio
         // if price is too high, we need to mint and sell more before we add liqudiity
         uint256 price = boostPrice();
-        if (price <= FACTOR - validRangeWidth || price >= FACTOR + validRangeWidth) revert InvalidRatioToAddLiquidity();
+        uint256 tp = targetPrice();
+        if (price <= priceLowerBound(tp) || price >= priceUpperBound(tp)) revert InvalidRatioToAddLiquidity();
 
         // Mint the specified amount of BOOST tokens
         uint256 boostAmount = (toBoostAmount(usdAmount) * boostMultiplier) / FACTOR;
@@ -358,7 +359,7 @@ contract V2AMO is IV2AMO, MasterAMO {
         if (usdRemoved != usdBalanceAfter - usdBalanceBefore)
             revert UsdAmountOutMismatch(usdRemoved, usdBalanceAfter - usdBalanceBefore);
 
-        if ((boostRemoved * validRemovingRatio) / FACTOR < toBoostAmount(usdRemoved))
+        if ((((boostRemoved * validRemovingRatio) / FACTOR) * targetPrice()) / FACTOR < toBoostAmount(usdRemoved))
             revert InvalidRatioToRemoveLiquidity();
 
         // Swap USD for BOOST based on pool type
@@ -390,7 +391,7 @@ contract V2AMO is IV2AMO, MasterAMO {
         }
 
         uint256 price = boostPrice();
-        if (price >= FACTOR + validRangeWidth) revert PriceNotInRange(price);
+        if (price >= priceUpperBound(targetPrice())) revert PriceNotInRange(price);
 
         usdAmountIn = amounts[0];
         boostAmountOut = amounts[1];
