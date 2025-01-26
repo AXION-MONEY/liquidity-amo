@@ -88,6 +88,8 @@ contract V3AMO is IV3AMO, MasterAMO {
         address quoter_,
         address poolCustomDeployer_,
         address boostMinter_,
+        address priceManager_,
+        PairedTokenType pairedTokenType_,
         int24 tickLower_,
         int24 tickUpper_,
         uint160 targetSqrtPriceX96_,
@@ -97,7 +99,7 @@ contract V3AMO is IV3AMO, MasterAMO {
         uint256 boostLowerPriceSell_,
         uint256 boostUpperPriceBuy_
     ) public initializer {
-        super.initialize(admin, boost_, usd_, pool_, boostMinter_);
+        super.initialize(admin, boost_, usd_, pool_, boostMinter_, priceManager_, pairedTokenType_);
         poolType = poolType_;
         poolCustomDeployer = poolCustomDeployer_;
 

@@ -86,6 +86,8 @@ contract V2AMO is IV2AMO, MasterAMO {
         uint256 poolFee_,
         PoolType poolType_,
         address boostMinter_,
+        address priceManager_,
+        PairedTokenType pairedTokenType_,
         address factory_, // newly added variable, If 0 passed default factory will be initialized
         address router_,
         address gauge_,
@@ -117,7 +119,7 @@ contract V2AMO is IV2AMO, MasterAMO {
             pool_ = ISolidlyRouter(router_).pairFor(usd_, boost_, stable_);
         }
 
-        super.initialize(admin, boost_, usd_, pool_, boostMinter_);
+        super.initialize(admin, boost_, usd_, pool_, boostMinter_, priceManager_, pairedTokenType_);
 
         router = router_;
         gauge = gauge_;

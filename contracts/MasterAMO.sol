@@ -12,6 +12,7 @@ import {IMinter} from "./interfaces/IMinter.sol";
 import {IBoostStablecoin} from "./interfaces/IBoostStablecoin.sol";
 import {IMasterAMO} from "./interfaces/IMasterAMO.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IPriceManager} from "./price-manager/interfaces/IPriceManager.sol";
 
 /**
  * the contracts are upgradable but behind a time lock. This is because we plan further improvements to the AMO logic ( we could for instance deploy an AMO cotract for concentrated liquidity).
@@ -35,6 +36,7 @@ abstract contract MasterAMO is
     error InvalidRatioToAddLiquidity();
     error InvalidRatioToRemoveLiquidity();
     error PriceNotInRange(uint256 price);
+    error InvalidPairedTokenType();
 
     /* ========== EVENTS ========== */
     event MintSell(uint256 boostAmountIn, uint256 usdAmountOut);
@@ -73,6 +75,9 @@ abstract contract MasterAMO is
     /// @inheritdoc IMasterAMO
     address public override boostMinter;
 
+    address public priceManager;
+    PairedTokenType public pairedTokenType;
+
     /// @inheritdoc IMasterAMO
     uint256 public override boostMultiplier;
     /// @inheritdoc IMasterAMO
@@ -100,7 +105,9 @@ abstract contract MasterAMO is
         address pool_, // The pool where AMO logic applies for Boost-USD pair
         // On each chain where Boost is deployed, there will be a stable Boost-USD pool ensuring BOOST's peg.
         // Multiple Boost-USD pools can exist across different DEXes on the same chain, each with its own AMO, maintaining independent peg guarantees.
-        address boostMinter_ // the minter contract
+        address boostMinter_, // the minter contract
+        address priceManager_,
+        PairedTokenType pairedTokenType_
     ) public onlyInitializing {
         __AccessControlEnumerable_init();
         __Pausable_init();
@@ -121,6 +128,8 @@ abstract contract MasterAMO is
         boostDecimals = IERC20Metadata(boost).decimals();
         usdDecimals = IERC20Metadata(usd).decimals();
         boostMinter = boostMinter_;
+        priceManager = priceManager_;
+        pairedTokenType = pairedTokenType_;
     }
 
     ////////////////////////// PAUSE ACTIONS //////////////////////////
@@ -200,7 +209,10 @@ abstract contract MasterAMO is
         (boostAmountIn, usdAmountOut) = _mintAndSellBoost(boostAmount);
 
         uint256 price = boostPrice();
-        if (price > FACTOR - validRangeWidth && price < FACTOR + validRangeWidth) {
+        uint256 tp = targetPrice();
+        uint256 lowerBound = tp - ((tp * validRangeWidth) / FACTOR);
+        uint256 upperBound = tp + ((tp * validRangeWidth) / FACTOR);
+        if (price > lowerBound && price < upperBound) {
             uint256 usdBalance = IERC20(usd).balanceOf(address(this));
             (boostSpent, usdSpent, liquidity) = _addLiquidity(usdBalance, minBoostSpend, minUsdSpend);
         }
@@ -266,7 +278,8 @@ abstract contract MasterAMO is
     {
         (liquidity, newBoostPrice) = _mintSellFarm(); // Perform the mint and sell, and return liquidity and the new Boost price
         // Checks if the actual average price of boost when selling is greater than the boostLowerPriceSell
-        if (newBoostPrice < boostLowerPriceSell) revert PriceNotInRange(newBoostPrice);
+        uint256 tp = targetPrice();
+        if (newBoostPrice < (tp * boostLowerPriceSell) / FACTOR) revert PriceNotInRange(newBoostPrice);
 
         emit PublicMintSellFarmExecuted(liquidity, newBoostPrice);
     }
@@ -284,7 +297,8 @@ abstract contract MasterAMO is
     {
         (liquidity, newBoostPrice) = _unfarmBuyBurn();
         // Checks if the actual average price of boost when buying is less than the boostUpperPriceBuy
-        if (newBoostPrice > boostUpperPriceBuy) revert PriceNotInRange(newBoostPrice);
+        uint256 tp = targetPrice();
+        if (newBoostPrice > (tp * boostUpperPriceBuy) / FACTOR) revert PriceNotInRange(newBoostPrice);
 
         emit PublicUnfarmBuyBurnExecuted(liquidity, newBoostPrice);
     }
@@ -324,6 +338,15 @@ abstract contract MasterAMO is
 
     ////////////////////////// VIEW FUNCTIONS //////////////////////////
     function boostPrice() public view virtual returns (uint256 price);
+
+    function targetPrice() public view returns (uint256 price) {
+        uint256 one = 10 ** PRICE_DECIMALS;
+        if (pairedTokenType == PairedTokenType.STABLE) return one;
+        else if (pairedTokenType == PairedTokenType.SUSDE) return IPriceManager(priceManager).sUsdePreviewDeposit(one);
+        else if (pairedTokenType == PairedTokenType.SFRAX) return IPriceManager(priceManager).sFraxPreviewDeposit(one);
+        else if (pairedTokenType == PairedTokenType.SDAI) return IPriceManager(priceManager).sDaiPreviewDeposit(one);
+        else revert InvalidPairedTokenType();
+    }
 
     function _validateSwap(bool boostForUsd) internal view virtual;
 }

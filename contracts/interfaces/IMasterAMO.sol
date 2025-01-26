@@ -2,6 +2,14 @@
 pragma solidity 0.8.28;
 
 interface IMasterAMO {
+    /* ========== ENUMS ========== */
+    enum PairedTokenType {
+        STABLE,
+        SUSDE,
+        SFRAX,
+        SDAI
+    }
+
     /* ========== ROLES ========== */
     /// @notice Returns the identifier for the SETTER_ROLE
     /// @dev This role allows calling set functions to modifying certain parameters of the contract
