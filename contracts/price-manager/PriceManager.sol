@@ -2,12 +2,13 @@
 pragma solidity 0.8.19;
 
 import "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
+import "./interfaces/IPriceManager.sol";
 import "./libs/StakedUSDeLib.sol";
 import "./libs/StakedFraxLib.sol";
 import "./libs/SavingsDaiLib.sol";
 import "./muon/interfaces/IMuonClient.sol";
 
-contract PriceManager is Initializable, AccessControlEnumerableUpgradeable {
+contract PriceManager is IPriceManager, Initializable, AccessControlEnumerableUpgradeable {
     using StakedUSDeLib for StakedUSDeLib.StakedUSDe;
     using StakedFraxLib for StakedFraxLib.StakedFrax;
     using SavingsDaiLib for SavingsDaiLib.Pot;
