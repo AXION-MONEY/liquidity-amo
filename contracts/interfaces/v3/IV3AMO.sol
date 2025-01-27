@@ -47,13 +47,6 @@ interface IV3AMO {
     function setTickBounds(int24 tickLower_, int24 tickUpper_) external;
 
     /**
-     * @notice This function sets the Q64.96 sqrt price limit
-     * @dev Can only be called by an account with the SETTER_ROLE
-     * @param targetSqrtPriceX96_ The Q64.96 sqrt price limit for swapping on a V3Pool
-     */
-    function setTargetSqrtPriceX96(uint160 targetSqrtPriceX96_) external;
-
-    /**
      * @notice This function sets various params for the contract
      * @dev Can only be called by an account with the SETTER_ROLE
      * @param quoter_ The new quoter contract address

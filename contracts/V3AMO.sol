@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
+import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import "@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol";
 import "./MasterAMO.sol";
@@ -23,7 +24,7 @@ import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 contract V3AMO is IV3AMO, MasterAMO {
     using SafeERC20 for IERC20;
-
+    using SafeCast for uint256;
 
     /* ========== ERRORS ========== */
     error UntrustedCaller(address caller);
@@ -43,7 +44,6 @@ contract V3AMO is IV3AMO, MasterAMO {
         uint256 usdCollectedFee
     );
     event TickBoundsSet(int24 tickLower, int24 tickUpper);
-    event TargetSqrtPriceX96Set(uint160 targetSqrtPriceX96);
     event ParamsSet(
         address quoter,
         uint256 boostMultiplier,
@@ -62,8 +62,6 @@ contract V3AMO is IV3AMO, MasterAMO {
     int24 public override tickLower;
     /// @inheritdoc IV3AMO
     int24 public override tickUpper;
-    /// @inheritdoc IV3AMO
-    uint160 public override targetSqrtPriceX96;
     /// @inheritdoc IV3AMO
     address public override quoter;
 
@@ -92,7 +90,6 @@ contract V3AMO is IV3AMO, MasterAMO {
         PairedTokenType pairedTokenType_,
         int24 tickLower_,
         int24 tickUpper_,
-        uint160 targetSqrtPriceX96_,
         uint256 boostMultiplier_,
         uint24 validRangeWidth_,
         uint24 validRemovingRatio_,
@@ -105,7 +102,6 @@ contract V3AMO is IV3AMO, MasterAMO {
 
         _grantRole(SETTER_ROLE, msg.sender);
         setTickBounds(tickLower_, tickUpper_);
-        setTargetSqrtPriceX96(targetSqrtPriceX96_);
         setParams(
             quoter_,
             boostMultiplier_,
@@ -117,20 +113,12 @@ contract V3AMO is IV3AMO, MasterAMO {
         _revokeRole(SETTER_ROLE, msg.sender);
     }
 
-
     ////////////////////////// SETTER_ROLE ACTIONS //////////////////////////
     /// @inheritdoc IV3AMO
     function setTickBounds(int24 tickLower_, int24 tickUpper_) public override onlyRole(SETTER_ROLE) {
         tickLower = tickLower_;
         tickUpper = tickUpper_;
         emit TickBoundsSet(tickLower, tickUpper);
-    }
-
-    /// @inheritdoc IV3AMO
-    function setTargetSqrtPriceX96(uint160 targetSqrtPriceX96_) public override onlyRole(SETTER_ROLE) {
-        if (targetSqrtPriceX96_ <= MIN_SQRT_RATIO || targetSqrtPriceX96_ >= MAX_SQRT_RATIO) revert InvalidRatioValue();
-        targetSqrtPriceX96 = targetSqrtPriceX96_;
-        emit TargetSqrtPriceX96Set(targetSqrtPriceX96);
     }
 
     /// @inheritdoc IV3AMO
@@ -248,7 +236,7 @@ contract V3AMO is IV3AMO, MasterAMO {
             address(this),
             boost < usd, // zeroForOne
             int256(boostAmount), // Amount of BOOST tokens being swapped
-            targetSqrtPriceX96, // The target square root price
+            targetSqrtPriceX96(), // The target square root price
             abi.encode(SwapType.SELL)
         );
 
@@ -394,7 +382,7 @@ contract V3AMO is IV3AMO, MasterAMO {
             address(this),
             boost > usd, // zeroForOne
             int256(usdRemoved), // Maximum USD to use for the swap
-            targetSqrtPriceX96, // Target price for the swap
+            targetSqrtPriceX96(), // Target price for the swap
             abi.encode(SwapType.BUY)
         );
 
@@ -448,7 +436,7 @@ contract V3AMO is IV3AMO, MasterAMO {
             (int256 amount0, int256 amount1, , , ) = ISolidlyV3Pool(pool).quoteSwap(
                 boost > usd, // zeroForOne
                 type(int256).max,
-                targetSqrtPriceX96
+                targetSqrtPriceX96()
             );
             (, int256 usdDelta) = sortAmounts(amount0, amount1);
             amountIn = uint256(usdDelta);
@@ -458,7 +446,7 @@ contract V3AMO is IV3AMO, MasterAMO {
                 tokenOut: boost,
                 amount: uint256(type(int256).max),
                 tickSpacing: IUniswapV3Pool(pool).tickSpacing(),
-                sqrtPriceLimitX96: targetSqrtPriceX96
+                sqrtPriceLimitX96: targetSqrtPriceX96()
             });
             (amountIn, , , ) = IVeloQuoterV2(quoter).quoteExactOutputSingle(params);
         } else if (poolType == PoolType.ALGEBRA_V1_0 || poolType == PoolType.ALGEBRA_V1_9) {
@@ -466,7 +454,7 @@ contract V3AMO is IV3AMO, MasterAMO {
                 usd,
                 boost,
                 uint256(type(int256).max),
-                targetSqrtPriceX96
+                targetSqrtPriceX96()
             );
         } else if (poolType == PoolType.ALGEBRA_INTEGRAL) {
             (bool success, bytes memory data) = quoter.call(
@@ -476,7 +464,7 @@ contract V3AMO is IV3AMO, MasterAMO {
                     boost,
                     poolCustomDeployer,
                     uint256(type(int256).max),
-                    targetSqrtPriceX96
+                    targetSqrtPriceX96()
                 )
             );
             if (!success)
@@ -486,7 +474,7 @@ contract V3AMO is IV3AMO, MasterAMO {
                         usd,
                         boost,
                         uint256(type(int256).max),
-                        targetSqrtPriceX96
+                        targetSqrtPriceX96()
                     )
                 );
             (, amountIn) = abi.decode(data, (uint256, uint256));
@@ -496,7 +484,7 @@ contract V3AMO is IV3AMO, MasterAMO {
                 tokenOut: boost,
                 amount: uint256(type(int256).max),
                 fee: IUniswapV3Pool(pool).fee(),
-                sqrtPriceLimitX96: targetSqrtPriceX96
+                sqrtPriceLimitX96: targetSqrtPriceX96()
             });
             (amountIn, , , ) = IQuoterV2(quoter).quoteExactOutputSingle(params);
         }
@@ -553,6 +541,16 @@ contract V3AMO is IV3AMO, MasterAMO {
         } else {
             price = ((sqrtDecimals * Q96) / sqrtPriceX96) ** 2 / 10 ** PRICE_DECIMALS;
         }
+    }
+
+    function targetSqrtPriceX96() public view returns (uint160) {
+        uint256 priceX96 = (targetPrice() * Q96 ** 2) / 10 ** PRICE_DECIMALS;
+        uint8 decimalsDiff = boostDecimals - usdDecimals;
+        // adjusting the price
+        if (boost < usd) priceX96 /= 10 ** decimalsDiff;
+        else priceX96 *= 10 ** decimalsDiff;
+        uint256 sqrtPriceX96 = Math.sqrt(priceX96);
+        return sqrtPriceX96.toUint160();
     }
 
     /// @inheritdoc IV3AMO
