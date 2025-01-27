@@ -428,7 +428,8 @@ contract V2AMO is IV2AMO, MasterAMO {
     function _mintSellFarm() internal override returns (uint256 liquidity, uint256 newBoostPrice) {
         (uint256 boostReserve, uint256 usdReserve) = getReserves();
 
-        uint256 boostAmountIn = ((Math.sqrt(usdReserve * boostReserve) - boostReserve) * boostSellRatio) / FACTOR;
+        uint256 boostAmountIn = ((Math.sqrt((usdReserve * boostReserve * FACTOR) / targetPrice()) - boostReserve) *
+            boostSellRatio) / FACTOR;
         boostAmountIn += (boostAmountIn * poolFee) / (FACTOR - poolFee);
 
         (, , , , liquidity) = _mintSellFarm(
@@ -444,7 +445,7 @@ contract V2AMO is IV2AMO, MasterAMO {
         (uint256 boostReserve, uint256 usdReserve) = getReserves();
 
         uint256 totalLp = IERC20(pool).totalSupply();
-        uint256 sqrtResRatio = Math.sqrt((FACTOR ** 2 * usdReserve) / boostReserve);
+        uint256 sqrtResRatio = Math.sqrt((FACTOR ** 2 * usdReserve) / ((boostReserve * targetPrice()) / FACTOR));
         uint256 removalPercentage = (FACTOR * (FACTOR - sqrtResRatio)) / (FACTOR - ((poolFee * sqrtResRatio) / FACTOR));
         liquidity = (totalLp * removalPercentage) / FACTOR;
         liquidity = (liquidity * usdBuyRatio) / FACTOR;
