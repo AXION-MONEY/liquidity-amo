@@ -1,4 +1,4 @@
-pragma solidity 0.8.19;
+pragma solidity 0.8.28;
 
 import "hardhat/console.sol";
 import "./interfaces/v3/IV3AMO.sol";

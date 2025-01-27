@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity 0.8.28;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import {IAlgebraPool} from "../interfaces/v3/IAlgebraPool.sol";
 import {IUniswapV3Pool} from "../interfaces/v3/IUniswapV3Pool.sol";
 import {IMinter} from "../interfaces/IMinter.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 contract MockAlgebraPoolCaller {
-    using SafeERC20Upgradeable for IERC20Upgradeable;
+    using SafeERC20 for IERC20;
 
     address poolAddress;
     address collateral;
@@ -86,17 +86,17 @@ contract MockAlgebraPoolCaller {
         SwapType swapType = abi.decode(data, (SwapType));
         if (swapType == SwapType.SELL) {
             uint256 boostAmountIn = uint256(boostDelta);
-            IERC20Upgradeable(boost).safeTransfer(poolAddress, boostAmountIn);
+            IERC20(boost).safeTransfer(poolAddress, boostAmountIn);
         } else if (swapType == SwapType.BUY) {
             uint256 usdAmountIn = uint256(usdDelta);
-            IERC20Upgradeable(collateral).safeTransfer(poolAddress, usdAmountIn);
+            IERC20(collateral).safeTransfer(poolAddress, usdAmountIn);
         }
     }
 
     function algebraMintCallback(uint256 amount0Owed, uint256 amount1Owed, bytes calldata) external {
         (uint256 boostOwed, uint256 usdOwed) = sortAmounts(amount0Owed, amount1Owed);
-        IERC20Upgradeable(collateral).safeTransfer(poolAddress, usdOwed);
-        IERC20Upgradeable(boost).safeTransfer(poolAddress, boostOwed);
+        IERC20(collateral).safeTransfer(poolAddress, usdOwed);
+        IERC20(boost).safeTransfer(poolAddress, boostOwed);
     }
 
     function sortAmounts(int256 amount0, int256 amount1) internal view returns (int256, int256) {

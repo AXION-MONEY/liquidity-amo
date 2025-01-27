@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity 0.8.28;
 
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "./MasterAMO.sol";
@@ -8,9 +8,11 @@ import {ISolidlyRouter} from "./interfaces/v2/ISolidlyRouter.sol";
 import {IPair} from "./interfaces/v2/IPair.sol";
 import {IV2AMO} from "./interfaces/v2/IV2AMO.sol";
 import {IVRouter} from "./interfaces/v2/IVRouter.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 contract V2AMO is IV2AMO, MasterAMO {
-    using SafeERC20Upgradeable for IERC20Upgradeable;
+    using SafeERC20 for IERC20;
 
     /* ========== ERRORS ========== */
     error TokenNotWhitelisted(address token);
@@ -198,7 +200,7 @@ contract V2AMO is IV2AMO, MasterAMO {
         IMinter(boostMinter).protocolMint(address(this), boostAmount);
 
         // Approve the transfer of BOOST tokens to the router
-        IERC20Upgradeable(boost).approve(router, boostAmount);
+        IERC20(boost).approve(router, boostAmount);
 
         uint256 minUsdAmountOut = toUsdAmount(boostAmount);
 
@@ -265,8 +267,8 @@ contract V2AMO is IV2AMO, MasterAMO {
         IMinter(boostMinter).protocolMint(address(this), boostAmount);
 
         // Approve the transfer of BOOST and USD tokens to the router
-        IERC20Upgradeable(boost).approve(router, boostAmount);
-        IERC20Upgradeable(usd).forceApprove(router, usdAmount);
+        IERC20(boost).approve(router, boostAmount);
+        IERC20(usd).forceApprove(router, usdAmount);
 
         uint256 lpBalanceBefore = balanceOfToken(pool);
         // Add liquidity to the BOOST-USD pool
@@ -287,11 +289,11 @@ contract V2AMO is IV2AMO, MasterAMO {
             revert LpAmountOutMismatch(liquidity, lpBalanceAfter - lpBalanceBefore);
 
         // Revoke approval from the router
-        IERC20Upgradeable(boost).approve(router, 0);
-        IERC20Upgradeable(usd).forceApprove(router, 0);
+        IERC20(boost).approve(router, 0);
+        IERC20(usd).forceApprove(router, 0);
 
         // Approve the transfer of liquidity tokens to the gauge and deposit them
-        IERC20Upgradeable(pool).approve(gauge, liquidity);
+        IERC20(pool).approve(gauge, liquidity);
         if (useTokenId) {
             IGauge(gauge).deposit(liquidity, tokenId);
         } else {
@@ -315,7 +317,7 @@ contract V2AMO is IV2AMO, MasterAMO {
     {
         // Withdraw from gauge
         IGauge(gauge).withdraw(liquidity);
-        IERC20Upgradeable(pool).approve(router, liquidity);
+        IERC20(pool).approve(router, liquidity);
 
         uint256 usdBalanceBefore = balanceOfToken(usd);
 
@@ -353,7 +355,7 @@ contract V2AMO is IV2AMO, MasterAMO {
             revert InvalidRatioToRemoveLiquidity();
 
         // Swap USD for BOOST based on pool type
-        IERC20Upgradeable(usd).forceApprove(router, usdRemoved);
+        IERC20(usd).forceApprove(router, usdRemoved);
 
         uint256[] memory amounts;
         if (poolType == PoolType.VELO_LIKE) {
@@ -408,8 +410,8 @@ contract V2AMO is IV2AMO, MasterAMO {
         // Calculate the reward amounts and transfer them to the reward vault
         for (uint i = 0; i < tokens.length; i++) {
             if (!whitelistedRewardTokens[tokens[i]]) revert TokenNotWhitelisted(tokens[i]);
-            rewardsAmounts[i] = IERC20Upgradeable(tokens[i]).balanceOf(address(this));
-            IERC20Upgradeable(tokens[i]).safeTransfer(rewardVault, rewardsAmounts[i]);
+            rewardsAmounts[i] = IERC20(tokens[i]).balanceOf(address(this));
+            IERC20(tokens[i]).safeTransfer(rewardVault, rewardsAmounts[i]);
         }
         // Emit an event for collecting rewards
         emit GetReward(tokens, rewardsAmounts);
@@ -434,7 +436,7 @@ contract V2AMO is IV2AMO, MasterAMO {
     function _unfarmBuyBurn() internal override returns (uint256 liquidity, uint256 newBoostPrice) {
         (uint256 boostReserve, uint256 usdReserve) = getReserves();
 
-        uint256 totalLp = IERC20Upgradeable(pool).totalSupply();
+        uint256 totalLp = IERC20(pool).totalSupply();
         uint256 sqrtResRatio = Math.sqrt((FACTOR ** 2 * usdReserve) / boostReserve);
         uint256 removalPercentage = (FACTOR * (FACTOR - sqrtResRatio)) / (FACTOR - ((poolFee * sqrtResRatio) / FACTOR));
         liquidity = (totalLp * removalPercentage) / FACTOR;

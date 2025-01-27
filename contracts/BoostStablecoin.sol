@@ -1,5 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity 0.8.28;
+
+
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
+import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import {AccessControlEnumerableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlEnumerableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 /**
  * the Boost coin itself is upgradable but behind a time lock.
@@ -10,11 +16,6 @@ pragma solidity 0.8.19;
  * these clever control features will require further upgrades — the Boost coin itself will be upgradable ( subject to proof-validation )
  * overall we strive to achieve both security and decentralisation:  we can pause the contracts as most stables can nowadays; still we will guarantee that pause is censorship resistant!
  **/
-
-import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 contract BoostStablecoin is
     Initializable,
@@ -52,7 +53,8 @@ contract BoostStablecoin is
         _mint(to, amount);
     }
 
-    function _beforeTokenTransfer(address from, address to, uint256 amount) internal override whenNotPaused {
-        super._beforeTokenTransfer(from, to, amount);
+    function _update(address from, address to, uint256 amount) internal override whenNotPaused {
+        super._update(from, to, amount);
     }
+
 }

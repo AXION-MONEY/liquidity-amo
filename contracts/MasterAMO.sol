@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity 0.8.28;
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol";
+import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import {AccessControlEnumerableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlEnumerableUpgradeable.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IMinter} from "./interfaces/IMinter.sol";
 import {IBoostStablecoin} from "./interfaces/IBoostStablecoin.sol";
 import {IMasterAMO} from "./interfaces/IMasterAMO.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
  * the contracts are upgradable but behind a time lock. This is because we plan further improvements to the AMO logic ( we could for instance deploy an AMO cotract for concentrated liquidity).
@@ -26,7 +26,7 @@ abstract contract MasterAMO is
     PausableUpgradeable,
     ReentrancyGuardUpgradeable
 {
-    using SafeERC20Upgradeable for IERC20Upgradeable;
+    using SafeERC20 for IERC20;
 
     /* ========== ERRORS ========== */
     error ZeroAddress();
@@ -200,7 +200,7 @@ abstract contract MasterAMO is
 
         uint256 price = boostPrice();
         if (price > FACTOR - validRangeWidth && price < FACTOR + validRangeWidth) {
-            uint256 usdBalance = IERC20Upgradeable(usd).balanceOf(address(this));
+            uint256 usdBalance = IERC20(usd).balanceOf(address(this));
             (boostSpent, usdSpent, liquidity) = _addLiquidity(usdBalance, minBoostSpend, minUsdSpend);
         }
     }
@@ -295,7 +295,7 @@ abstract contract MasterAMO is
         address recipient
     ) external override onlyRole(WITHDRAWER_ROLE) {
         if (recipient == address(0)) revert ZeroAddress();
-        IERC20Upgradeable(token).safeTransfer(recipient, amount);
+        IERC20(token).safeTransfer(recipient, amount);
     }
 
     ////////////////////////// INTERNAL FUNCTIONS //////////////////////////
@@ -318,7 +318,7 @@ abstract contract MasterAMO is
     }
 
     function balanceOfToken(address token) internal view returns (uint256) {
-        return IERC20Upgradeable(token).balanceOf(address(this));
+        return IERC20(token).balanceOf(address(this));
     }
 
     ////////////////////////// VIEW FUNCTIONS //////////////////////////

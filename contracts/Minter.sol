@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity 0.8.28;
 
-import "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import {AccessControlEnumerableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlEnumerableUpgradeable.sol";
+import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 import {IMinter} from "./interfaces/IMinter.sol";
 import {IBoostStablecoin} from "./interfaces/IBoostStablecoin.sol";
 
 contract Minter is Initializable, AccessControlEnumerableUpgradeable, PausableUpgradeable, IMinter {
-    using SafeERC20Upgradeable for IERC20Upgradeable;
+    using SafeERC20 for IERC20;
 
     address public override boostAddress;
     address public override collateralAddress;
@@ -75,7 +76,7 @@ contract Minter is Initializable, AccessControlEnumerableUpgradeable, PausableUp
     }
 
     function mint(address to, uint256 amount) external whenNotPaused onlyContract onlyRole(MINTER_ROLE) {
-        IERC20Upgradeable(collateralAddress).safeTransferFrom(
+        IERC20(collateralAddress).safeTransferFrom(
             msg.sender,
             treasury,
             amount / (10 ** (boostDecimals - collateralDecimals))
@@ -90,7 +91,7 @@ contract Minter is Initializable, AccessControlEnumerableUpgradeable, PausableUp
     }
 
     function withdrawToken(address token, uint256 amount) external onlyRole(WITHDRAWER_ROLE) {
-        IERC20Upgradeable(token).safeTransfer(treasury, amount);
+        IERC20(token).safeTransfer(treasury, amount);
         emit TokenWithdrawn(token, amount);
     }
 }

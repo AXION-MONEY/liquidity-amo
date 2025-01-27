@@ -1,6 +1,6 @@
 // File: contracts/interfaces/IRouter.sol
 
-pragma solidity 0.8.19;
+pragma solidity 0.8.28;
 
 interface IRouter {
     function pairFor(address tokenA, address tokenB, bool stable) external view returns (address pair);
@@ -8,7 +8,7 @@ interface IRouter {
 
 // File: contracts/interfaces/IWETH.sol
 
-pragma solidity 0.8.19;
+pragma solidity 0.8.28;
 
 interface IWETH {
     function deposit() external payable returns (uint);
@@ -20,7 +20,7 @@ interface IWETH {
 
 // File: contracts/interfaces/IPairFactory.sol
 
-pragma solidity 0.8.19;
+pragma solidity 0.8.28;
 
 interface IPairFactory {
     function isPaused() external view returns (bool);
@@ -42,7 +42,7 @@ interface IPairFactory {
 
 // File: contracts/interfaces/IPair.sol
 
-pragma solidity 0.8.19;
+pragma solidity 0.8.28;
 
 interface IPair {
     function metadata() external view returns (uint dec0, uint dec1, uint r0, uint r1, bool st, address t0, address t1);
@@ -68,7 +68,7 @@ interface IPair {
 
 // File: contracts/interfaces/IERC20.sol
 
-pragma solidity 0.8.19;
+pragma solidity 0.8.28;
 
 interface IERC20 {
     function totalSupply() external view returns (uint256);
@@ -93,7 +93,7 @@ interface IERC20 {
 
 // File: contracts/libraries/Math.sol
 
-pragma solidity 0.8.19;
+pragma solidity 0.8.28;
 
 library Math {
     function max(uint a, uint b) internal pure returns (uint) {
@@ -135,7 +135,7 @@ library Math {
 
 // File: contracts/MockRouter.sol
 
-pragma solidity 0.8.19;
+pragma solidity 0.8.28;
 
 contract MockRouter is IRouter {
     struct Route {

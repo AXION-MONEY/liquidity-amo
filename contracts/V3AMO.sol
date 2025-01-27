@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity 0.8.28;
 
 import "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import "@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol";
@@ -18,9 +18,12 @@ import {IAlgebraV19Pool} from "./interfaces/v3/IAlgebraV19Pool.sol";
 import {IAlgebraIntegralPool} from "./interfaces/v3/IAlgebraIntegralPool.sol";
 import {IRamsesV2Pool} from "./interfaces/v3/IRamsesV2Pool.sol";
 import {IV3AMO} from "./interfaces/v3/IV3AMO.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 contract V3AMO is IV3AMO, MasterAMO {
-    using SafeERC20Upgradeable for IERC20Upgradeable;
+    using SafeERC20 for IERC20;
+
 
     /* ========== ERRORS ========== */
     error UntrustedCaller(address caller);
@@ -174,7 +177,7 @@ contract V3AMO is IV3AMO, MasterAMO {
             uint256 boostAmountOut = uint256(-boostDelta);
             if (balanceOfToken(boost) < boostAmountOut || usdAmountIn > toUsdAmount(boostAmountOut))
                 revert InvalidDelta();
-            IERC20Upgradeable(usd).safeTransfer(pool, usdAmountIn);
+            IERC20(usd).safeTransfer(pool, usdAmountIn);
         }
     }
 
@@ -223,7 +226,7 @@ contract V3AMO is IV3AMO, MasterAMO {
         uint256 boostAmount = (toBoostAmount(usdOwed) * boostMultiplier) / FACTOR;
         if (boostAmount < boostOwed) revert InvalidOwed();
 
-        IERC20Upgradeable(usd).safeTransfer(pool, usdOwed);
+        IERC20(usd).safeTransfer(pool, usdOwed);
         IMinter(boostMinter).protocolMint(pool, boostOwed);
     }
 
