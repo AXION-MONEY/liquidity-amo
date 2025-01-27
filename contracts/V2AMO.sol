@@ -73,6 +73,11 @@ contract V2AMO is IV2AMO, MasterAMO {
     bool public override useTokenId;
 
     /* ========== FUNCTIONS ========== */
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     function initialize(
         address admin,
         address boost_,

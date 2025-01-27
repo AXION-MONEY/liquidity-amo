@@ -74,6 +74,11 @@ contract V3AMO is IV3AMO, MasterAMO {
     uint24 internal constant SQRT10 = 3162278; // sqrt(10) = 3.162278
 
     /* ========== FUNCTIONS ========== */
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     function initialize(
         address admin,
         address boost_,
@@ -109,6 +114,7 @@ contract V3AMO is IV3AMO, MasterAMO {
         );
         _revokeRole(SETTER_ROLE, msg.sender);
     }
+
 
     ////////////////////////// SETTER_ROLE ACTIONS //////////////////////////
     /// @inheritdoc IV3AMO

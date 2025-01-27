@@ -104,6 +104,7 @@ abstract contract MasterAMO is
     ) public onlyInitializing {
         __AccessControlEnumerable_init();
         __Pausable_init();
+        __ReentrancyGuard_init();
         // Ensure no zero addresses are passed to critical parameters
         if (
             admin == address(0) ||
