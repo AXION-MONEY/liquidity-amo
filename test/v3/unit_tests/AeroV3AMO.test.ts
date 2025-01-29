@@ -218,9 +218,7 @@ describe("AeroV3AMO", function () {
     amoAddress = await v3AMO.getAddress();
 
     const AMOQuoterFactory = await ethers.getContractFactory("AMOQuoter");
-    quoter = (await AMOQuoterFactory.deploy(
-      amoAddress,
-    )) as unknown as AMOQuoter;
+    quoter = (await AMOQuoterFactory.deploy()) as unknown as AMOQuoter;
     await quoter.waitForDeployment();
 
     // Provide liquidity
@@ -267,7 +265,7 @@ describe("AeroV3AMO", function () {
         );
       console.log("Price Before:", await v3AMO.boostPrice());
       const [liquidity, excessiveLiquidity, newPrice] =
-        await quoter.bestLiquidity.staticCall(10);
+        await quoter.bestLiquidity.staticCall(amoAddress, 10);
       console.log("Quoter:", liquidity, excessiveLiquidity, newPrice);
       expect(await v3AMO.connect(amo).unfarmBuyBurn(liquidity, 1, 1)).to.emit(
         v3AMO,
@@ -406,20 +404,6 @@ describe("AeroV3AMO", function () {
               boostMultiplier + BigInt(100),
               validRangeWidth + BigInt(100),
               ethers.parseUnits("0.99", 6),
-              boostLowerPriceSell + BigInt(100),
-              boostUpperPriceBuy + BigInt(100),
-            ),
-        ).to.be.revertedWithCustomError(v3AMO, "InvalidRatioValue");
-
-        await expect(
-          v3AMO
-            .connect(setter)
-            .setParams(
-              QUOTER_ADDRESS,
-              boostMultiplier + BigInt(100),
-              validRangeWidth + BigInt(100),
-              validRemovingRatio + BigInt(100),
-              ethers.parseUnits("1.1", 6),
               boostLowerPriceSell + BigInt(100),
               boostUpperPriceBuy + BigInt(100),
             ),

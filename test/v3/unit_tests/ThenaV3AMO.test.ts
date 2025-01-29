@@ -271,11 +271,12 @@ describe("ThenaV3AMO", function () {
       });
 
       it("Should revert when called by non-setter", async function () {
-        await expect(
-          v3AMO.connect(user).setTickBounds(-100000, 100000),
-        ).to.be.revertedWith(
-          `AccessControl: account ${user.address.toLowerCase()} is missing role ${SETTER_ROLE}`,
-        );
+        await expect(v3AMO.connect(user).setTickBounds(-100000, 100000))
+          .to.be.revertedWithCustomError(
+            v3AMO,
+            "AccessControlUnauthorizedAccount",
+          )
+          .withArgs(user.address, SETTER_ROLE);
       });
     });
 
@@ -331,9 +332,12 @@ describe("ThenaV3AMO", function () {
               boostLowerPriceSell + BigInt(100),
               boostUpperPriceBuy + BigInt(100),
             ),
-        ).to.be.revertedWith(
-          `AccessControl: account ${user.address.toLowerCase()} is missing role ${SETTER_ROLE}`,
-        );
+        )
+          .to.be.revertedWithCustomError(
+            v3AMO,
+            "AccessControlUnauthorizedAccount",
+          )
+          .withArgs(user.address, SETTER_ROLE);
       });
 
       it("Should revert when value is out of range", async function () {
@@ -358,20 +362,6 @@ describe("ThenaV3AMO", function () {
               boostMultiplier + BigInt(100),
               validRangeWidth + BigInt(100),
               ethers.parseUnits("0.99", 6),
-              boostLowerPriceSell + BigInt(100),
-              boostUpperPriceBuy + BigInt(100),
-            ),
-        ).to.be.revertedWithCustomError(v3AMO, "InvalidRatioValue");
-
-        await expect(
-          v3AMO
-            .connect(setter)
-            .setParams(
-              QUOTER_ADDRESS,
-              boostMultiplier + BigInt(100),
-              validRangeWidth + BigInt(100),
-              validRemovingRatio + BigInt(100),
-              ethers.parseUnits("1.1", 6),
               boostLowerPriceSell + BigInt(100),
               boostUpperPriceBuy + BigInt(100),
             ),
@@ -423,11 +413,12 @@ describe("ThenaV3AMO", function () {
       it("Should revert mintAndSellBoost when called by non-amo", async function () {
         const boostAmount = ethers.parseUnits("990000", 18);
         const usdAmount = ethers.parseUnits("980000", 6);
-        await expect(
-          v3AMO.connect(user).mintAndSellBoost(boostAmount),
-        ).to.be.revertedWith(
-          `AccessControl: account ${user.address.toLowerCase()} is missing role ${AMO_ROLE}`,
-        );
+        await expect(v3AMO.connect(user).mintAndSellBoost(boostAmount))
+          .to.be.revertedWithCustomError(
+            v3AMO,
+            "AccessControlUnauthorizedAccount",
+          )
+          .withArgs(user.address, AMO_ROLE);
       });
     });
 
@@ -473,11 +464,12 @@ describe("ThenaV3AMO", function () {
 
       it("Should revert addLiquidity when called by non-amo", async function () {
         const usdBalance = ethers.parseUnits("980000", 6);
-        await expect(
-          v3AMO.connect(user).addLiquidity(usdBalance, 1, 1),
-        ).to.be.revertedWith(
-          `AccessControl: account ${user.address.toLowerCase()} is missing role ${AMO_ROLE}`,
-        );
+        await expect(v3AMO.connect(user).addLiquidity(usdBalance, 1, 1))
+          .to.be.revertedWithCustomError(
+            v3AMO,
+            "AccessControlUnauthorizedAccount",
+          )
+          .withArgs(user.address, AMO_ROLE);
       });
     });
 
@@ -524,11 +516,12 @@ describe("ThenaV3AMO", function () {
       it("Should revert mintSellFarm when called by non-amo", async function () {
         const boostAmount = ethers.parseUnits("990000", 18);
         const usdAmount = ethers.parseUnits("980000", 6);
-        await expect(
-          v3AMO.connect(user).mintSellFarm(boostAmount, 1, 1),
-        ).to.be.revertedWith(
-          `AccessControl: account ${user.address.toLowerCase()} is missing role ${AMO_ROLE}`,
-        );
+        await expect(v3AMO.connect(user).mintSellFarm(boostAmount, 1, 1))
+          .to.be.revertedWithCustomError(
+            v3AMO,
+            "AccessControlUnauthorizedAccount",
+          )
+          .withArgs(user.address, AMO_ROLE);
       });
     });
 
@@ -579,9 +572,12 @@ describe("ThenaV3AMO", function () {
           (boostAmount * totalLiquidity) / boostInPool;
         await expect(
           v3AMO.connect(user).unfarmBuyBurn(liquidityToBeRemoved, 1, 1),
-        ).to.be.revertedWith(
-          `AccessControl: account ${user.address.toLowerCase()} is missing role ${AMO_ROLE}`,
-        );
+        )
+          .to.be.revertedWithCustomError(
+            v3AMO,
+            "AccessControlUnauthorizedAccount",
+          )
+          .withArgs(user.address, AMO_ROLE);
       });
     });
   });
@@ -676,10 +672,12 @@ describe("ThenaV3AMO", function () {
         });
 
         it("should not allow non-pauser to pause the contract", async function () {
-          const reverteMessage = `AccessControl: account ${user.address.toLowerCase()} is missing role ${PAUSER_ROLE}`;
-          await expect(v3AMO.connect(user).pause()).to.be.revertedWith(
-            reverteMessage,
-          );
+          await expect(v3AMO.connect(user).pause())
+            .to.be.revertedWithCustomError(
+              v3AMO,
+              "AccessControlUnauthorizedAccount",
+            )
+            .withArgs(user.address, PAUSER_ROLE);
         });
 
         it("should not allow mintAndSellBoost when paused", async function () {
@@ -746,10 +744,12 @@ describe("ThenaV3AMO", function () {
           await v3AMO.connect(pauser).pause();
           expect(await v3AMO.paused()).to.equal(true);
 
-          const reverteMessage = `AccessControl: account ${user.address.toLowerCase()} is missing role ${UNPAUSER_ROLE}`;
-          await expect(v3AMO.connect(user).unpause()).to.be.revertedWith(
-            reverteMessage,
-          );
+          await expect(v3AMO.connect(user).unpause())
+            .to.be.revertedWithCustomError(
+              v3AMO,
+              "AccessControlUnauthorizedAccount",
+            )
+            .withArgs(user.address, UNPAUSER_ROLE);
         });
       });
 
@@ -776,12 +776,16 @@ describe("ThenaV3AMO", function () {
 
         it("should not allow non-withdrawer to withdraw ERC20 tokens", async function () {
           const withdrawAmount = ethers.parseUnits("500", 18);
-          const reverteMessage = `AccessControl: account ${user.address.toLowerCase()} is missing role ${WITHDRAWER_ROLE}`;
           await expect(
             v3AMO
               .connect(user)
               .withdrawERC20(usdAddress, withdrawAmount, user.address),
-          ).to.be.revertedWith(reverteMessage);
+          )
+            .to.be.revertedWithCustomError(
+              v3AMO,
+              "AccessControlUnauthorizedAccount",
+            )
+            .withArgs(user.address, WITHDRAWER_ROLE);
         });
       });
     });
