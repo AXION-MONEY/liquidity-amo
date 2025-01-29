@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { ethers, network, upgrades } from "hardhat";
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import {
   Minter,
   BoostStablecoin,
@@ -213,6 +213,8 @@ describe("V2AMO", function () {
         poolFee,
         0, // SOLIDLY_V2
         minterAddress,
+        ethers.ZeroAddress, // priceManager
+        0, // PairedTokenType.STABLE
         ethers.ZeroAddress, // No factory needed for Solidly
         routerAddress,
         gaugeAddress,
@@ -229,7 +231,7 @@ describe("V2AMO", function () {
       ],
       {
         initializer:
-          "initialize(address,address,address,bool,uint256,uint8,address,address,address,address,address,uint256,bool,uint256,uint24,uint24,uint256,uint256,uint256,uint256)",
+          "initialize(address,address,address,bool,uint256,uint8,address,address,uint8,address,address,address,address,uint256,bool,uint256,uint24,uint24,uint256,uint256,uint256,uint256)",
         timeout: 0,
       },
     );
@@ -384,9 +386,12 @@ describe("V2AMO", function () {
                 boostSellRatio,
                 usdBuyRatio,
               ),
-          ).to.be.revertedWith(
-            `AccessControl: account ${user.address.toLowerCase()} is missing role ${SETTER_ROLE}`,
-          );
+          )
+            .to.be.revertedWithCustomError(
+              v2AMO,
+              "AccessControlUnauthorizedAccount",
+            )
+            .withArgs(user.address, SETTER_ROLE);
         });
 
         it("Should revert when value is out of range", async function () {
@@ -462,11 +467,12 @@ describe("V2AMO", function () {
           );
 
           // Test unauthorized access
-          await expect(
-            v2AMO.connect(user).mintAndSellBoost(boostAmount),
-          ).to.be.revertedWith(
-            `AccessControl: account ${user.address.toLowerCase()} is missing role ${AMO_ROLE}`,
-          );
+          await expect(v2AMO.connect(user).mintAndSellBoost(boostAmount))
+            .to.be.revertedWithCustomError(
+              v2AMO,
+              "AccessControlUnauthorizedAccount",
+            )
+            .withArgs(user.address, AMO_ROLE);
 
           // Test authorized access
           await expect(
@@ -475,22 +481,24 @@ describe("V2AMO", function () {
         });
         it("Should revert mintAndSellBoost when called by non-amo", async function () {
           const boostAmount = ethers.parseUnits("990000", 18);
-          await expect(
-            v2AMO.connect(user).mintAndSellBoost(boostAmount),
-          ).to.be.revertedWith(
-            `AccessControl: account ${user.address.toLowerCase()} is missing role ${AMO_ROLE}`,
-          );
+          await expect(v2AMO.connect(user).mintAndSellBoost(boostAmount))
+            .to.be.revertedWithCustomError(
+              v2AMO,
+              "AccessControlUnauthorizedAccount",
+            )
+            .withArgs(user.address, AMO_ROLE);
         });
       });
 
       it("Should revert mintSellFarm when called by non-amo", async function () {
         const boostAmount = ethers.parseUnits("990000", 18);
         const usdAmount = ethers.parseUnits("980000", 6);
-        await expect(
-          v2AMO.connect(user).mintSellFarm(boostAmount, 1, 1),
-        ).to.be.revertedWith(
-          `AccessControl: account ${user.address.toLowerCase()} is missing role ${AMO_ROLE}`,
-        );
+        await expect(v2AMO.connect(user).mintSellFarm(boostAmount, 1, 1))
+          .to.be.revertedWithCustomError(
+            v2AMO,
+            "AccessControlUnauthorizedAccount",
+          )
+          .withArgs(user.address, AMO_ROLE);
       });
 
       it("Should revert unfarmBuyBurn when called by non-amo", async function () {
@@ -499,9 +507,12 @@ describe("V2AMO", function () {
           v2AMO
             .connect(user)
             .unfarmBuyBurn(ethers.parseUnits("1000000", 18), 1, 1),
-        ).to.be.revertedWith(
-          `AccessControl: account ${user.address.toLowerCase()} is missing role ${AMO_ROLE}`,
-        );
+        )
+          .to.be.revertedWithCustomError(
+            v2AMO,
+            "AccessControlUnauthorizedAccount",
+          )
+          .withArgs(user.address, AMO_ROLE);
       });
 
       it("should only allow PAUSER_ROLE to pause and UNPAUSER_ROLE to unpause", async function () {
@@ -519,7 +530,7 @@ describe("V2AMO", function () {
         const boostAmount = ethers.parseUnits("1000", 18);
         await expect(
           v2AMO.connect(amoBot).mintAndSellBoost(boostAmount),
-        ).to.be.revertedWith("Pausable: paused");
+        ).to.be.revertedWithCustomError(v2AMO, "EnforcedPause");
 
         // Test unpause
         await expect(v2AMO.connect(unpauser).unpause())
@@ -542,9 +553,12 @@ describe("V2AMO", function () {
               ethers.parseUnits("1000", 6),
               user.address,
             ),
-        ).to.be.revertedWith(
-          `AccessControl: account ${user.address.toLowerCase()} is missing role ${WITHDRAWER_ROLE}`,
-        );
+        )
+          .to.be.revertedWithCustomError(
+            v2AMO,
+            "AccessControlUnauthorizedAccount",
+          )
+          .withArgs(user.address, WITHDRAWER_ROLE);
 
         // Withdraw tokens with WITHDRAWER_ROLE
         await v2AMO
@@ -627,9 +641,12 @@ describe("V2AMO", function () {
               v2AMO
                 .connect(user)
                 .addLiquidity(usdAmountToAdd, boostMinAmount, usdMinAmount),
-            ).to.be.revertedWith(
-              `AccessControl: account ${user.address.toLowerCase()} is missing role ${AMO_ROLE}`,
-            );
+            )
+              .to.be.revertedWithCustomError(
+                v2AMO,
+                "AccessControlUnauthorizedAccount",
+              )
+              .withArgs(user.address, AMO_ROLE);
 
             // Execute addLiquidity with AMO role
             const tx = await v2AMO
@@ -653,22 +670,24 @@ describe("V2AMO", function () {
 
         it("Should revert addLiquidity when called by non-amo", async function () {
           const usdBalance = ethers.parseUnits("980000", 6);
-          await expect(
-            v2AMO.connect(user).addLiquidity(usdBalance, 1, 1),
-          ).to.be.revertedWith(
-            `AccessControl: account ${user.address.toLowerCase()} is missing role ${AMO_ROLE}`,
-          );
+          await expect(v2AMO.connect(user).addLiquidity(usdBalance, 1, 1))
+            .to.be.revertedWithCustomError(
+              v2AMO,
+              "AccessControlUnauthorizedAccount",
+            )
+            .withArgs(user.address, AMO_ROLE);
         });
       });
 
       describe("mintSellFarm", function () {
         it("Should revert mintSellFarm when called by non-amo", async function () {
           const boostAmount = ethers.parseUnits("990000", 18);
-          await expect(
-            v2AMO.connect(user).mintSellFarm(boostAmount, 1, 1),
-          ).to.be.revertedWith(
-            `AccessControl: account ${user.address.toLowerCase()} is missing role ${AMO_ROLE}`,
-          );
+          await expect(v2AMO.connect(user).mintSellFarm(boostAmount, 1, 1))
+            .to.be.revertedWithCustomError(
+              v2AMO,
+              "AccessControlUnauthorizedAccount",
+            )
+            .withArgs(user.address, AMO_ROLE);
         });
       });
 
@@ -850,10 +869,12 @@ describe("V2AMO", function () {
           });
 
           it("should not allow non-pauser to pause the contract", async function () {
-            const reverteMessage = `AccessControl: account ${user.address.toLowerCase()} is missing role ${PAUSER_ROLE}`;
-            await expect(v2AMO.connect(user).pause()).to.be.revertedWith(
-              reverteMessage,
-            );
+            await expect(v2AMO.connect(user).pause())
+              .to.be.revertedWithCustomError(
+                v2AMO,
+                "AccessControlUnauthorizedAccount",
+              )
+              .withArgs(user.address, PAUSER_ROLE);
           });
 
           it("should not allow operations when paused", async function () {
@@ -868,19 +889,19 @@ describe("V2AMO", function () {
             // Use amoBot for all operations
             await expect(
               v2AMO.connect(amoBot).mintAndSellBoost(boostAmount),
-            ).to.be.revertedWith("Pausable: paused");
+            ).to.be.revertedWithCustomError(v2AMO, "EnforcedPause");
 
             await expect(
               v2AMO.connect(amoBot).addLiquidity(usdBalance, 1, 1),
-            ).to.be.revertedWith("Pausable: paused");
+            ).to.be.revertedWithCustomError(v2AMO, "EnforcedPause");
 
             await expect(
               v2AMO.connect(amoBot).mintSellFarm(),
-            ).to.be.revertedWith("Pausable: paused");
+            ).to.be.revertedWithCustomError(v2AMO, "EnforcedPause");
 
             await expect(
               v2AMO.connect(amoBot).unfarmBuyBurn(),
-            ).to.be.revertedWith("Pausable: paused");
+            ).to.be.revertedWithCustomError(v2AMO, "EnforcedPause");
           });
         });
       });
@@ -896,10 +917,12 @@ describe("V2AMO", function () {
 
         it("should not allow non-unpauser to unpause the contract", async function () {
           await v2AMO.connect(pauser).pause();
-          const reverteMessage = `AccessControl: account ${user.address.toLowerCase()} is missing role ${UNPAUSER_ROLE}`;
-          await expect(v2AMO.connect(user).unpause()).to.be.revertedWith(
-            reverteMessage,
-          );
+          await expect(v2AMO.connect(user).unpause())
+            .to.be.revertedWithCustomError(
+              v2AMO,
+              "AccessControlUnauthorizedAccount",
+            )
+            .withArgs(user.address, UNPAUSER_ROLE);
         });
       });
 
@@ -928,11 +951,12 @@ describe("V2AMO", function () {
         const tokens = [];
         it("should revert when token is not whitelisted", async function () {});
         it("should revert for non-setter", async function () {
-          await expect(
-            v2AMO.connect(user).setWhitelistedTokens(tokens, true),
-          ).to.be.revertedWith(
-            `AccessControl: account ${user.address.toLowerCase()} is missing role ${SETTER_ROLE}`,
-          );
+          await expect(v2AMO.connect(user).setWhitelistedTokens(tokens, true))
+            .to.be.revertedWithCustomError(
+              v2AMO,
+              "AccessControlUnauthorizedAccount",
+            )
+            .withArgs(user.address, SETTER_ROLE);
         });
         it("should whitelist tokens", async function () {
           await expect(
@@ -940,11 +964,12 @@ describe("V2AMO", function () {
           ).to.emit(v2AMO, "RewardTokensSet");
         });
         it("should revert for non-reward_collector", async function () {
-          await expect(
-            v2AMO.connect(user).getReward(tokens, true),
-          ).to.be.revertedWith(
-            `AccessControl: account ${user.address.toLowerCase()} is missing role ${REWARD_COLLECTOR_ROLE}`,
-          );
+          await expect(v2AMO.connect(user).getReward(tokens, true))
+            .to.be.revertedWithCustomError(
+              v2AMO,
+              "AccessControlUnauthorizedAccount",
+            )
+            .withArgs(user.address, REWARD_COLLECTOR_ROLE);
         });
         it("should get reward", async function () {
           await expect(

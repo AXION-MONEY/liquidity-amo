@@ -228,7 +228,7 @@ describe("V2AMO", function () {
           poolFee,
           1, // VELO_LIKE
           minterAddress,
-          ethers.ZeroAddress,
+          ethers.ZeroAddress, // priceManager
           0, // PairedTokenType.STABLE
           AeroPoolFactory,
           AeroRouter,
@@ -450,7 +450,7 @@ describe("V2AMO", function () {
           poolFee,
           1, // VELO_LIKE
           minterAddress,
-          ethers.ZeroAddress,
+          ethers.ZeroAddress, // priceManager
           0, // PairedTokenType.STABLE
           ethers.ZeroAddress,
           AeroRouter, // Use the actual router address
