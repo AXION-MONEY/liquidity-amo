@@ -171,4 +171,10 @@ interface IMasterAMO {
      * @return price the current BOOST price
      */
     function boostPrice() external view returns (uint256 price);
+
+    /**
+     * @notice This view function returns the target BOOST price with PRICE_DECIMALS = 6
+     * @return price the target BOOST price
+     */
+    function targetPrice() external view returns (uint256 price);
 }

@@ -34,9 +34,6 @@ interface IV3AMO {
     /// @notice Returns The upper tick of the position in which to add or remove liquidity
     function tickUpper() external view returns (int24);
 
-    /// @notice Returns The Q64.96 sqrt price limit for swapping on a V3Pool
-    function targetSqrtPriceX96() external view returns (uint160);
-
     /* ========== FUNCTIONS ========== */
     /**
      * @notice This function sets the position's tick bounds
@@ -74,4 +71,7 @@ interface IV3AMO {
      * @return usdOwed the computed amount of USD owed to the position as of the last mint/burn/poke
      */
     function position() external view returns (uint256 liquidity, uint256 boostOwed, uint256 usdOwed);
+
+    /// @notice Returns The Q64.96 sqrt price limit for swapping on a V3Pool
+    function targetSqrtPriceX96() external view returns (uint160);
 }

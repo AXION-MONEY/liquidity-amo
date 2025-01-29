@@ -543,7 +543,8 @@ contract V3AMO is IV3AMO, MasterAMO {
         }
     }
 
-    function targetSqrtPriceX96() public view returns (uint160) {
+    /// @inheritdoc IV3AMO
+    function targetSqrtPriceX96() public view override returns (uint160) {
         uint256 priceX96 = (targetPrice() * Q96 ** 2) / 10 ** PRICE_DECIMALS;
         uint8 decimalsDiff = boostDecimals - usdDecimals;
         // adjusting the price

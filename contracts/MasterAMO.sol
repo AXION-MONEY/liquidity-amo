@@ -346,7 +346,8 @@ abstract contract MasterAMO is
     ////////////////////////// VIEW FUNCTIONS //////////////////////////
     function boostPrice() public view virtual returns (uint256 price);
 
-    function targetPrice() public view returns (uint256 price) {
+    /// @inheritdoc IMasterAMO
+    function targetPrice() public view override returns (uint256 price) {
         uint256 one = 10 ** PRICE_DECIMALS;
         if (pairedTokenType == PairedTokenType.STABLE) return one;
         else if (pairedTokenType == PairedTokenType.SUSDE) return IPriceManager(priceManager).sUsdePreviewDeposit(one);
