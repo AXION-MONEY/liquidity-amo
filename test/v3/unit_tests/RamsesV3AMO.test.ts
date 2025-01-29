@@ -190,9 +190,10 @@ describe("RamsesV3AMO", function () {
       QUOTER_ADDRESS,
       POOL_CUSTOM_DEPLOYER_ADDRESS,
       minterAddress,
+      ethers.ZeroAddress, // priceManager
+      0, // PairedTokenType.STABLE
       tickLower,
       tickUpper,
-      sqrtPriceX96,
       boostMultiplier,
       validRangeWidth,
       validRemovingRatio,
@@ -201,7 +202,7 @@ describe("RamsesV3AMO", function () {
     ];
     v3AMO = (await upgrades.deployProxy(V3AMOFactory, args, {
       initializer:
-        "initialize(address,address,address,address,uint8,address,address,address,int24,int24,uint160,uint256,uint24,uint24,uint256,uint256)",
+        "initialize(address,address,address,address,uint8,address,address,address,address,uint8,int24,int24,uint256,uint24,uint24,uint256,uint256)",
     })) as unknown as V3AMO;
     await v3AMO.waitForDeployment();
     amoAddress = await v3AMO.getAddress();
@@ -234,7 +235,6 @@ describe("RamsesV3AMO", function () {
       expect(await v3AMO.boostMinter()).to.equal(minterAddress);
       expect(await v3AMO.tickLower()).to.equal(tickLower);
       expect(await v3AMO.tickUpper()).to.equal(tickUpper);
-      expect(await v3AMO.targetSqrtPriceX96()).to.equal(sqrtPriceX96);
       expect(await v3AMO.boostMultiplier()).to.equal(boostMultiplier);
       expect(await v3AMO.validRangeWidth()).to.equal(validRangeWidth);
       expect(await v3AMO.validRemovingRatio()).to.equal(validRemovingRatio);
@@ -268,37 +268,6 @@ describe("RamsesV3AMO", function () {
         ).to.be.revertedWith(
           `AccessControl: account ${user.address.toLowerCase()} is missing role ${SETTER_ROLE}`,
         );
-      });
-    });
-
-    describe("setTargetSqrtPriceX96", function () {
-      it("Should set target sqrt priceX96 correctly", async function () {
-        await expect(
-          v3AMO
-            .connect(setter)
-            .setTargetSqrtPriceX96(MIN_SQRT_RATIO + BigInt(10)),
-        )
-          .to.emit(v3AMO, "TargetSqrtPriceX96Set")
-          .withArgs(MIN_SQRT_RATIO + BigInt(10));
-        expect(await v3AMO.targetSqrtPriceX96()).to.equal(
-          MIN_SQRT_RATIO + BigInt(10),
-        );
-      });
-
-      it("Should revert when called by non-setter", async function () {
-        await expect(
-          v3AMO.connect(user).setTargetSqrtPriceX96(MIN_SQRT_RATIO),
-        ).to.be.revertedWith(
-          `AccessControl: account ${user.address.toLowerCase()} is missing role ${SETTER_ROLE}`,
-        );
-      });
-
-      it("Should revert when value is out of range", async function () {
-        await expect(
-          v3AMO
-            .connect(setter)
-            .setTargetSqrtPriceX96(MIN_SQRT_RATIO - BigInt(1)),
-        ).to.be.revertedWithCustomError(v3AMO, "InvalidRatioValue");
       });
     });
 
