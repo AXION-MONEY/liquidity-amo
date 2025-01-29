@@ -221,7 +221,7 @@ describe("Minter Contract Tests", function () {
         minterContract
           .connect(minterAddress)
           .mint(minterAddress.address, mintAmount),
-      ).to.be.revertedWith("Pausable: paused");
+      ).to.be.revertedWithCustomError(minterContract, "EnforcedPause");
       expect(await boostToken.balanceOf(minterAddress.address)).to.equal(0);
       expect(await collateralToken.balanceOf(minterAddress.address)).to.equal(
         mintAmount,
@@ -243,7 +243,7 @@ describe("Minter Contract Tests", function () {
       await minterContract.connect(pauser).pause();
       await expect(
         minterContract.connect(amo).protocolMint(user.address, mintAmount),
-      ).to.be.revertedWith("Pausable: paused");
+      ).to.be.revertedWithCustomError(minterContract, "EnforcedPause");
       expect(await boostToken.balanceOf(user.address)).to.equal(0);
     });
 
@@ -282,19 +282,26 @@ describe("Minter Contract Tests", function () {
     it("Should not allow non-amo contracts to protocol mint", async function () {
       expect(await boostToken.balanceOf(user.address)).to.equal(0);
       const mintAmount = ethers.parseUnits("1", 18);
-      let revertMessage = `AccessControl: account ${(await minterCallerWithMinterRole.getAddress()).toLowerCase()} is missing role ${AMORole}`;
       await expect(
         minterCallerWithMinterRole
           .connect(minterAddress)
           .testProtocolMint(user.address, mintAmount),
-      ).to.be.revertedWith(revertMessage);
-
-      revertMessage = `AccessControl: account ${(await minterCaller.getAddress()).toLowerCase()} is missing role ${AMORole}`;
+      )
+        .to.be.revertedWithCustomError(
+          minterContract,
+          "AccessControlUnauthorizedAccount",
+        )
+        .withArgs(await minterCallerWithMinterRole.getAddress(), AMORole);
       await expect(
         minterCaller
           .connect(minterAddress)
           .testProtocolMint(user.address, mintAmount),
-      ).to.be.revertedWith(revertMessage);
+      )
+        .to.be.revertedWithCustomError(
+          minterContract,
+          "AccessControlUnauthorizedAccount",
+        )
+        .withArgs(await minterCaller.getAddress(), AMORole);
       expect(await boostToken.balanceOf(user.address)).to.equal(0);
     });
 
@@ -306,20 +313,27 @@ describe("Minter Contract Tests", function () {
       await collateralToken
         .connect(minterAddress)
         .approve(await minterCallerWithAmoRole.getAddress(), mintAmount);
-      let revertMessage = `AccessControl: account ${(await minterCallerWithAmoRole.getAddress()).toLowerCase()} is missing role ${minterRole}`;
       await expect(
         minterCallerWithAmoRole
           .connect(minterAddress)
           .testMint(user.address, mintAmount),
-      ).to.be.revertedWith(revertMessage);
-
+      )
+        .to.be.revertedWithCustomError(
+          minterContract,
+          "AccessControlUnauthorizedAccount",
+        )
+        .withArgs(await minterCallerWithAmoRole.getAddress(), minterRole);
       await collateralToken
         .connect(minterAddress)
         .approve(await minterCaller.getAddress(), mintAmount);
-      revertMessage = `AccessControl: account ${(await minterCaller.getAddress()).toLowerCase()} is missing role ${minterRole}`;
       await expect(
         minterCaller.connect(minterAddress).testMint(user.address, mintAmount),
-      ).to.be.revertedWith(revertMessage);
+      )
+        .to.be.revertedWithCustomError(
+          minterContract,
+          "AccessControlUnauthorizedAccount",
+        )
+        .withArgs(await minterCaller.getAddress(), minterRole);
       expect(await boostToken.balanceOf(user.address)).to.equal(0);
     });
   });
@@ -374,47 +388,71 @@ describe("Minter Contract Tests", function () {
       );
       expect(await newToken.balanceOf(treasury.address)).to.be.equal(0);
 
-      let reverteMessage = `AccessControl: account ${owner.address.toLowerCase()} is missing role ${withdrawTokenRole}`;
       await expect(
         minterContract
           .connect(owner)
           .withdrawToken(newToken.getAddress(), mintAmount),
-      ).to.be.revertedWith(reverteMessage);
+      )
+        .to.be.revertedWithCustomError(
+          minterContract,
+          "AccessControlUnauthorizedAccount",
+        )
+        .withArgs(owner.address, withdrawTokenRole);
 
-      reverteMessage = `AccessControl: account ${admin.address.toLowerCase()} is missing role ${withdrawTokenRole}`;
       await expect(
         minterContract
           .connect(admin)
           .withdrawToken(newToken.getAddress(), mintAmount),
-      ).to.be.revertedWith(reverteMessage);
+      )
+        .to.be.revertedWithCustomError(
+          minterContract,
+          "AccessControlUnauthorizedAccount",
+        )
+        .withArgs(admin.address, withdrawTokenRole);
 
-      reverteMessage = `AccessControl: account ${pauser.address.toLowerCase()} is missing role ${withdrawTokenRole}`;
       await expect(
         minterContract
           .connect(pauser)
           .withdrawToken(newToken.getAddress(), mintAmount),
-      ).to.be.revertedWith(reverteMessage);
+      )
+        .to.be.revertedWithCustomError(
+          minterContract,
+          "AccessControlUnauthorizedAccount",
+        )
+        .withArgs(pauser.address, withdrawTokenRole);
 
-      reverteMessage = `AccessControl: account ${unpauser.address.toLowerCase()} is missing role ${withdrawTokenRole}`;
       await expect(
         minterContract
           .connect(unpauser)
           .withdrawToken(newToken.getAddress(), mintAmount),
-      ).to.be.revertedWith(reverteMessage);
+      )
+        .to.be.revertedWithCustomError(
+          minterContract,
+          "AccessControlUnauthorizedAccount",
+        )
+        .withArgs(unpauser.address, withdrawTokenRole);
 
-      reverteMessage = `AccessControl: account ${amo.address.toLowerCase()} is missing role ${withdrawTokenRole}`;
       await expect(
         minterContract
           .connect(amo)
           .withdrawToken(newToken.getAddress(), mintAmount),
-      ).to.be.revertedWith(reverteMessage);
+      )
+        .to.be.revertedWithCustomError(
+          minterContract,
+          "AccessControlUnauthorizedAccount",
+        )
+        .withArgs(amo.address, withdrawTokenRole);
 
-      reverteMessage = `AccessControl: account ${user.address.toLowerCase()} is missing role ${withdrawTokenRole}`;
       await expect(
         minterContract
           .connect(user)
           .withdrawToken(newToken.getAddress(), mintAmount),
-      ).to.be.revertedWith(reverteMessage);
+      )
+        .to.be.revertedWithCustomError(
+          minterContract,
+          "AccessControlUnauthorizedAccount",
+        )
+        .withArgs(user.address, withdrawTokenRole);
       expect(await newToken.balanceOf(treasury.address)).to.be.equal(0);
     });
   });
