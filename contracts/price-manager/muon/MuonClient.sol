@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
+import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import "@openzeppelin/contracts/access/extensions/AccessControlEnumerable.sol";
 import "./interfaces/IMuonClient.sol";
 import "./SchnorrSECP256K1Verifier.sol";
 
 contract MuonClient is IMuonClient, SchnorrSECP256K1Verifier, AccessControlEnumerable {
     using ECDSA for bytes32;
+    using MessageHashUtils for bytes32;
 
     bytes32 public constant SETTER_ROLE = keccak256("SETTER_ROLE");
 
