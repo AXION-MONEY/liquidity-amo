@@ -7,8 +7,8 @@ import {ISolidlyRouter} from "./interfaces/v2/ISolidlyRouter.sol";
 import {IPair} from "./interfaces/v2/IPair.sol";
 import {IV2AMO} from "./interfaces/v2/IV2AMO.sol";
 import {IVRouter} from "./interfaces/v2/IVRouter.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { IERC20 } from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 contract V2AMO is IV2AMO, MasterAMO {
     using SafeERC20 for IERC20;
