@@ -16,7 +16,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {IPriceManager} from "./price-manager/interfaces/IPriceManager.sol";
 
 /**
- * the contracts are upgradable but behind a time lock. This is because we plan further improvements to the AMO logic ( we could for instance deploy an AMO cotract for concentrated liquidity).
+ * the contracts are upgradable but behind a time lock. This is because we plan further improvements to the AMO logic ( we could for instance deploy an AMO contract for concentrated liquidity).
  * in future versions, upgrades could be strictly tied to a governance vote (where upgrade can only be passed with testified governance vote approval)
  * the contracts are pausable — also governance-unpausable to ensure decentralisation
  */

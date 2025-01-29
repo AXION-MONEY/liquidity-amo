@@ -263,7 +263,7 @@ contract V2AMO is IV2AMO, MasterAMO {
     ) internal override returns (uint256 boostSpent, uint256 usdSpent, uint256 liquidity) {
         // We only add liquidity when price is withing range (close to $1)
         // Price needs to be in range: 1 +- validRangeRatio / 1e6 == factor +- validRangeRatio
-        // if price is too high, we need to mint and sell more before we add liqudiity
+        // if price is too high, we need to mint and sell more before we add liquidity
         uint256 price = boostPrice();
         uint256 tp = targetPrice();
         if (price <= priceLowerBound(tp) || price >= priceUpperBound(tp)) revert InvalidRatioToAddLiquidity();
