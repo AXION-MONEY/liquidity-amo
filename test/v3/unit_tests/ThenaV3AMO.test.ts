@@ -555,12 +555,13 @@ describe("ThenaV3AMO", function () {
           );
 
         const boostInPool = await boost.balanceOf(poolAddress);
-        const totalLiqudity = (await v3AMO.position())[0];
-        const liqudityToBeRemoved = (boostToBuy * totalLiqudity) / boostInPool;
+        const totalLiquidity = (await v3AMO.position())[0];
+        const liquidityToBeRemoved =
+          (boostToBuy * totalLiquidity) / boostInPool;
 
         expect(await v3AMO.boostPrice()).to.be.lt(ethers.parseUnits("0.9", 6));
         await expect(
-          v3AMO.connect(amo).unfarmBuyBurn(liqudityToBeRemoved, 1, 1),
+          v3AMO.connect(amo).unfarmBuyBurn(liquidityToBeRemoved, 1, 1),
         ).to.emit(v3AMO, "UnfarmBuyBurn");
         expect(await v3AMO.boostPrice()).to.be.approximately(
           ethers.parseUnits(price, 6),
@@ -573,10 +574,11 @@ describe("ThenaV3AMO", function () {
       it("Should revert unfarmBuyBurn when called by non-amo", async function () {
         const boostAmount = ethers.parseUnits("990000", 18);
         const boostInPool = await boost.balanceOf(poolAddress);
-        const totalLiqudity = (await v3AMO.position())[0];
-        const liqudityToBeRemoved = (boostAmount * totalLiqudity) / boostInPool;
+        const totalLiquidity = (await v3AMO.position())[0];
+        const liquidityToBeRemoved =
+          (boostAmount * totalLiquidity) / boostInPool;
         await expect(
-          v3AMO.connect(user).unfarmBuyBurn(liqudityToBeRemoved, 1, 1),
+          v3AMO.connect(user).unfarmBuyBurn(liquidityToBeRemoved, 1, 1),
         ).to.be.revertedWith(
           `AccessControl: account ${user.address.toLowerCase()} is missing role ${AMO_ROLE}`,
         );
@@ -686,7 +688,7 @@ describe("ThenaV3AMO", function () {
 
           await expect(
             v3AMO.connect(amo).mintAndSellBoost(boostAmount),
-          ).to.be.revertedWith("Pausable: paused");
+          ).to.be.revertedWithCustomError(v3AMO, "EnforcedPause");
         });
 
         it("should not allow addLiquidity when paused", async function () {
@@ -694,7 +696,7 @@ describe("ThenaV3AMO", function () {
           await v3AMO.connect(pauser).pause();
           await expect(
             v3AMO.connect(amo).addLiquidity(usdBalance, 1, 1),
-          ).to.be.revertedWith("Pausable: paused");
+          ).to.be.revertedWithCustomError(v3AMO, "EnforcedPause");
         });
 
         it("should not allow mintSellFarm when paused", async function () {
@@ -704,30 +706,30 @@ describe("ThenaV3AMO", function () {
 
           await expect(
             v3AMO.connect(amo).mintSellFarm(boostAmount, 1, 1),
-          ).to.be.revertedWith("Pausable: paused");
+          ).to.be.revertedWithCustomError(v3AMO, "EnforcedPause");
         });
 
         it("should not allow unfarmBuyBurn when paused", async function () {
-          const liqudityToBeRemoved = "1";
+          const liquidityToBeRemoved = "1";
           await v3AMO.connect(pauser).pause();
 
           await expect(
-            v3AMO.connect(amo).unfarmBuyBurn(liqudityToBeRemoved, 1, 1),
-          ).to.be.revertedWith("Pausable: paused");
+            v3AMO.connect(amo).unfarmBuyBurn(liquidityToBeRemoved, 1, 1),
+          ).to.be.revertedWithCustomError(v3AMO, "EnforcedPause");
         });
 
         it("should not allow public mintSellFarm when paused", async function () {
           await v3AMO.connect(pauser).pause();
-          await expect(v3AMO.connect(amo).mintSellFarm()).to.be.revertedWith(
-            "Pausable: paused",
-          );
+          await expect(
+            v3AMO.connect(amo).mintSellFarm(),
+          ).to.be.revertedWithCustomError(v3AMO, "EnforcedPause");
         });
 
         it("should not allow public unfarmBuyBurn when paused", async function () {
           await v3AMO.connect(pauser).pause();
-          await expect(v3AMO.connect(amo).unfarmBuyBurn()).to.be.revertedWith(
-            "Pausable: paused",
-          );
+          await expect(
+            v3AMO.connect(amo).unfarmBuyBurn(),
+          ).to.be.revertedWithCustomError(v3AMO, "EnforcedPause");
         });
       });
 

@@ -315,11 +315,12 @@ describe("AeroV3AMO", function () {
       });
 
       it("Should revert when called by non-setter", async function () {
-        await expect(
-          v3AMO.connect(user).setTickBounds(-100000, 100000),
-        ).to.be.revertedWith(
-          `AccessControl: account ${user.address.toLowerCase()} is missing role ${SETTER_ROLE}`,
-        );
+        await expect(v3AMO.connect(user).setTickBounds(-100000, 100000))
+          .to.be.revertedWithCustomError(
+            v3AMO,
+            "AccessControlUnauthorizedAccount",
+          )
+          .withArgs(user.address, SETTER_ROLE);
       });
     });
 
@@ -375,9 +376,12 @@ describe("AeroV3AMO", function () {
               boostLowerPriceSell + BigInt(100),
               boostUpperPriceBuy + BigInt(100),
             ),
-        ).to.be.revertedWith(
-          `AccessControl: account ${user.address.toLowerCase()} is missing role ${SETTER_ROLE}`,
-        );
+        )
+          .to.be.revertedWithCustomError(
+            v3AMO,
+            "AccessControlUnauthorizedAccount",
+          )
+          .withArgs(user.address, SETTER_ROLE);
       });
 
       it("Should revert when value is out of range", async function () {
@@ -467,11 +471,12 @@ describe("AeroV3AMO", function () {
       it("Should revert mintAndSellBoost when called by non-amo", async function () {
         const boostAmount = ethers.parseUnits("990000", 18);
         const usdAmount = ethers.parseUnits("980000", 6);
-        await expect(
-          v3AMO.connect(user).mintAndSellBoost(boostAmount),
-        ).to.be.revertedWith(
-          `AccessControl: account ${user.address.toLowerCase()} is missing role ${AMO_ROLE}`,
-        );
+        await expect(v3AMO.connect(user).mintAndSellBoost(boostAmount))
+          .to.be.revertedWithCustomError(
+            v3AMO,
+            "AccessControlUnauthorizedAccount",
+          )
+          .withArgs(user.address, AMO_ROLE);
       });
     });
 
@@ -518,11 +523,12 @@ describe("AeroV3AMO", function () {
 
       it("Should revert addLiquidity when called by non-amo", async function () {
         const usdBalance = ethers.parseUnits("980000", 6);
-        await expect(
-          v3AMO.connect(user).addLiquidity(usdBalance, 1, 1),
-        ).to.be.revertedWith(
-          `AccessControl: account ${user.address.toLowerCase()} is missing role ${AMO_ROLE}`,
-        );
+        await expect(v3AMO.connect(user).addLiquidity(usdBalance, 1, 1))
+          .to.be.revertedWithCustomError(
+            v3AMO,
+            "AccessControlUnauthorizedAccount",
+          )
+          .withArgs(user.address, AMO_ROLE);
       });
     });
 
@@ -569,11 +575,12 @@ describe("AeroV3AMO", function () {
       it("Should revert mintSellFarm when called by non-amo", async function () {
         const boostAmount = ethers.parseUnits("990000", 18);
         const usdAmount = ethers.parseUnits("980000", 6);
-        await expect(
-          v3AMO.connect(user).mintSellFarm(boostAmount, 1, 1),
-        ).to.be.revertedWith(
-          `AccessControl: account ${user.address.toLowerCase()} is missing role ${AMO_ROLE}`,
-        );
+        await expect(v3AMO.connect(user).mintSellFarm(boostAmount, 1, 1))
+          .to.be.revertedWithCustomError(
+            v3AMO,
+            "AccessControlUnauthorizedAccount",
+          )
+          .withArgs(user.address, AMO_ROLE);
       });
     });
 
@@ -600,12 +607,13 @@ describe("AeroV3AMO", function () {
           );
 
         const boostInPool = await boost.balanceOf(poolAddress);
-        const totalLiqudity = (await v3AMO.position())[0];
-        const liqudityToBeRemoved = (boostToBuy * totalLiqudity) / boostInPool;
+        const totalLiquidity = (await v3AMO.position())[0];
+        const liquidityToBeRemoved =
+          (boostToBuy * totalLiquidity) / boostInPool;
 
         expect(await v3AMO.boostPrice()).to.be.lt(ethers.parseUnits("0.9", 6));
         await expect(
-          v3AMO.connect(amo).unfarmBuyBurn(liqudityToBeRemoved, 1, 1),
+          v3AMO.connect(amo).unfarmBuyBurn(liquidityToBeRemoved, 1, 1),
         ).to.emit(v3AMO, "UnfarmBuyBurn");
         expect(await v3AMO.boostPrice()).to.be.approximately(
           ethers.parseUnits(price, 6),
@@ -618,13 +626,17 @@ describe("AeroV3AMO", function () {
       it("Should revert unfarmBuyBurn when called by non-amo", async function () {
         const boostAmount = ethers.parseUnits("990000", 18);
         const boostInPool = await boost.balanceOf(poolAddress);
-        const totalLiqudity = (await v3AMO.position())[0];
-        const liqudityToBeRemoved = (boostAmount * totalLiqudity) / boostInPool;
+        const totalLiquidity = (await v3AMO.position())[0];
+        const liquidityToBeRemoved =
+          (boostAmount * totalLiquidity) / boostInPool;
         await expect(
-          v3AMO.connect(user).unfarmBuyBurn(liqudityToBeRemoved, 1, 1),
-        ).to.be.revertedWith(
-          `AccessControl: account ${user.address.toLowerCase()} is missing role ${AMO_ROLE}`,
-        );
+          v3AMO.connect(user).unfarmBuyBurn(liquidityToBeRemoved, 1, 1),
+        )
+          .to.be.revertedWithCustomError(
+            v3AMO,
+            "AccessControlUnauthorizedAccount",
+          )
+          .withArgs(user.address, AMO_ROLE);
       });
     });
   });
@@ -719,10 +731,12 @@ describe("AeroV3AMO", function () {
         });
 
         it("should not allow non-pauser to pause the contract", async function () {
-          const reverteMessage = `AccessControl: account ${user.address.toLowerCase()} is missing role ${PAUSER_ROLE}`;
-          await expect(v3AMO.connect(user).pause()).to.be.revertedWith(
-            reverteMessage,
-          );
+          await expect(v3AMO.connect(user).pause())
+            .to.be.revertedWithCustomError(
+              v3AMO,
+              "AccessControlUnauthorizedAccount",
+            )
+            .withArgs(user.address, PAUSER_ROLE);
         });
 
         it("should not allow mintAndSellBoost when paused", async function () {
@@ -731,7 +745,7 @@ describe("AeroV3AMO", function () {
 
           await expect(
             v3AMO.connect(amo).mintAndSellBoost(boostAmount),
-          ).to.be.revertedWith("Pausable: paused");
+          ).to.be.revertedWithCustomError(v3AMO, "EnforcedPause");
         });
 
         it("should not allow addLiquidity when paused", async function () {
@@ -740,7 +754,7 @@ describe("AeroV3AMO", function () {
 
           await expect(
             v3AMO.connect(amo).addLiquidity(usdBalance, 1, 1),
-          ).to.be.revertedWith("Pausable: paused");
+          ).to.be.revertedWithCustomError(v3AMO, "EnforcedPause");
         });
 
         it("should not allow mintSellFarm when paused", async function () {
@@ -750,30 +764,30 @@ describe("AeroV3AMO", function () {
 
           await expect(
             v3AMO.connect(amo).mintSellFarm(boostAmount, 1, 1),
-          ).to.be.revertedWith("Pausable: paused");
+          ).to.be.revertedWithCustomError(v3AMO, "EnforcedPause");
         });
 
         it("should not allow unfarmBuyBurn when paused", async function () {
-          const liqudityToBeRemoved = "1";
+          const liquidityToBeRemoved = "1";
           await v3AMO.connect(pauser).pause();
 
           await expect(
-            v3AMO.connect(amo).unfarmBuyBurn(liqudityToBeRemoved, 1, 1),
-          ).to.be.revertedWith("Pausable: paused");
+            v3AMO.connect(amo).unfarmBuyBurn(liquidityToBeRemoved, 1, 1),
+          ).to.be.revertedWithCustomError(v3AMO, "EnforcedPause");
         });
 
         it("should not allow public mintSellFarm when paused", async function () {
           await v3AMO.connect(pauser).pause();
-          await expect(v3AMO.connect(amo).mintSellFarm()).to.be.revertedWith(
-            "Pausable: paused",
-          );
+          await expect(
+            v3AMO.connect(amo).mintSellFarm(),
+          ).to.be.revertedWithCustomError(v3AMO, "EnforcedPause");
         });
 
         it("should not allow public unfarmBuyBurn when paused", async function () {
           await v3AMO.connect(pauser).pause();
-          await expect(v3AMO.connect(amo).unfarmBuyBurn()).to.be.revertedWith(
-            "Pausable: paused",
-          );
+          await expect(
+            v3AMO.connect(amo).unfarmBuyBurn(),
+          ).to.be.revertedWithCustomError(v3AMO, "EnforcedPause");
         });
       });
 
@@ -789,11 +803,12 @@ describe("AeroV3AMO", function () {
         it("should not allow non-unpauser to unpause the contract", async function () {
           await v3AMO.connect(pauser).pause();
           expect(await v3AMO.paused()).to.equal(true);
-
-          const reverteMessage = `AccessControl: account ${user.address.toLowerCase()} is missing role ${UNPAUSER_ROLE}`;
-          await expect(v3AMO.connect(user).unpause()).to.be.revertedWith(
-            reverteMessage,
-          );
+          await expect(v3AMO.connect(user).unpause())
+            .to.be.revertedWithCustomError(
+              v3AMO,
+              "AccessControlUnauthorizedAccount",
+            )
+            .withArgs(user.address, UNPAUSER_ROLE);
         });
       });
 
@@ -820,12 +835,16 @@ describe("AeroV3AMO", function () {
 
         it("should not allow non-withdrawer to withdraw ERC20 tokens", async function () {
           const withdrawAmount = ethers.parseUnits("500", 18);
-          const reverteMessage = `AccessControl: account ${user.address.toLowerCase()} is missing role ${WITHDRAWER_ROLE}`;
           await expect(
             v3AMO
               .connect(user)
               .withdrawERC20(usdAddress, withdrawAmount, user.address),
-          ).to.be.revertedWith(reverteMessage);
+          )
+            .to.be.revertedWithCustomError(
+              v3AMO,
+              "AccessControlUnauthorizedAccount",
+            )
+            .withArgs(user.address, WITHDRAWER_ROLE);
         });
       });
     });
