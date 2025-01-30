@@ -141,7 +141,7 @@ contract PriceManager is IPriceManager, Initializable, AccessControlEnumerableUp
         _setPot(_pot, srcBlock);
     }
 
-    function setSPotWithSig(SavingsDaiLib.Pot calldata _pot, MuonSig calldata sig) external {
+    function setPotWithSig(SavingsDaiLib.Pot calldata _pot, MuonSig calldata sig) external {
         if (keccak256(bytes(sig.token)) != keccak256("sdai")) revert SigTokenMismatch();
         bytes memory data = abi.encodePacked(
             sig.srcBlock.number,
