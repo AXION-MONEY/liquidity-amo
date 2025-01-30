@@ -208,7 +208,7 @@ contract V2AMO is IV2AMO, MasterAMO {
         // Approve the transfer of BOOST tokens to the router
         IERC20(boost).approve(router, boostAmount);
 
-        uint256 minUsdAmountOut = toUsdAmount(boostAmount);
+        uint256 minUsdAmountOut = (toUsdAmount(boostAmount) * targetPrice()) / FACTOR;
 
         uint256 usdBalanceBefore = balanceOfToken(usd);
         // Execute the swap and store the amounts of tokens involved, based on the pool type
@@ -371,7 +371,7 @@ contract V2AMO is IV2AMO, MasterAMO {
 
             amounts = IVRouter(router).swapExactTokensForTokens(
                 usdRemoved,
-                toBoostAmount(usdRemoved),
+                (toBoostAmount(usdRemoved) * FACTOR) / targetPrice(),
                 routes,
                 address(this),
                 block.timestamp + 300
@@ -462,14 +462,17 @@ contract V2AMO is IV2AMO, MasterAMO {
     function _validateSwap(bool boostForUsd) internal view override {
         (uint256 boostReserve, uint256 usdReserve) = getReserves();
         uint256 price = boostPrice();
+        uint256 tp = targetPrice();
         if (boostForUsd) {
             // mintSellFarm
-            if (boostReserve >= usdReserve) revert InvalidReserveRatio({ratio: (FACTOR * usdReserve) / boostReserve});
-            if (price <= FACTOR + validRangeWidth) revert PriceAlreadyInRange(price);
+            if ((boostReserve * tp) / FACTOR >= usdReserve)
+                revert InvalidReserveRatio({ratio: (FACTOR * usdReserve) / boostReserve});
+            if (price <= priceUpperBound(tp)) revert PriceAlreadyInRange(price);
         } else {
             // unfarmBuyBurn
-            if (usdReserve >= boostReserve) revert InvalidReserveRatio({ratio: (FACTOR * usdReserve) / boostReserve});
-            if (price >= FACTOR - validRangeWidth) revert PriceAlreadyInRange(price);
+            if (usdReserve >= (boostReserve * tp) / FACTOR)
+                revert InvalidReserveRatio({ratio: (FACTOR * usdReserve) / boostReserve});
+            if (price >= priceLowerBound(tp)) revert PriceAlreadyInRange(price);
         }
     }
 
