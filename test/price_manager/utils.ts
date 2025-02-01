@@ -1,17 +1,11 @@
 import { ethers, upgrades } from "hardhat";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
-import {
-  Minter,
-  BoostStablecoin,
-  MockERC20,
-  PriceManager,
-  V2AMO,
-} from "../../typechain-types";
+import { Minter, BoostStablecoin, MockERC20, PriceManager, V2AMO } from "../../typechain-types";
 
 export async function deployBaseContracts(
   admin: SignerWithAddress,
   user: SignerWithAddress,
-  initAmount: bigint,
+  initAmount: bigint
 ): Promise<[BoostStablecoin, MockERC20, Minter, PriceManager]> {
   const BoostFactory = await ethers.getContractFactory("BoostStablecoin");
   const boost = await upgrades.deployProxy(BoostFactory, [admin.address]);
@@ -24,11 +18,7 @@ export async function deployBaseContracts(
   const usdAddress = await testUsd.getAddress();
 
   const MinterFactory = await ethers.getContractFactory("Minter");
-  const minter = await upgrades.deployProxy(MinterFactory, [
-    boostAddress,
-    usdAddress,
-    admin.address,
-  ]);
+  const minter = await upgrades.deployProxy(MinterFactory, [boostAddress, usdAddress, admin.address]);
   await minter.waitForDeployment();
   const minterAddress = await minter.getAddress();
 
@@ -51,8 +41,8 @@ export async function deployBaseContracts(
     PriceManagerFactory,
     [admin.address, admin.address, muonClientAddress],
     {
-      initializer: "initialize",
-    },
+      initializer: "initialize"
+    }
   );
   await priceManager.waitForDeployment();
 
@@ -74,7 +64,7 @@ export async function deployV2AMO(
   boostLowerPriceSell: bigint,
   boostUpperPriceBuy: bigint,
   boostSellRatio: bigint,
-  usdBuyRatio: bigint,
+  usdBuyRatio: bigint
 ): Promise<V2AMO> {
   const GaugeFactory = await ethers.getContractFactory("MockGauge");
   const gauge = await GaugeFactory.deploy();
@@ -102,12 +92,12 @@ export async function deployV2AMO(
     boostLowerPriceSell,
     boostUpperPriceBuy,
     boostSellRatio,
-    usdBuyRatio,
+    usdBuyRatio
   ];
   const V2AMOFactory = await ethers.getContractFactory("V2AMO");
   const amo = await upgrades.deployProxy(V2AMOFactory, args, {
     initializer:
-      "initialize(address,address,address,bool,uint256,uint8,address,address,uint8,address,address,address,address,uint256,bool,uint256,uint24,uint24,uint256,uint256,uint256,uint256)",
+      "initialize(address,address,address,bool,uint256,uint8,address,address,uint8,address,address,address,address,uint256,bool,uint256,uint24,uint24,uint256,uint256,uint256,uint256)"
   });
   await amo.waitForDeployment();
   return amo;
@@ -119,7 +109,7 @@ export async function addLiquidity(
   boost: BoostStablecoin,
   usd: MockERC20,
   amoAddress: string,
-  amount: bigint,
+  amount: bigint
 ) {
   const router = await ethers.getContractAt("IVRouter", routerAddress);
   await boost.connect(admin).approve(routerAddress, amount);
@@ -133,7 +123,7 @@ export async function addLiquidity(
     0, // min amounts = 0 for testing
     0,
     amoAddress,
-    ethers.MaxUint256,
+    ethers.MaxUint256
   );
 }
 
@@ -142,7 +132,7 @@ export async function swap(
   token0Address: string,
   token1Address: string,
   routerAddress: string,
-  amount: bigint,
+  amount: bigint
 ) {
   const deadline = Math.floor(Date.now() / 1000) + 60 * 100;
   const router = await ethers.getContractAt("IVRouter", routerAddress);
@@ -151,10 +141,8 @@ export async function swap(
       from: token0Address,
       to: token1Address,
       stable: false,
-      factory: ethers.ZeroAddress,
-    },
+      factory: ethers.ZeroAddress
+    }
   ];
-  await router
-    .connect(user)
-    .swapExactTokensForTokens(amount, 0, route, user.address, deadline);
+  await router.connect(user).swapExactTokensForTokens(amount, 0, route, user.address, deadline);
 }

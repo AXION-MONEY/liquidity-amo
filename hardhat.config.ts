@@ -28,72 +28,72 @@ const config: HardhatUserConfig = {
         settings: {
           optimizer: {
             enabled: true,
-            runs: 200,
+            runs: 200
           },
-          viaIR: true,
-        },
-      },
-    ],
+          viaIR: true
+        }
+      }
+    ]
   },
   networks: {
     localhost: {
-      accounts: accounts,
+      accounts: accounts
     },
     blast: {
       url: "https://rpc.blast.io",
-      accounts: accounts,
+      accounts: accounts
     },
     fantom: {
       url: "https://rpc.ftm.tools",
-      accounts: accounts,
+      accounts: accounts
     },
     fantom_test: {
       url: "https://rpc.testnet.fantom.network",
-      accounts: accounts,
+      accounts: accounts
     },
     mainnet: {
       url: "https://ethereum.publicnode.com",
-      accounts: accounts,
+      accounts: accounts
     },
     bnb: {
       url: "https://bsc-dataseed.bnbchain.org",
-      accounts: accounts,
+      accounts: accounts
     },
     polygon: {
       url: "https://polygon-rpc.com",
-      accounts: accounts,
+      accounts: accounts
     },
     arbitrum: {
       url: "https://arb1.arbitrum.io/rpc",
-      accounts: accounts,
+      accounts: accounts
     },
     avax: {
       url: "https://ava-mainnet.public.blastapi.io/ext/bc/C/rpc",
-      accounts: accounts,
+      accounts: accounts
     },
     kava: {
       url: "https://evm.kava.io",
-      accounts: accounts,
+      accounts: accounts
     },
     zkevm: {
       url: "https://zkevm-rpc.com",
-      accounts: accounts,
+      accounts: accounts
     },
     op: {
       url: "https://optimism.llamarpc.com",
-      accounts: accounts,
+      accounts: accounts
     },
     base: {
       url: "https://base.drpc.org",
-      accounts: accounts,
-    },
+      accounts: accounts
+    }
   },
   sourcify: {
-    enabled: false,
+    enabled: false
   },
   gasReporter: {
     enabled: process.env.REPORT_GAS != undefined,
-    currency: "USD",
+    currency: "USD"
   },
   etherscan: {
     apiKey: {
@@ -103,7 +103,7 @@ const config: HardhatUserConfig = {
       blast: process.env.BLASTSCAN_API_KEY!,
       polygon: process.env.POLYGONSCAN_API_KEY!,
       base: process.env.BASESCAN_API_KEY!,
-      bnb: process.env.BSCSCAN_API_KEY!,
+      bnb: process.env.BSCSCAN_API_KEY!
     },
     customChains: [
       {
@@ -111,11 +111,11 @@ const config: HardhatUserConfig = {
         chainId: 81457,
         urls: {
           apiURL: "https://api.blastscan.io/api",
-          browserURL: "https://blastscan.io",
-        },
-      },
-    ],
-  },
+          browserURL: "https://blastscan.io"
+        }
+      }
+    ]
+  }
 };
 
 export default config;

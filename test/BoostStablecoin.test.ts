@@ -18,15 +18,10 @@ describe("BOOSTStablecoin Tests", function () {
     [admin, pauser, unpauser, minter, user1, user2] = await ethers.getSigners();
 
     // Deploy the BOOSTStablecoin contract
-    const BOOSTStablecoin = await ethers.getContractFactory(
-      "BoostStablecoin",
-      admin,
-    );
-    boostStablecoin = (await upgrades.deployProxy(
-      BOOSTStablecoin,
-      [admin.address],
-      { initializer: "initialize" },
-    )) as unknown as BoostStablecoin;
+    const BOOSTStablecoin = await ethers.getContractFactory("BoostStablecoin", admin);
+    boostStablecoin = (await upgrades.deployProxy(BOOSTStablecoin, [admin.address], {
+      initializer: "initialize"
+    })) as unknown as BoostStablecoin;
     await boostStablecoin.waitForDeployment();
 
     pauserRole = await boostStablecoin.PAUSER_ROLE();
@@ -35,61 +30,43 @@ describe("BOOSTStablecoin Tests", function () {
 
     // Grant roles
     await boostStablecoin.connect(admin).grantRole(pauserRole, pauser.address);
-    await boostStablecoin
-      .connect(admin)
-      .grantRole(unpauserRole, unpauser.address);
+    await boostStablecoin.connect(admin).grantRole(unpauserRole, unpauser.address);
     await boostStablecoin.connect(admin).grantRole(minterRole, minter.address);
   });
 
   describe("Minting", function () {
     it("Should mint tokens to the specified address by minter", async function () {
       await boostStablecoin.connect(minter).mint(user1.address, mintAmount);
-      expect(await boostStablecoin.balanceOf(user1.address)).to.equal(
-        mintAmount,
-      );
+      expect(await boostStablecoin.balanceOf(user1.address)).to.equal(mintAmount);
     });
 
     it("Should revert token mint when paused", async function () {
       await boostStablecoin.connect(pauser).pause();
 
-      await expect(
-        boostStablecoin.connect(minter).mint(user1.address, mintAmount),
-      ).to.be.revertedWithCustomError(boostStablecoin, "EnforcedPause");
+      await expect(boostStablecoin.connect(minter).mint(user1.address, mintAmount)).to.be.revertedWithCustomError(
+        boostStablecoin,
+        "EnforcedPause"
+      );
       expect(await boostStablecoin.balanceOf(user1.address)).to.equal("0");
     });
 
     it("Should NOT mint tokens by pauser", async function () {
-      await expect(
-        boostStablecoin.connect(pauser).mint(user1.address, mintAmount),
-      )
-        .to.be.revertedWithCustomError(
-          boostStablecoin,
-          "AccessControlUnauthorizedAccount",
-        )
+      await expect(boostStablecoin.connect(pauser).mint(user1.address, mintAmount))
+        .to.be.revertedWithCustomError(boostStablecoin, "AccessControlUnauthorizedAccount")
         .withArgs(pauser.address, minterRole);
       expect(await boostStablecoin.balanceOf(user1.address)).to.equal("0");
     });
 
     it("Should NOT mint tokens by unpauser", async function () {
-      await expect(
-        boostStablecoin.connect(unpauser).mint(user1.address, mintAmount),
-      )
-        .to.be.revertedWithCustomError(
-          boostStablecoin,
-          "AccessControlUnauthorizedAccount",
-        )
+      await expect(boostStablecoin.connect(unpauser).mint(user1.address, mintAmount))
+        .to.be.revertedWithCustomError(boostStablecoin, "AccessControlUnauthorizedAccount")
         .withArgs(unpauser.address, minterRole);
       expect(await boostStablecoin.balanceOf(user1.address)).to.equal("0");
     });
 
     it("Should NOT mint tokens by owner", async function () {
-      await expect(
-        boostStablecoin.connect(admin).mint(user1.address, mintAmount),
-      )
-        .to.be.revertedWithCustomError(
-          boostStablecoin,
-          "AccessControlUnauthorizedAccount",
-        )
+      await expect(boostStablecoin.connect(admin).mint(user1.address, mintAmount))
+        .to.be.revertedWithCustomError(boostStablecoin, "AccessControlUnauthorizedAccount")
         .withArgs(admin.address, minterRole);
       expect(await boostStablecoin.balanceOf(user1.address)).to.equal("0");
     });
@@ -107,24 +84,15 @@ describe("BOOSTStablecoin Tests", function () {
 
     it("Should NOT pause and unpause by other than pauser and unpauser", async function () {
       await expect(boostStablecoin.connect(admin).pause())
-        .to.be.revertedWithCustomError(
-          boostStablecoin,
-          "AccessControlUnauthorizedAccount",
-        )
+        .to.be.revertedWithCustomError(boostStablecoin, "AccessControlUnauthorizedAccount")
         .withArgs(admin.address, pauserRole);
 
       await expect(boostStablecoin.connect(minter).pause())
-        .to.be.revertedWithCustomError(
-          boostStablecoin,
-          "AccessControlUnauthorizedAccount",
-        )
+        .to.be.revertedWithCustomError(boostStablecoin, "AccessControlUnauthorizedAccount")
         .withArgs(minter.address, pauserRole);
 
       await expect(boostStablecoin.connect(unpauser).pause())
-        .to.be.revertedWithCustomError(
-          boostStablecoin,
-          "AccessControlUnauthorizedAccount",
-        )
+        .to.be.revertedWithCustomError(boostStablecoin, "AccessControlUnauthorizedAccount")
         .withArgs(unpauser.address, pauserRole);
 
       await boostStablecoin.connect(pauser).pause();
@@ -132,24 +100,15 @@ describe("BOOSTStablecoin Tests", function () {
       expect(await boostStablecoin.paused()).to.equal(true);
 
       await expect(boostStablecoin.connect(admin).unpause())
-        .to.be.revertedWithCustomError(
-          boostStablecoin,
-          "AccessControlUnauthorizedAccount",
-        )
+        .to.be.revertedWithCustomError(boostStablecoin, "AccessControlUnauthorizedAccount")
         .withArgs(admin.address, unpauserRole);
 
       await expect(boostStablecoin.connect(minter).unpause())
-        .to.be.revertedWithCustomError(
-          boostStablecoin,
-          "AccessControlUnauthorizedAccount",
-        )
+        .to.be.revertedWithCustomError(boostStablecoin, "AccessControlUnauthorizedAccount")
         .withArgs(minter.address, unpauserRole);
 
       await expect(boostStablecoin.connect(pauser).unpause())
-        .to.be.revertedWithCustomError(
-          boostStablecoin,
-          "AccessControlUnauthorizedAccount",
-        )
+        .to.be.revertedWithCustomError(boostStablecoin, "AccessControlUnauthorizedAccount")
         .withArgs(pauser.address, unpauserRole);
     });
   });
@@ -159,15 +118,9 @@ describe("BOOSTStablecoin Tests", function () {
       const transferAmount = ethers.parseEther("1");
       await boostStablecoin.connect(minter).mint(user1.address, mintAmount);
 
-      await boostStablecoin
-        .connect(user1)
-        .transfer(user2.address, transferAmount);
-      expect(await boostStablecoin.balanceOf(user2.address)).to.equal(
-        transferAmount,
-      );
-      expect(await boostStablecoin.balanceOf(user1.address)).to.equal(
-        mintAmount - transferAmount,
-      );
+      await boostStablecoin.connect(user1).transfer(user2.address, transferAmount);
+      expect(await boostStablecoin.balanceOf(user2.address)).to.equal(transferAmount);
+      expect(await boostStablecoin.balanceOf(user1.address)).to.equal(mintAmount - transferAmount);
     });
 
     it("Should revert token transfers when paused", async function () {
@@ -176,9 +129,7 @@ describe("BOOSTStablecoin Tests", function () {
       await boostStablecoin.connect(pauser).pause();
 
       await expect(
-        boostStablecoin
-          .connect(user1)
-          .transfer(user2.address, ethers.parseEther("1")),
+        boostStablecoin.connect(user1).transfer(user2.address, ethers.parseEther("1"))
       ).to.be.revertedWithCustomError(boostStablecoin, "EnforcedPause");
       expect(await boostStablecoin.balanceOf(user2.address)).to.equal("0");
     });

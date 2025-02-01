@@ -1,12 +1,7 @@
 import { ethers, upgrades } from "hardhat";
 import { expect } from "chai";
 import { ContractFactory } from "ethers";
-import {
-  Minter,
-  BoostStablecoin,
-  MockERC20,
-  MockMinterCaller,
-} from "../typechain-types"; // Adjust the import paths according to your setup
+import { Minter, BoostStablecoin, MockERC20, MockMinterCaller } from "../typechain-types"; // Adjust the import paths according to your setup
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 
 describe("Minter Contract Tests", function () {
@@ -38,33 +33,16 @@ describe("Minter Contract Tests", function () {
 
   beforeEach(async function () {
     // Get signers
-    [
-      owner,
-      admin,
-      treasury,
-      pauser,
-      unpauser,
-      minterAddress,
-      amo,
-      withdrawer,
-      user,
-    ] = await ethers.getSigners();
+    [owner, admin, treasury, pauser, unpauser, minterAddress, amo, withdrawer, user] = await ethers.getSigners();
 
     // Deploy the mock ERC20 token for collateral
     MockERC20Contract = await ethers.getContractFactory("MockERC20");
-    collateralToken = (await MockERC20Contract.deploy(
-      "Collateral Token",
-      "COL",
-      6,
-    )) as MockERC20;
+    collateralToken = (await MockERC20Contract.deploy("Collateral Token", "COL", 6)) as MockERC20;
     await collateralToken.waitForDeployment();
     // Deploy the BOOSTStablecoin contract
-    const BOOSTStablecoin = await ethers.getContractFactory(
-      "BoostStablecoin",
-      owner,
-    );
+    const BOOSTStablecoin = await ethers.getContractFactory("BoostStablecoin", owner);
     boostToken = (await upgrades.deployProxy(BOOSTStablecoin, [admin.address], {
-      initializer: "initialize",
+      initializer: "initialize"
     })) as unknown as BoostStablecoin;
     await boostToken.waitForDeployment();
 
@@ -72,34 +50,29 @@ describe("Minter Contract Tests", function () {
     const Minter = await ethers.getContractFactory("Minter", owner);
     minterContract = (await upgrades.deployProxy(
       Minter,
-      [
-        await boostToken.getAddress(),
-        await collateralToken.getAddress(),
-        treasury.address,
-      ],
-      { initializer: "initialize" },
+      [await boostToken.getAddress(), await collateralToken.getAddress(), treasury.address],
+      { initializer: "initialize" }
     )) as unknown as Minter;
     await minterContract.waitForDeployment();
 
     // Deploy the ExternalCaller contract
-    const TestMinterCaller =
-      await ethers.getContractFactory("MockMinterCaller");
+    const TestMinterCaller = await ethers.getContractFactory("MockMinterCaller");
     minterCaller = await TestMinterCaller.deploy(
       await minterContract.getAddress(),
       await boostToken.getAddress(),
-      await collateralToken.getAddress(),
+      await collateralToken.getAddress()
     );
     await minterCaller.waitForDeployment();
     minterCallerWithMinterRole = await TestMinterCaller.deploy(
       await minterContract.getAddress(),
       await boostToken.getAddress(),
-      await collateralToken.getAddress(),
+      await collateralToken.getAddress()
     );
     await minterCallerWithMinterRole.waitForDeployment();
     minterCallerWithAmoRole = await TestMinterCaller.deploy(
       await minterContract.getAddress(),
       await boostToken.getAddress(),
-      await collateralToken.getAddress(),
+      await collateralToken.getAddress()
     );
     await minterCallerWithAmoRole.waitForDeployment();
 
@@ -112,55 +85,31 @@ describe("Minter Contract Tests", function () {
 
     // Grant roles
     await minterContract.connect(owner).grantRole(pauserRole, pauser.address);
-    await minterContract
-      .connect(owner)
-      .grantRole(unpauserRole, unpauser.address);
-    await minterContract
-      .connect(owner)
-      .grantRole(minterRole, minterAddress.address);
-    await minterContract
-      .connect(owner)
-      .grantRole(minterRole, await minterCallerWithMinterRole.getAddress());
+    await minterContract.connect(owner).grantRole(unpauserRole, unpauser.address);
+    await minterContract.connect(owner).grantRole(minterRole, minterAddress.address);
+    await minterContract.connect(owner).grantRole(minterRole, await minterCallerWithMinterRole.getAddress());
     await minterContract.connect(owner).grantRole(adminRole, admin.address);
-    await minterContract
-      .connect(owner)
-      .grantRole(AMORole, await minterCallerWithAmoRole.getAddress());
+    await minterContract.connect(owner).grantRole(AMORole, await minterCallerWithAmoRole.getAddress());
     await minterContract.connect(owner).grantRole(AMORole, amo.address);
-    await minterContract
-      .connect(owner)
-      .grantRole(withdrawTokenRole, withdrawer);
+    await minterContract.connect(owner).grantRole(withdrawTokenRole, withdrawer);
 
-    await boostToken
-      .connect(admin)
-      .grantRole(await boostToken.MINTER_ROLE(), minterContract.getAddress());
+    await boostToken.connect(admin).grantRole(await boostToken.MINTER_ROLE(), minterContract.getAddress());
   });
 
   describe("Initializing", function () {
     it("Should set initial state correctly", async function () {
-      expect(await minterContract.boostAddress()).to.equal(
-        await boostToken.getAddress(),
-      );
-      expect(await minterContract.collateralAddress()).to.equal(
-        await collateralToken.getAddress(),
-      );
+      expect(await minterContract.boostAddress()).to.equal(await boostToken.getAddress());
+      expect(await minterContract.collateralAddress()).to.equal(await collateralToken.getAddress());
       expect(await minterContract.treasury()).to.equal(await treasury.address);
     });
   });
 
   describe("Setting", function () {
     it("Should allow setting tokens addresses by admin", async function () {
-      const newCollateralToken = await MockERC20Contract.deploy(
-        "New Collateral Token",
-        "NEWCOL",
-        6,
-      );
+      const newCollateralToken = await MockERC20Contract.deploy("New Collateral Token", "NEWCOL", 6);
       await newCollateralToken.waitForDeployment();
-      await minterContract
-        .connect(admin)
-        .setTokens(boostToken.getAddress(), newCollateralToken.getAddress());
-      expect(await minterContract.collateralAddress()).to.equal(
-        await newCollateralToken.getAddress(),
-      );
+      await minterContract.connect(admin).setTokens(boostToken.getAddress(), newCollateralToken.getAddress());
+      expect(await minterContract.collateralAddress()).to.equal(await newCollateralToken.getAddress());
     });
 
     it("Should allow setting the treasury address by admin", async function () {
@@ -176,64 +125,40 @@ describe("Minter Contract Tests", function () {
       const mintAmount = ethers.parseUnits("1", 18);
       const collateralAmount = ethers.parseUnits("1", 6);
 
-      expect(await collateralToken.balanceOf(minterAddress.address)).to.equal(
-        0,
-      );
+      expect(await collateralToken.balanceOf(minterAddress.address)).to.equal(0);
       await collateralToken.mint(minterAddress.address, collateralAmount);
-      expect(await collateralToken.balanceOf(minterAddress.address)).to.equal(
-        collateralAmount,
-      );
-      await collateralToken
-        .connect(minterAddress)
-        .approve(minterCallerWithMinterRole.getAddress(), collateralAmount);
+      expect(await collateralToken.balanceOf(minterAddress.address)).to.equal(collateralAmount);
+      await collateralToken.connect(minterAddress).approve(minterCallerWithMinterRole.getAddress(), collateralAmount);
 
       await expect(
-        minterCallerWithMinterRole
-          .connect(minterAddress)
-          .testMint(minterAddress.address, mintAmount),
+        minterCallerWithMinterRole.connect(minterAddress).testMint(minterAddress.address, mintAmount)
       ).to.emit(minterContract, "TokenMinted");
-      expect(await boostToken.balanceOf(minterAddress.address)).to.equal(
-        mintAmount,
-      );
-      expect(await collateralToken.balanceOf(minterAddress.address)).to.equal(
-        0,
-      );
+      expect(await boostToken.balanceOf(minterAddress.address)).to.equal(mintAmount);
+      expect(await collateralToken.balanceOf(minterAddress.address)).to.equal(0);
     });
 
     it("Should not allow minter to mint when paused", async function () {
       expect(await boostToken.balanceOf(user.address)).to.equal(0);
       const mintAmount = ethers.parseUnits("1", 18);
 
-      expect(await collateralToken.balanceOf(minterAddress.address)).to.equal(
-        0,
-      );
+      expect(await collateralToken.balanceOf(minterAddress.address)).to.equal(0);
       await collateralToken.mint(minterAddress.address, mintAmount);
-      expect(await collateralToken.balanceOf(minterAddress.address)).to.equal(
-        mintAmount,
-      );
-      await collateralToken
-        .connect(minterAddress)
-        .approve(minterContract.getAddress(), mintAmount);
+      expect(await collateralToken.balanceOf(minterAddress.address)).to.equal(mintAmount);
+      await collateralToken.connect(minterAddress).approve(minterContract.getAddress(), mintAmount);
 
       await minterContract.connect(pauser).pause();
 
       await expect(
-        minterContract
-          .connect(minterAddress)
-          .mint(minterAddress.address, mintAmount),
+        minterContract.connect(minterAddress).mint(minterAddress.address, mintAmount)
       ).to.be.revertedWithCustomError(minterContract, "EnforcedPause");
       expect(await boostToken.balanceOf(minterAddress.address)).to.equal(0);
-      expect(await collateralToken.balanceOf(minterAddress.address)).to.equal(
-        mintAmount,
-      );
+      expect(await collateralToken.balanceOf(minterAddress.address)).to.equal(mintAmount);
     });
 
     it("Should allow AMO to plotocol mint", async function () {
       expect(await boostToken.balanceOf(user.address)).to.equal(0);
       const mintAmount = ethers.parseUnits("1", 18);
-      await minterCallerWithAmoRole
-        .connect(amo)
-        .testProtocolMint(user.address, mintAmount);
+      await minterCallerWithAmoRole.connect(amo).testProtocolMint(user.address, mintAmount);
       expect(await boostToken.balanceOf(user.address)).to.equal(mintAmount);
     });
 
@@ -241,66 +166,56 @@ describe("Minter Contract Tests", function () {
       expect(await boostToken.balanceOf(user.address)).to.equal(0);
       const mintAmount = ethers.parseUnits("1", 18);
       await minterContract.connect(pauser).pause();
-      await expect(
-        minterContract.connect(amo).protocolMint(user.address, mintAmount),
-      ).to.be.revertedWithCustomError(minterContract, "EnforcedPause");
+      await expect(minterContract.connect(amo).protocolMint(user.address, mintAmount)).to.be.revertedWithCustomError(
+        minterContract,
+        "EnforcedPause"
+      );
       expect(await boostToken.balanceOf(user.address)).to.equal(0);
     });
 
     it("Should not allow non-contract to protocol mint", async function () {
       expect(await boostToken.balanceOf(user.address)).to.equal(0);
       const mintAmount = ethers.parseUnits("1", 18);
+      await expect(minterContract.connect(owner).protocolMint(user.address, mintAmount)).to.be.revertedWithCustomError(
+        minterContract,
+        "NonContractSender"
+      );
       await expect(
-        minterContract.connect(owner).protocolMint(user.address, mintAmount),
+        minterContract.connect(minterAddress).protocolMint(user.address, mintAmount)
       ).to.be.revertedWithCustomError(minterContract, "NonContractSender");
-      await expect(
-        minterContract
-          .connect(minterAddress)
-          .protocolMint(user.address, mintAmount),
-      ).to.be.revertedWithCustomError(minterContract, "NonContractSender");
-      await expect(
-        minterContract.connect(amo).protocolMint(user.address, mintAmount),
-      ).to.be.revertedWithCustomError(minterContract, "NonContractSender");
+      await expect(minterContract.connect(amo).protocolMint(user.address, mintAmount)).to.be.revertedWithCustomError(
+        minterContract,
+        "NonContractSender"
+      );
       expect(await boostToken.balanceOf(user.address)).to.equal(0);
     });
 
     it("Should not allow non-contract to mint", async function () {
       expect(await boostToken.balanceOf(user.address)).to.equal(0);
       const mintAmount = ethers.parseUnits("1", 18);
-      await expect(
-        minterContract.connect(owner).mint(user.address, mintAmount),
-      ).to.be.revertedWithCustomError(minterContract, "NonContractSender");
-      await expect(
-        minterContract.connect(amo).mint(user.address, mintAmount),
-      ).to.be.revertedWithCustomError(minterContract, "NonContractSender");
-      await expect(
-        minterContract.connect(minterAddress).mint(user.address, mintAmount),
-      ).to.be.revertedWithCustomError(minterContract, "NonContractSender");
+      await expect(minterContract.connect(owner).mint(user.address, mintAmount)).to.be.revertedWithCustomError(
+        minterContract,
+        "NonContractSender"
+      );
+      await expect(minterContract.connect(amo).mint(user.address, mintAmount)).to.be.revertedWithCustomError(
+        minterContract,
+        "NonContractSender"
+      );
+      await expect(minterContract.connect(minterAddress).mint(user.address, mintAmount)).to.be.revertedWithCustomError(
+        minterContract,
+        "NonContractSender"
+      );
       expect(await boostToken.balanceOf(user.address)).to.equal(0);
     });
 
     it("Should not allow non-amo contracts to protocol mint", async function () {
       expect(await boostToken.balanceOf(user.address)).to.equal(0);
       const mintAmount = ethers.parseUnits("1", 18);
-      await expect(
-        minterCallerWithMinterRole
-          .connect(minterAddress)
-          .testProtocolMint(user.address, mintAmount),
-      )
-        .to.be.revertedWithCustomError(
-          minterContract,
-          "AccessControlUnauthorizedAccount",
-        )
+      await expect(minterCallerWithMinterRole.connect(minterAddress).testProtocolMint(user.address, mintAmount))
+        .to.be.revertedWithCustomError(minterContract, "AccessControlUnauthorizedAccount")
         .withArgs(await minterCallerWithMinterRole.getAddress(), AMORole);
-      await expect(
-        minterCaller
-          .connect(minterAddress)
-          .testProtocolMint(user.address, mintAmount),
-      )
-        .to.be.revertedWithCustomError(
-          minterContract,
-          "AccessControlUnauthorizedAccount",
-        )
+      await expect(minterCaller.connect(minterAddress).testProtocolMint(user.address, mintAmount))
+        .to.be.revertedWithCustomError(minterContract, "AccessControlUnauthorizedAccount")
         .withArgs(await minterCaller.getAddress(), AMORole);
       expect(await boostToken.balanceOf(user.address)).to.equal(0);
     });
@@ -310,29 +225,13 @@ describe("Minter Contract Tests", function () {
       const mintAmount = ethers.parseUnits("1", 18);
       await collateralToken.mint(minterAddress.address, mintAmount);
 
-      await collateralToken
-        .connect(minterAddress)
-        .approve(await minterCallerWithAmoRole.getAddress(), mintAmount);
-      await expect(
-        minterCallerWithAmoRole
-          .connect(minterAddress)
-          .testMint(user.address, mintAmount),
-      )
-        .to.be.revertedWithCustomError(
-          minterContract,
-          "AccessControlUnauthorizedAccount",
-        )
+      await collateralToken.connect(minterAddress).approve(await minterCallerWithAmoRole.getAddress(), mintAmount);
+      await expect(minterCallerWithAmoRole.connect(minterAddress).testMint(user.address, mintAmount))
+        .to.be.revertedWithCustomError(minterContract, "AccessControlUnauthorizedAccount")
         .withArgs(await minterCallerWithAmoRole.getAddress(), minterRole);
-      await collateralToken
-        .connect(minterAddress)
-        .approve(await minterCaller.getAddress(), mintAmount);
-      await expect(
-        minterCaller.connect(minterAddress).testMint(user.address, mintAmount),
-      )
-        .to.be.revertedWithCustomError(
-          minterContract,
-          "AccessControlUnauthorizedAccount",
-        )
+      await collateralToken.connect(minterAddress).approve(await minterCaller.getAddress(), mintAmount);
+      await expect(minterCaller.connect(minterAddress).testMint(user.address, mintAmount))
+        .to.be.revertedWithCustomError(minterContract, "AccessControlUnauthorizedAccount")
         .withArgs(await minterCaller.getAddress(), minterRole);
       expect(await boostToken.balanceOf(user.address)).to.equal(0);
     });
@@ -351,107 +250,49 @@ describe("Minter Contract Tests", function () {
 
   describe("Withdraw", function () {
     it("Should allow withdrawer to withdraw token", async function () {
-      const newToken = (await MockERC20Contract.deploy(
-        "New Token",
-        "Token",
-        6,
-      )) as MockERC20;
+      const newToken = (await MockERC20Contract.deploy("New Token", "Token", 6)) as MockERC20;
       await newToken.waitForDeployment();
 
       const mintAmount = ethers.parseUnits("100", 6);
       await newToken.mint(minterContract.getAddress(), mintAmount);
-      expect(await newToken.balanceOf(minterContract.getAddress())).to.be.equal(
-        mintAmount,
-      );
+      expect(await newToken.balanceOf(minterContract.getAddress())).to.be.equal(mintAmount);
 
       expect(await newToken.balanceOf(treasury.address)).to.be.equal(0);
-      await minterContract
-        .connect(withdrawer)
-        .withdrawToken(newToken.getAddress(), mintAmount);
-      expect(await newToken.balanceOf(treasury.address)).to.be.equal(
-        mintAmount,
-      );
+      await minterContract.connect(withdrawer).withdrawToken(newToken.getAddress(), mintAmount);
+      expect(await newToken.balanceOf(treasury.address)).to.be.equal(mintAmount);
     });
 
     it("Should not allow others to withdraw token", async function () {
-      const newToken = (await MockERC20Contract.deploy(
-        "New Token",
-        "Token",
-        6,
-      )) as MockERC20;
+      const newToken = (await MockERC20Contract.deploy("New Token", "Token", 6)) as MockERC20;
       await newToken.waitForDeployment();
 
       const mintAmount = ethers.parseUnits("100", 6);
       await newToken.mint(minterContract.getAddress(), mintAmount);
-      expect(await newToken.balanceOf(minterContract.getAddress())).to.be.equal(
-        mintAmount,
-      );
+      expect(await newToken.balanceOf(minterContract.getAddress())).to.be.equal(mintAmount);
       expect(await newToken.balanceOf(treasury.address)).to.be.equal(0);
 
-      await expect(
-        minterContract
-          .connect(owner)
-          .withdrawToken(newToken.getAddress(), mintAmount),
-      )
-        .to.be.revertedWithCustomError(
-          minterContract,
-          "AccessControlUnauthorizedAccount",
-        )
+      await expect(minterContract.connect(owner).withdrawToken(newToken.getAddress(), mintAmount))
+        .to.be.revertedWithCustomError(minterContract, "AccessControlUnauthorizedAccount")
         .withArgs(owner.address, withdrawTokenRole);
 
-      await expect(
-        minterContract
-          .connect(admin)
-          .withdrawToken(newToken.getAddress(), mintAmount),
-      )
-        .to.be.revertedWithCustomError(
-          minterContract,
-          "AccessControlUnauthorizedAccount",
-        )
+      await expect(minterContract.connect(admin).withdrawToken(newToken.getAddress(), mintAmount))
+        .to.be.revertedWithCustomError(minterContract, "AccessControlUnauthorizedAccount")
         .withArgs(admin.address, withdrawTokenRole);
 
-      await expect(
-        minterContract
-          .connect(pauser)
-          .withdrawToken(newToken.getAddress(), mintAmount),
-      )
-        .to.be.revertedWithCustomError(
-          minterContract,
-          "AccessControlUnauthorizedAccount",
-        )
+      await expect(minterContract.connect(pauser).withdrawToken(newToken.getAddress(), mintAmount))
+        .to.be.revertedWithCustomError(minterContract, "AccessControlUnauthorizedAccount")
         .withArgs(pauser.address, withdrawTokenRole);
 
-      await expect(
-        minterContract
-          .connect(unpauser)
-          .withdrawToken(newToken.getAddress(), mintAmount),
-      )
-        .to.be.revertedWithCustomError(
-          minterContract,
-          "AccessControlUnauthorizedAccount",
-        )
+      await expect(minterContract.connect(unpauser).withdrawToken(newToken.getAddress(), mintAmount))
+        .to.be.revertedWithCustomError(minterContract, "AccessControlUnauthorizedAccount")
         .withArgs(unpauser.address, withdrawTokenRole);
 
-      await expect(
-        minterContract
-          .connect(amo)
-          .withdrawToken(newToken.getAddress(), mintAmount),
-      )
-        .to.be.revertedWithCustomError(
-          minterContract,
-          "AccessControlUnauthorizedAccount",
-        )
+      await expect(minterContract.connect(amo).withdrawToken(newToken.getAddress(), mintAmount))
+        .to.be.revertedWithCustomError(minterContract, "AccessControlUnauthorizedAccount")
         .withArgs(amo.address, withdrawTokenRole);
 
-      await expect(
-        minterContract
-          .connect(user)
-          .withdrawToken(newToken.getAddress(), mintAmount),
-      )
-        .to.be.revertedWithCustomError(
-          minterContract,
-          "AccessControlUnauthorizedAccount",
-        )
+      await expect(minterContract.connect(user).withdrawToken(newToken.getAddress(), mintAmount))
+        .to.be.revertedWithCustomError(minterContract, "AccessControlUnauthorizedAccount")
         .withArgs(user.address, withdrawTokenRole);
       expect(await newToken.balanceOf(treasury.address)).to.be.equal(0);
     });

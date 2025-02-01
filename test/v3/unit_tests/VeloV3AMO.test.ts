@@ -9,7 +9,7 @@ import {
   ICLPool,
   ICLFactory,
   V3AMO,
-  MockUniswapV3PoolCaller,
+  MockUniswapV3PoolCaller
 } from "../../../typechain-types";
 
 describe("VeloV3AMO", function () {
@@ -20,10 +20,10 @@ describe("VeloV3AMO", function () {
         {
           forking: {
             jsonRpcUrl: "https://1rpc.io/op",
-            blockNumber: 128475300,
-          },
-        },
-      ],
+            blockNumber: 128475300
+          }
+        }
+      ]
     });
   });
 
@@ -33,7 +33,7 @@ describe("VeloV3AMO", function () {
     ALGEBRA_V1_0,
     ALGEBRA_V1_9,
     ALGEBRA_INTEGRAL,
-    RAMSES_V2,
+    RAMSES_V2
   }
 
   const abiCoder = new AbiCoder();
@@ -63,12 +63,9 @@ describe("VeloV3AMO", function () {
   const POOL_TYPE: PoolType = PoolType.CL; //CL for Aerodrome
   const POOL_FACTORY_ADDRESS = "0xCc0bDDB707055e04e497aB22a59c2aF4391cd12F";
   const QUOTER_ADDRESS = "0x89D8218ed5fF1e46d8dcd33fb0bbeE3be1621466";
-  const POOL_CUSTOM_DEPLOYER_ADDRESS =
-    "0x0000000000000000000000000000000000000000";
+  const POOL_CUSTOM_DEPLOYER_ADDRESS = "0x0000000000000000000000000000000000000000";
   const MIN_SQRT_RATIO = BigInt("4295128739"); // Minimum sqrt price ratio
-  const MAX_SQRT_RATIO = BigInt(
-    "1461446703485210103287273052203988822378723970342",
-  ); // Maximum sqrt price ratio
+  const MAX_SQRT_RATIO = BigInt("1461446703485210103287273052203988822378723970342"); // Maximum sqrt price ratio
   let sqrtPriceX96: bigint;
   const liquidity = ethers.parseUnits("10000000", 12); // ~10M
   const boostDesired = ethers.parseUnits("11000000", 18); // 10M
@@ -97,14 +94,11 @@ describe("VeloV3AMO", function () {
 
   beforeEach(async function () {
     this.timeout(100000);
-    [admin, setter, amo, withdrawer, pauser, unpauser, boostMinter, user] =
-      await ethers.getSigners();
+    [admin, setter, amo, withdrawer, pauser, unpauser, boostMinter, user] = await ethers.getSigners();
 
     // Deploy the actual contracts using deployProxy
     const BoostFactory = await ethers.getContractFactory("BoostStablecoin");
-    boost = (await upgrades.deployProxy(BoostFactory, [
-      admin.address,
-    ])) as unknown as BoostStablecoin;
+    boost = (await upgrades.deployProxy(BoostFactory, [admin.address])) as unknown as BoostStablecoin;
     await boost.waitForDeployment();
     boostAddress = await boost.getAddress();
 
@@ -129,7 +123,7 @@ describe("VeloV3AMO", function () {
     minter = (await upgrades.deployProxy(MinterFactory, [
       boostAddress,
       usdAddress,
-      admin.address,
+      admin.address
     ])) as unknown as Minter;
     await minter.waitForDeployment();
     minterAddress = await minter.getAddress();
@@ -141,49 +135,23 @@ describe("VeloV3AMO", function () {
     await testUSD.connect(boostMinter).mint(admin.address, usdDesired);
 
     // Create Pool
-    poolFactory = await ethers.getContractAt(
-      "ICLFactory",
-      POOL_FACTORY_ADDRESS,
-    );
+    poolFactory = await ethers.getContractAt("ICLFactory", POOL_FACTORY_ADDRESS);
     const poolFee = await poolFactory.tickSpacingToFee(tickSpacing);
     if (boostAddress.toLowerCase() < usdAddress.toLowerCase()) {
-      sqrtPriceX96 = BigInt(
-        Math.floor(
-          Math.sqrt(
-            Number((BigInt(price) * BigInt(2 ** 192)) / BigInt(10 ** 12)),
-          ),
-        ),
-      );
+      sqrtPriceX96 = BigInt(Math.floor(Math.sqrt(Number((BigInt(price) * BigInt(2 ** 192)) / BigInt(10 ** 12)))));
     } else {
-      sqrtPriceX96 = BigInt(
-        Math.floor(
-          Math.sqrt(
-            Number(BigInt(price) * BigInt(2 ** 192) * BigInt(10 ** 12)),
-          ),
-        ),
-      );
+      sqrtPriceX96 = BigInt(Math.floor(Math.sqrt(Number(BigInt(price) * BigInt(2 ** 192) * BigInt(10 ** 12)))));
     }
-    await poolFactory.createPool(
-      boostAddress,
-      usdAddress,
-      tickSpacing,
-      sqrtPriceX96,
-    );
-    poolAddress = await poolFactory.getPool(
-      boostAddress,
-      usdAddress,
-      tickSpacing,
-    );
+    await poolFactory.createPool(boostAddress, usdAddress, tickSpacing, sqrtPriceX96);
+    poolAddress = await poolFactory.getPool(boostAddress, usdAddress, tickSpacing);
     pool = await ethers.getContractAt("ICLPool", poolAddress);
 
     // Deploy MockUniswapV3PoolCaller.sol contract
-    const MockPoolV3Caller = await ethers.getContractFactory(
-      "MockUniswapV3PoolCaller",
-    );
+    const MockPoolV3Caller = await ethers.getContractFactory("MockUniswapV3PoolCaller");
     poolCaller = (await MockPoolV3Caller.deploy(
       poolAddress,
       usdAddress,
-      boostAddress,
+      boostAddress
     )) as unknown as MockUniswapV3PoolCaller;
     await poolCaller.waitForDeployment();
     poolCallerAddress = await poolCaller.getAddress();
@@ -207,11 +175,11 @@ describe("VeloV3AMO", function () {
       validRangeWidth,
       validRemovingRatio,
       boostLowerPriceSell,
-      boostUpperPriceBuy,
+      boostUpperPriceBuy
     ];
     v3AMO = (await upgrades.deployProxy(V3AMOFactory, args, {
       initializer:
-        "initialize(address,address,address,address,uint8,address,address,address,address,uint8,int24,int24,uint256,uint24,uint24,uint256,uint256)",
+        "initialize(address,address,address,address,uint8,address,address,address,address,uint8,int24,int24,uint256,uint24,uint24,uint256,uint256)"
     })) as unknown as V3AMO;
     await v3AMO.waitForDeployment();
     amoAddress = await v3AMO.getAddress();
@@ -254,8 +222,7 @@ describe("VeloV3AMO", function () {
     it("Should set correct roles", async function () {
       expect(await v3AMO.hasRole(SETTER_ROLE, setter.address)).to.be.true;
       expect(await v3AMO.hasRole(AMO_ROLE, amo.address)).to.be.true;
-      expect(await v3AMO.hasRole(WITHDRAWER_ROLE, withdrawer.address)).to.be
-        .true;
+      expect(await v3AMO.hasRole(WITHDRAWER_ROLE, withdrawer.address)).to.be.true;
       expect(await v3AMO.hasRole(PAUSER_ROLE, pauser.address)).to.be.true;
       expect(await v3AMO.hasRole(UNPAUSER_ROLE, unpauser.address)).to.be.true;
     });
@@ -273,10 +240,7 @@ describe("VeloV3AMO", function () {
 
       it("Should revert when called by non-setter", async function () {
         await expect(v3AMO.connect(user).setTickBounds(-100000, 100000))
-          .to.be.revertedWithCustomError(
-            v3AMO,
-            "AccessControlUnauthorizedAccount",
-          )
+          .to.be.revertedWithCustomError(v3AMO, "AccessControlUnauthorizedAccount")
           .withArgs(user.address, SETTER_ROLE);
       });
     });
@@ -292,8 +256,8 @@ describe("VeloV3AMO", function () {
               validRangeWidth + BigInt(100),
               validRemovingRatio + BigInt(100),
               boostLowerPriceSell + BigInt(100),
-              boostUpperPriceBuy + BigInt(100),
-            ),
+              boostUpperPriceBuy + BigInt(100)
+            )
         )
           .to.emit(v3AMO, "ParamsSet")
           .withArgs(
@@ -302,23 +266,13 @@ describe("VeloV3AMO", function () {
             validRangeWidth + BigInt(100),
             validRemovingRatio + BigInt(100),
             boostLowerPriceSell + BigInt(100),
-            boostUpperPriceBuy + BigInt(100),
+            boostUpperPriceBuy + BigInt(100)
           );
-        expect(await v3AMO.boostMultiplier()).to.equal(
-          boostMultiplier + BigInt(100),
-        );
-        expect(await v3AMO.validRangeWidth()).to.equal(
-          validRangeWidth + BigInt(100),
-        );
-        expect(await v3AMO.validRemovingRatio()).to.equal(
-          validRemovingRatio + BigInt(100),
-        );
-        expect(await v3AMO.boostLowerPriceSell()).to.equal(
-          boostLowerPriceSell + BigInt(100),
-        );
-        expect(await v3AMO.boostUpperPriceBuy()).to.equal(
-          boostUpperPriceBuy + BigInt(100),
-        );
+        expect(await v3AMO.boostMultiplier()).to.equal(boostMultiplier + BigInt(100));
+        expect(await v3AMO.validRangeWidth()).to.equal(validRangeWidth + BigInt(100));
+        expect(await v3AMO.validRemovingRatio()).to.equal(validRemovingRatio + BigInt(100));
+        expect(await v3AMO.boostLowerPriceSell()).to.equal(boostLowerPriceSell + BigInt(100));
+        expect(await v3AMO.boostUpperPriceBuy()).to.equal(boostUpperPriceBuy + BigInt(100));
       });
 
       it("Should revert when called by non-setter", async function () {
@@ -331,13 +285,10 @@ describe("VeloV3AMO", function () {
               validRangeWidth + BigInt(100),
               validRemovingRatio + BigInt(100),
               boostLowerPriceSell + BigInt(100),
-              boostUpperPriceBuy + BigInt(100),
-            ),
+              boostUpperPriceBuy + BigInt(100)
+            )
         )
-          .to.be.revertedWithCustomError(
-            v3AMO,
-            "AccessControlUnauthorizedAccount",
-          )
+          .to.be.revertedWithCustomError(v3AMO, "AccessControlUnauthorizedAccount")
           .withArgs(user.address, SETTER_ROLE);
       });
 
@@ -351,8 +302,8 @@ describe("VeloV3AMO", function () {
               ethers.parseUnits("1.1", 6),
               validRemovingRatio + BigInt(100),
               boostLowerPriceSell + BigInt(100),
-              boostUpperPriceBuy + BigInt(100),
-            ),
+              boostUpperPriceBuy + BigInt(100)
+            )
         ).to.be.revertedWithCustomError(v3AMO, "InvalidRatioValue");
 
         await expect(
@@ -364,8 +315,8 @@ describe("VeloV3AMO", function () {
               validRangeWidth + BigInt(100),
               ethers.parseUnits("0.99", 6),
               boostLowerPriceSell + BigInt(100),
-              boostUpperPriceBuy + BigInt(100),
-            ),
+              boostUpperPriceBuy + BigInt(100)
+            )
         ).to.be.revertedWithCustomError(v3AMO, "InvalidRatioValue");
       });
     });
@@ -388,26 +339,14 @@ describe("VeloV3AMO", function () {
         await testUSD.connect(user).transfer(poolCallerAddress, usdToBuy);
         await poolCaller
           .connect(user)
-          .swap(
-            user.address,
-            zeroForOne,
-            usdToBuy,
-            limitSqrtPriceX96,
-            abiCoder.encode(["uint8"], [1]),
-          );
+          .swap(user.address, zeroForOne, usdToBuy, limitSqrtPriceX96, abiCoder.encode(["uint8"], [1]));
 
         const boostAmount = ethers.parseUnits("990000", 18);
         const usdAmount = ethers.parseUnits("980000", 6);
 
         expect(await v3AMO.boostPrice()).to.be.gt(ethers.parseUnits("1.1", 6));
-        await expect(v3AMO.connect(amo).mintAndSellBoost(boostAmount)).to.emit(
-          v3AMO,
-          "MintSell",
-        );
-        expect(await v3AMO.boostPrice()).to.be.approximately(
-          ethers.parseUnits(price, 6),
-          10,
-        );
+        await expect(v3AMO.connect(amo).mintAndSellBoost(boostAmount)).to.emit(v3AMO, "MintSell");
+        expect(await v3AMO.boostPrice()).to.be.approximately(ethers.parseUnits(price, 6), 10);
         expect(await boost.balanceOf(amoAddress)).to.be.equal(0);
       });
 
@@ -415,10 +354,7 @@ describe("VeloV3AMO", function () {
         const boostAmount = ethers.parseUnits("990000", 18);
         const usdAmount = ethers.parseUnits("980000", 6);
         await expect(v3AMO.connect(user).mintAndSellBoost(boostAmount))
-          .to.be.revertedWithCustomError(
-            v3AMO,
-            "AccessControlUnauthorizedAccount",
-          )
+          .to.be.revertedWithCustomError(v3AMO, "AccessControlUnauthorizedAccount")
           .withArgs(user.address, AMO_ROLE);
       });
     });
@@ -437,40 +373,23 @@ describe("VeloV3AMO", function () {
         await testUSD.connect(user).transfer(poolCallerAddress, usdToBuy);
         await poolCaller
           .connect(user)
-          .swap(
-            user.address,
-            zeroForOne,
-            usdToBuy,
-            limitSqrtPriceX96,
-            abiCoder.encode(["uint8"], [1]),
-          );
+          .swap(user.address, zeroForOne, usdToBuy, limitSqrtPriceX96, abiCoder.encode(["uint8"], [1]));
 
         const boostAmount = ethers.parseUnits("990000", 18);
         const usdAmount = ethers.parseUnits("980000", 6);
 
-        await expect(v3AMO.connect(amo).mintAndSellBoost(boostAmount)).to.emit(
-          v3AMO,
-          "MintSell",
-        );
+        await expect(v3AMO.connect(amo).mintAndSellBoost(boostAmount)).to.emit(v3AMO, "MintSell");
 
         const usdBalance = await testUSD.balanceOf(amoAddress);
 
-        await expect(v3AMO.connect(amo).addLiquidity(usdBalance, 1, 1)).to.emit(
-          v3AMO,
-          "AddLiquidity",
-        );
-        expect(await testUSD.balanceOf(amoAddress)).to.be.lt(
-          Math.floor(Number(usdBalance) * errorTolerance),
-        );
+        await expect(v3AMO.connect(amo).addLiquidity(usdBalance, 1, 1)).to.emit(v3AMO, "AddLiquidity");
+        expect(await testUSD.balanceOf(amoAddress)).to.be.lt(Math.floor(Number(usdBalance) * errorTolerance));
       });
 
       it("Should revert addLiquidity when called by non-amo", async function () {
         const usdBalance = ethers.parseUnits("980000", 6);
         await expect(v3AMO.connect(user).addLiquidity(usdBalance, 1, 1))
-          .to.be.revertedWithCustomError(
-            v3AMO,
-            "AccessControlUnauthorizedAccount",
-          )
+          .to.be.revertedWithCustomError(v3AMO, "AccessControlUnauthorizedAccount")
           .withArgs(user.address, AMO_ROLE);
       });
     });
@@ -489,13 +408,7 @@ describe("VeloV3AMO", function () {
         await testUSD.connect(user).transfer(poolCallerAddress, usdToBuy);
         await poolCaller
           .connect(user)
-          .swap(
-            user.address,
-            zeroForOne,
-            usdToBuy,
-            limitSqrtPriceX96,
-            abiCoder.encode(["uint8"], [1]),
-          );
+          .swap(user.address, zeroForOne, usdToBuy, limitSqrtPriceX96, abiCoder.encode(["uint8"], [1]));
 
         const boostAmount = ethers.parseUnits("990000", 18);
         const usdAmount = ethers.parseUnits("980000", 6);
@@ -505,24 +418,16 @@ describe("VeloV3AMO", function () {
         const receipt = await tx.wait();
         expect(tx).to.emit(v3AMO, "MintSell");
         expect(tx).to.emit(v3AMO, "AddLiquidity");
-        expect(await v3AMO.boostPrice()).to.be.approximately(
-          ethers.parseUnits(price, 6),
-          10,
-        );
+        expect(await v3AMO.boostPrice()).to.be.approximately(ethers.parseUnits(price, 6), 10);
         expect(await boost.balanceOf(amoAddress)).to.be.equal(0);
-        expect(await testUSD.balanceOf(amoAddress)).to.be.lt(
-          Math.floor(Number(usdAmount) * errorTolerance),
-        );
+        expect(await testUSD.balanceOf(amoAddress)).to.be.lt(Math.floor(Number(usdAmount) * errorTolerance));
       });
 
       it("Should revert mintSellFarm when called by non-amo", async function () {
         const boostAmount = ethers.parseUnits("990000", 18);
         const usdAmount = ethers.parseUnits("980000", 6);
         await expect(v3AMO.connect(user).mintSellFarm(boostAmount, 1, 1))
-          .to.be.revertedWithCustomError(
-            v3AMO,
-            "AccessControlUnauthorizedAccount",
-          )
+          .to.be.revertedWithCustomError(v3AMO, "AccessControlUnauthorizedAccount")
           .withArgs(user.address, AMO_ROLE);
       });
     });
@@ -541,27 +446,15 @@ describe("VeloV3AMO", function () {
         await boost.connect(user).transfer(poolCallerAddress, boostToBuy);
         await poolCaller
           .connect(user)
-          .swap(
-            user.address,
-            zeroForOne,
-            boostToBuy,
-            limitSqrtPriceX96,
-            abiCoder.encode(["uint8"], [0]),
-          );
+          .swap(user.address, zeroForOne, boostToBuy, limitSqrtPriceX96, abiCoder.encode(["uint8"], [0]));
 
         const boostInPool = await boost.balanceOf(poolAddress);
         const totalLiquidity = (await v3AMO.position())[0];
-        const liquidityToBeRemoved =
-          (boostToBuy * totalLiquidity) / boostInPool;
+        const liquidityToBeRemoved = (boostToBuy * totalLiquidity) / boostInPool;
 
         expect(await v3AMO.boostPrice()).to.be.lt(ethers.parseUnits("0.9", 6));
-        await expect(
-          v3AMO.connect(amo).unfarmBuyBurn(liquidityToBeRemoved, 1, 1),
-        ).to.emit(v3AMO, "UnfarmBuyBurn");
-        expect(await v3AMO.boostPrice()).to.be.approximately(
-          ethers.parseUnits(price, 6),
-          10,
-        );
+        await expect(v3AMO.connect(amo).unfarmBuyBurn(liquidityToBeRemoved, 1, 1)).to.emit(v3AMO, "UnfarmBuyBurn");
+        expect(await v3AMO.boostPrice()).to.be.approximately(ethers.parseUnits(price, 6), 10);
         expect(await boost.balanceOf(amoAddress)).to.be.equal(0);
         expect(await testUSD.balanceOf(amoAddress)).to.be.equal(0);
       });
@@ -570,15 +463,9 @@ describe("VeloV3AMO", function () {
         const boostAmount = ethers.parseUnits("990000", 18);
         const boostInPool = await boost.balanceOf(poolAddress);
         const totalLiquidity = (await v3AMO.position())[0];
-        const liquidityToBeRemoved =
-          (boostAmount * totalLiquidity) / boostInPool;
-        await expect(
-          v3AMO.connect(user).unfarmBuyBurn(liquidityToBeRemoved, 1, 1),
-        )
-          .to.be.revertedWithCustomError(
-            v3AMO,
-            "AccessControlUnauthorizedAccount",
-          )
+        const liquidityToBeRemoved = (boostAmount * totalLiquidity) / boostInPool;
+        await expect(v3AMO.connect(user).unfarmBuyBurn(liquidityToBeRemoved, 1, 1))
+          .to.be.revertedWithCustomError(v3AMO, "AccessControlUnauthorizedAccount")
           .withArgs(user.address, AMO_ROLE);
       });
     });
@@ -599,27 +486,13 @@ describe("VeloV3AMO", function () {
         await testUSD.connect(user).transfer(poolCallerAddress, usdToBuy);
         await poolCaller
           .connect(user)
-          .swap(
-            user.address,
-            zeroForOne,
-            usdToBuy,
-            limitSqrtPriceX96,
-            abiCoder.encode(["uint8"], [1]),
-          );
+          .swap(user.address, zeroForOne, usdToBuy, limitSqrtPriceX96, abiCoder.encode(["uint8"], [1]));
 
         expect(await v3AMO.boostPrice()).to.be.gt(ethers.parseUnits("1.1", 6));
-        await expect(v3AMO.connect(amo).mintSellFarm()).to.emit(
-          v3AMO,
-          "PublicMintSellFarmExecuted",
-        );
-        expect(await v3AMO.boostPrice()).to.be.approximately(
-          ethers.parseUnits(price, 6),
-          10,
-        );
+        await expect(v3AMO.connect(amo).mintSellFarm()).to.emit(v3AMO, "PublicMintSellFarmExecuted");
+        expect(await v3AMO.boostPrice()).to.be.approximately(ethers.parseUnits(price, 6), 10);
         expect(await boost.balanceOf(amoAddress)).to.be.equal(0);
-        expect(await testUSD.balanceOf(amoAddress)).to.be.lt(
-          Math.floor(Number(usdToBuy) * errorTolerance),
-        );
+        expect(await testUSD.balanceOf(amoAddress)).to.be.lt(Math.floor(Number(usdToBuy) * errorTolerance));
       });
 
       it("Should revert mintSellFarm when price is 1", async function () {
@@ -641,23 +514,11 @@ describe("VeloV3AMO", function () {
         await boost.connect(user).transfer(poolCallerAddress, boostToBuy);
         await poolCaller
           .connect(user)
-          .swap(
-            user.address,
-            zeroForOne,
-            boostToBuy,
-            limitSqrtPriceX96,
-            abiCoder.encode(["uint8"], [0]),
-          );
+          .swap(user.address, zeroForOne, boostToBuy, limitSqrtPriceX96, abiCoder.encode(["uint8"], [0]));
 
         expect(await v3AMO.boostPrice()).to.be.lt(ethers.parseUnits("0.9", 6));
-        await expect(v3AMO.connect(amo).unfarmBuyBurn()).to.emit(
-          v3AMO,
-          "PublicUnfarmBuyBurnExecuted",
-        );
-        expect(await v3AMO.boostPrice()).to.be.approximately(
-          ethers.parseUnits(price, 6),
-          10,
-        );
+        await expect(v3AMO.connect(amo).unfarmBuyBurn()).to.emit(v3AMO, "PublicUnfarmBuyBurnExecuted");
+        expect(await v3AMO.boostPrice()).to.be.approximately(ethers.parseUnits(price, 6), 10);
         expect(await boost.balanceOf(amoAddress)).to.be.equal(0);
       });
 
@@ -675,10 +536,7 @@ describe("VeloV3AMO", function () {
 
         it("should not allow non-pauser to pause the contract", async function () {
           await expect(v3AMO.connect(user).pause())
-            .to.be.revertedWithCustomError(
-              v3AMO,
-              "AccessControlUnauthorizedAccount",
-            )
+            .to.be.revertedWithCustomError(v3AMO, "AccessControlUnauthorizedAccount")
             .withArgs(user.address, PAUSER_ROLE);
         });
 
@@ -686,18 +544,20 @@ describe("VeloV3AMO", function () {
           const boostAmount = ethers.parseUnits("990000", 18);
           await v3AMO.connect(pauser).pause();
 
-          await expect(
-            v3AMO.connect(amo).mintAndSellBoost(boostAmount),
-          ).to.be.revertedWithCustomError(v3AMO, "EnforcedPause");
+          await expect(v3AMO.connect(amo).mintAndSellBoost(boostAmount)).to.be.revertedWithCustomError(
+            v3AMO,
+            "EnforcedPause"
+          );
         });
 
         it("should not allow addLiquidity when paused", async function () {
           const usdBalance = await testUSD.balanceOf(amoAddress);
           await v3AMO.connect(pauser).pause();
 
-          await expect(
-            v3AMO.connect(amo).addLiquidity(usdBalance, 1, 1),
-          ).to.be.revertedWithCustomError(v3AMO, "EnforcedPause");
+          await expect(v3AMO.connect(amo).addLiquidity(usdBalance, 1, 1)).to.be.revertedWithCustomError(
+            v3AMO,
+            "EnforcedPause"
+          );
         });
 
         it("should not allow mintSellFarm when paused", async function () {
@@ -705,32 +565,30 @@ describe("VeloV3AMO", function () {
           const usdAmount = ethers.parseUnits("980000", 6);
           await v3AMO.connect(pauser).pause();
 
-          await expect(
-            v3AMO.connect(amo).mintSellFarm(boostAmount, 1, 1),
-          ).to.be.revertedWithCustomError(v3AMO, "EnforcedPause");
+          await expect(v3AMO.connect(amo).mintSellFarm(boostAmount, 1, 1)).to.be.revertedWithCustomError(
+            v3AMO,
+            "EnforcedPause"
+          );
         });
 
         it("should not allow unfarmBuyBurn when paused", async function () {
           const liquidityToBeRemoved = "1";
           await v3AMO.connect(pauser).pause();
 
-          await expect(
-            v3AMO.connect(amo).unfarmBuyBurn(liquidityToBeRemoved, 1, 1),
-          ).to.be.revertedWithCustomError(v3AMO, "EnforcedPause");
+          await expect(v3AMO.connect(amo).unfarmBuyBurn(liquidityToBeRemoved, 1, 1)).to.be.revertedWithCustomError(
+            v3AMO,
+            "EnforcedPause"
+          );
         });
 
         it("should not allow public mintSellFarm when paused", async function () {
           await v3AMO.connect(pauser).pause();
-          await expect(
-            v3AMO.connect(amo).mintSellFarm(),
-          ).to.be.revertedWithCustomError(v3AMO, "EnforcedPause");
+          await expect(v3AMO.connect(amo).mintSellFarm()).to.be.revertedWithCustomError(v3AMO, "EnforcedPause");
         });
 
         it("should not allow public unfarmBuyBurn when paused", async function () {
           await v3AMO.connect(pauser).pause();
-          await expect(
-            v3AMO.connect(amo).unfarmBuyBurn(),
-          ).to.be.revertedWithCustomError(v3AMO, "EnforcedPause");
+          await expect(v3AMO.connect(amo).unfarmBuyBurn()).to.be.revertedWithCustomError(v3AMO, "EnforcedPause");
         });
       });
 
@@ -748,10 +606,7 @@ describe("VeloV3AMO", function () {
           expect(await v3AMO.paused()).to.equal(true);
 
           await expect(v3AMO.connect(user).unpause())
-            .to.be.revertedWithCustomError(
-              v3AMO,
-              "AccessControlUnauthorizedAccount",
-            )
+            .to.be.revertedWithCustomError(v3AMO, "AccessControlUnauthorizedAccount")
             .withArgs(user.address, UNPAUSER_ROLE);
         });
       });
@@ -762,16 +617,11 @@ describe("VeloV3AMO", function () {
           await testUSD.mint(amoAddress, withdrawAmount);
 
           await expect(
-            v3AMO
-              .connect(withdrawer)
-              .withdrawERC20(usdAddress, withdrawAmount, ethers.ZeroAddress),
+            v3AMO.connect(withdrawer).withdrawERC20(usdAddress, withdrawAmount, ethers.ZeroAddress)
           ).to.be.revertedWithCustomError(v3AMO, "ZeroAddress");
 
-          await expect(
-            v3AMO
-              .connect(withdrawer)
-              .withdrawERC20(usdAddress, withdrawAmount, user.address),
-          ).to.not.be.reverted;
+          await expect(v3AMO.connect(withdrawer).withdrawERC20(usdAddress, withdrawAmount, user.address)).to.not.be
+            .reverted;
 
           const finalBalance = await testUSD.balanceOf(user.address);
           expect(finalBalance).to.equal(withdrawAmount);
@@ -779,15 +629,8 @@ describe("VeloV3AMO", function () {
 
         it("should not allow non-withdrawer to withdraw ERC20 tokens", async function () {
           const withdrawAmount = ethers.parseUnits("500", 18);
-          await expect(
-            v3AMO
-              .connect(user)
-              .withdrawERC20(usdAddress, withdrawAmount, user.address),
-          )
-            .to.be.revertedWithCustomError(
-              v3AMO,
-              "AccessControlUnauthorizedAccount",
-            )
+          await expect(v3AMO.connect(user).withdrawERC20(usdAddress, withdrawAmount, user.address))
+            .to.be.revertedWithCustomError(v3AMO, "AccessControlUnauthorizedAccount")
             .withArgs(user.address, WITHDRAWER_ROLE);
         });
       });

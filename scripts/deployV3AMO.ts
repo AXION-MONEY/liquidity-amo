@@ -8,18 +8,12 @@ function getSqrtPriceX96(decimalsDiff: BigInt): BigInt {
   else return unscaledPriceX96 * 10n ** decimalsDiff;
 }
 
-async function deployMinter(
-  boostAddress: String,
-  collateralAddress: String,
-  treasuryAddress: String,
-): Promise<String> {
+async function deployMinter(boostAddress: String, collateralAddress: String, treasuryAddress: String): Promise<String> {
   const Minter = await ethers.getContractFactory("Minter");
   console.log("Deploying Minter...");
-  const contract = await upgrades.deployProxy(
-    Minter,
-    [boostAddress, boostAddress, treasuryAddress],
-    { initializer: "initialize" },
-  );
+  const contract = await upgrades.deployProxy(Minter, [boostAddress, boostAddress, treasuryAddress], {
+    initializer: "initialize"
+  });
   await contract.waitForDeployment();
   const minterAddress = await contract.getAddress();
   console.log("Minter deployed to:", minterAddress);
@@ -30,7 +24,7 @@ async function deployBoostToken(adminAddress: String): Promise<String> {
   const BoostStablecoin = await ethers.getContractFactory("BoostStablecoin");
   console.log("Deploying BoostStablecoin...");
   const contract = await upgrades.deployProxy(BoostStablecoin, [adminAddress], {
-    initializer: "initialize",
+    initializer: "initialize"
   });
   await contract.waitForDeployment();
   const boostAddress = await contract.getAddress();
@@ -46,7 +40,7 @@ async function deployV3AMO(
   poolType: Number,
   quoterAddress: String,
   poolCustomDeployerAddress: String,
-  minterAddress: String,
+  minterAddress: String
 ) {
   const boostDecimals = 18n;
   const MIN_TICK = -887272;
@@ -56,15 +50,11 @@ async function deployV3AMO(
   const tickLower = MIN_TICK;
   const tickUpper = MAX_TICK;
 
-  const usdContract = (await ethers.getContractAt(
-    "IERC20Metadata",
-    usdAddress,
-  )) as unknown as IERC20Metadata;
+  const usdContract = (await ethers.getContractAt("IERC20Metadata", usdAddress)) as unknown as IERC20Metadata;
   const usdDecimals = await usdContract.decimals();
 
   let decimalsDiff;
-  if (boostAddress.toLowerCase() < usdAddress.toLowerCase())
-    decimalsDiff = usdDecimals - boostDecimals;
+  if (boostAddress.toLowerCase() < usdAddress.toLowerCase()) decimalsDiff = usdDecimals - boostDecimals;
   else decimalsDiff = boostDecimals - usdDecimals;
   const targetSqrtPriceX96 = getSqrtPriceX96(decimalsDiff);
   console.log("targetSqrtPriceX96:", targetSqrtPriceX96);
@@ -91,13 +81,13 @@ async function deployV3AMO(
     validRangeWidth,
     validRemovingRatio,
     boostLowerPriceSell,
-    boostUpperPriceBuy,
+    boostUpperPriceBuy
   ];
 
   const V3AMO = await ethers.getContractFactory("V3AMO");
   console.log("Deploying V3AMO...");
   const amoContract = await upgrades.deployProxy(V3AMO, args, {
-    initializer: "initialize",
+    initializer: "initialize"
   });
   await amoContract.waitForDeployment();
   console.log("V3AMO deployed to:", await amoContract.getAddress());
@@ -109,7 +99,7 @@ enum PoolType {
   ALGEBRA_V1_0,
   ALGEBRA_V1_9,
   ALGEBRA_INTEGRAL,
-  RAMSES_V2,
+  RAMSES_V2
 }
 
 enum Chain {
@@ -118,35 +108,35 @@ enum Chain {
   FTM = 250,
   BLAST = 81457,
   OP = 10,
-  ARB1 = 42161,
+  ARB1 = 42161
 }
 
 async function main() {
   const chains = {
     8453: {
       msigAddress: "",
-      minterAddress: "",
+      minterAddress: ""
     },
     56: {
       msigAddress: "",
-      minterAddress: "",
+      minterAddress: ""
     },
     250: {
       msigAddress: "",
-      minterAddress: "",
+      minterAddress: ""
     },
     81457: {
       msigAddress: "",
-      minterAddress: "",
+      minterAddress: ""
     },
     10: {
       msigAddress: "",
-      minterAddress: "",
+      minterAddress: ""
     },
     42161: {
       msigAddress: "",
-      minterAddress: "",
-    },
+      minterAddress: ""
+    }
   };
   const dexes = {
     aerodrome: {
@@ -155,7 +145,7 @@ async function main() {
       poolAddress: "",
       poolType: PoolType.CL,
       quoterAddress: "0x254cF9E1E6e233aa1AC962CB9B05b2cfeAaE15b0",
-      poolCustomDeployerAddress: ethers.ZeroAddress,
+      poolCustomDeployerAddress: ethers.ZeroAddress
     },
     camelot: {
       chain: Chain.ARB1,
@@ -163,7 +153,7 @@ async function main() {
       poolAddress: "",
       poolType: PoolType.ALGEBRA_V1_9,
       quoterAddress: "0x0Fc73040b26E9bC8514fA028D998E73A254Fa76E",
-      poolCustomDeployerAddress: ethers.ZeroAddress,
+      poolCustomDeployerAddress: ethers.ZeroAddress
     },
     fenix: {
       chain: Chain.BLAST,
@@ -171,7 +161,7 @@ async function main() {
       poolAddress: "",
       poolType: PoolType.ALGEBRA_INTEGRAL,
       quoterAddress: "0x94Ca5B835186A37A99776780BF976fAB81D84ED8",
-      poolCustomDeployerAddress: ethers.ZeroAddress,
+      poolCustomDeployerAddress: ethers.ZeroAddress
     },
     ramses: {
       chain: Chain.ARB1,
@@ -179,7 +169,7 @@ async function main() {
       poolAddress: "",
       poolType: PoolType.RAMSES_V2,
       quoterAddress: "0xAA20EFF7ad2F523590dE6c04918DaAE0904E3b20",
-      poolCustomDeployerAddress: ethers.ZeroAddress,
+      poolCustomDeployerAddress: ethers.ZeroAddress
     },
     solidly: {
       chain: Chain.FTM,
@@ -187,7 +177,7 @@ async function main() {
       poolAddress: "",
       poolType: PoolType.SOLIDLY_V3,
       quoterAddress: ethers.ZeroAddress,
-      poolCustomDeployerAddress: ethers.ZeroAddress,
+      poolCustomDeployerAddress: ethers.ZeroAddress
     },
     thena: {
       chain: Chain.BNB,
@@ -195,7 +185,7 @@ async function main() {
       poolAddress: "",
       poolType: PoolType.ALGEBRA_V1_0,
       quoterAddress: "0xeA68020D6A9532EeC42D4dB0f92B83580c39b2cA",
-      poolCustomDeployerAddress: ethers.ZeroAddress,
+      poolCustomDeployerAddress: ethers.ZeroAddress
     },
     velodrome: {
       chain: Chain.OP,
@@ -203,8 +193,8 @@ async function main() {
       poolAddress: "",
       poolType: PoolType.CL,
       quoterAddress: "0x89D8218ed5fF1e46d8dcd33fb0bbeE3be1621466",
-      poolCustomDeployerAddress: ethers.ZeroAddress,
-    },
+      poolCustomDeployerAddress: ethers.ZeroAddress
+    }
   };
 
   const dexName = "aerodrome";
@@ -220,7 +210,7 @@ async function main() {
     dex.poolType,
     dex.quoterAddress,
     dex.poolCustomDeployerAddress,
-    chain.minterAddress,
+    chain.minterAddress
   );
 }
 

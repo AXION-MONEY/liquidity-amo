@@ -14,7 +14,7 @@ import {
   IThenaVoterV3,
   IThenaRouter,
   IGauge,
-  IERC20,
+  IERC20
 } from "../../../typechain-types";
 import { setBalance } from "@nomicfoundation/hardhat-network-helpers";
 
@@ -86,7 +86,7 @@ describe("V2AMO", function () {
     boostLowerPriceSell,
     boostUpperPriceBuy,
     boostSellRatio,
-    usdBuyRatio,
+    usdBuyRatio
   ];
 
   before(async () => {
@@ -95,28 +95,17 @@ describe("V2AMO", function () {
       params: [
         {
           forking: {
-            jsonRpcUrl:
-              "https://rpc.ankr.com/bsc/910b60453f76841969c8bfd9dfca56fe4f9b16449353072d7857c07366ddc802",
-            blockNumber: 44896000, // Update with appropriate block number
-          },
-        },
-      ],
+            jsonRpcUrl: "https://rpc.ankr.com/bsc/910b60453f76841969c8bfd9dfca56fe4f9b16449353072d7857c07366ddc802",
+            blockNumber: 44896000 // Update with appropriate block number
+          }
+        }
+      ]
     });
   });
 
   async function deployBaseContracts() {
-    [
-      admin,
-      rewardVault,
-      setter,
-      amoBot,
-      withdrawer,
-      pauser,
-      unpauser,
-      boostMinter,
-      user,
-      rewardCollector,
-    ] = await ethers.getSigners();
+    [admin, rewardVault, setter, amoBot, withdrawer, pauser, unpauser, boostMinter, user, rewardCollector] =
+      await ethers.getSigners();
 
     const BoostFactory = await ethers.getContractFactory("BoostStablecoin");
     boost = await upgrades.deployProxy(BoostFactory, [admin.address]);
@@ -129,11 +118,7 @@ describe("V2AMO", function () {
     usdAddress = await testUSD.getAddress();
 
     const MinterFactory = await ethers.getContractFactory("Minter");
-    minter = await upgrades.deployProxy(MinterFactory, [
-      boostAddress,
-      usdAddress,
-      admin.address,
-    ]);
+    minter = await upgrades.deployProxy(MinterFactory, [boostAddress, usdAddress, admin.address]);
     await minter.waitForDeployment();
     minterAddress = await minter.getAddress();
 
@@ -158,8 +143,7 @@ describe("V2AMO", function () {
     await setupGauge();
 
     // Deploy AMO
-    const SolidlyV2LiquidityAMOFactory =
-      await ethers.getContractFactory("V2AMO");
+    const SolidlyV2LiquidityAMOFactory = await ethers.getContractFactory("V2AMO");
     v2AMO = await upgrades.deployProxy(
       SolidlyV2LiquidityAMOFactory,
       [
@@ -178,13 +162,13 @@ describe("V2AMO", function () {
         rewardVault.address,
         0, // tokenId
         false, // useTokenId
-        ...params,
+        ...params
       ],
       {
         initializer:
           "initialize(address,address,address,bool,uint256,uint8,address,address,uint8,address,address,address,address,uint256,bool,uint256,uint24,uint24,uint256,uint256,uint256,uint256)",
-        timeout: 0,
-      },
+        timeout: 0
+      }
     );
     await v2AMO.waitForDeployment();
     amoAddress = await v2AMO.getAddress();
@@ -193,21 +177,15 @@ describe("V2AMO", function () {
   async function setupGauge() {
     try {
       // Setup Gauge
-      const gaugeFactory = await ethers.getContractAt(
-        "IGaugeFactory",
-        THENA_GAUGE_FACTORY,
-      );
+      const gaugeFactory = await ethers.getContractAt("IGaugeFactory", THENA_GAUGE_FACTORY);
       v2Voter = await ethers.getContractAt("IThenaVoterV3", THENA_VOTER);
 
       // Fund the governor account with more ETH to ensure enough gas
-      await network.provider.send("hardhat_setBalance", [
-        Thena_Governor,
-        "0x1000000000000000000",
-      ]);
+      await network.provider.send("hardhat_setBalance", [Thena_Governor, "0x1000000000000000000"]);
 
       await network.provider.request({
         method: "hardhat_impersonateAccount",
-        params: [Thena_Governor],
+        params: [Thena_Governor]
       });
 
       const governorSigner = await ethers.getSigner(Thena_Governor);
@@ -231,9 +209,7 @@ describe("V2AMO", function () {
 
       if (existingGauge === ethers.ZeroAddress) {
         // Create gauge only if it doesn't exist
-        const tx = await v2Voter
-          .connect(governorSigner)
-          .createGauge(poolAddress, 0);
+        const tx = await v2Voter.connect(governorSigner).createGauge(poolAddress, 0);
         await tx.wait();
         existingGauge = await v2Voter.gauges(poolAddress);
       }
@@ -244,7 +220,7 @@ describe("V2AMO", function () {
       // Stop impersonating
       await network.provider.request({
         method: "hardhat_stopImpersonatingAccount",
-        params: [Thena_Governor],
+        params: [Thena_Governor]
       });
 
       if (!gaugeAddress || gaugeAddress === ethers.ZeroAddress) {
@@ -280,7 +256,7 @@ describe("V2AMO", function () {
         usdMin4Liquidity,
         boostMin4Liquidity,
         amoAddress,
-        deadline,
+        deadline
       );
   }
 
@@ -302,14 +278,11 @@ describe("V2AMO", function () {
   }
 
   async function depositToGauge() {
-    pool = await ethers.getContractAt(
-      "@openzeppelin/contracts/token/ERC20/IERC20.sol:IERC20",
-      poolAddress,
-    );
+    pool = await ethers.getContractAt("@openzeppelin/contracts/token/ERC20/IERC20.sol:IERC20", poolAddress);
     let lpBalance = await pool.balanceOf(amoAddress);
     await network.provider.request({
       method: "hardhat_impersonateAccount",
-      params: [amoAddress],
+      params: [amoAddress]
     });
     await setBalance(amoAddress, ethers.parseEther("1"));
     const amoSigner = await ethers.getSigner(amoAddress);
@@ -318,7 +291,7 @@ describe("V2AMO", function () {
     await gauge.connect(amoSigner)["deposit(uint256)"](lpBalance);
     await network.provider.request({
       method: "hardhat_stopImpersonatingAccount",
-      params: [amoAddress],
+      params: [amoAddress]
     });
   }
 
@@ -329,10 +302,10 @@ describe("V2AMO", function () {
         {
           forking: {
             jsonRpcUrl: "https://bnb.rpc.subquery.network/public",
-            blockNumber: 44322111, // Update with appropriate block number
-          },
-        },
-      ],
+            blockNumber: 44322111 // Update with appropriate block number
+          }
+        }
+      ]
     });
   });
 
@@ -355,8 +328,7 @@ describe("V2AMO", function () {
       it("Should set correct roles", async function () {
         expect(await v2AMO.hasRole(SETTER_ROLE, setter.address)).to.be.true;
         expect(await v2AMO.hasRole(AMO_ROLE, amoBot.address)).to.be.true;
-        expect(await v2AMO.hasRole(WITHDRAWER_ROLE, withdrawer.address)).to.be
-          .true;
+        expect(await v2AMO.hasRole(WITHDRAWER_ROLE, withdrawer.address)).to.be.true;
         expect(await v2AMO.hasRole(PAUSER_ROLE, pauser.address)).to.be.true;
         expect(await v2AMO.hasRole(UNPAUSER_ROLE, unpauser.address)).to.be.true;
       });
@@ -375,8 +347,8 @@ describe("V2AMO", function () {
                 boostLowerPriceSell,
                 boostUpperPriceBuy,
                 boostSellRatio,
-                usdBuyRatio,
-              ),
+                usdBuyRatio
+              )
           )
             .to.emit(v2AMO, "ParamsSet")
             .withArgs(
@@ -386,7 +358,7 @@ describe("V2AMO", function () {
               boostLowerPriceSell,
               boostUpperPriceBuy,
               boostSellRatio,
-              usdBuyRatio,
+              usdBuyRatio
             );
 
           expect(await v2AMO.boostMultiplier()).to.equal(boostMultiplier);
@@ -394,9 +366,7 @@ describe("V2AMO", function () {
           expect(await v2AMO.validRemovingRatio()).to.equal(validRemovingRatio);
           expect(await v2AMO.boostSellRatio()).to.equal(boostSellRatio);
           expect(await v2AMO.usdBuyRatio()).to.equal(usdBuyRatio);
-          expect(await v2AMO.boostLowerPriceSell()).to.equal(
-            boostLowerPriceSell,
-          );
+          expect(await v2AMO.boostLowerPriceSell()).to.equal(boostLowerPriceSell);
           expect(await v2AMO.boostUpperPriceBuy()).to.equal(boostUpperPriceBuy);
         });
 
@@ -411,13 +381,10 @@ describe("V2AMO", function () {
                 boostLowerPriceSell,
                 boostUpperPriceBuy,
                 boostSellRatio,
-                usdBuyRatio,
-              ),
+                usdBuyRatio
+              )
           )
-            .to.be.revertedWithCustomError(
-              v2AMO,
-              "AccessControlUnauthorizedAccount",
-            )
+            .to.be.revertedWithCustomError(v2AMO, "AccessControlUnauthorizedAccount")
             .withArgs(user.address, SETTER_ROLE);
         });
 
@@ -432,8 +399,8 @@ describe("V2AMO", function () {
                 boostLowerPriceSell,
                 boostUpperPriceBuy,
                 boostSellRatio,
-                usdBuyRatio,
-              ),
+                usdBuyRatio
+              )
           ).to.be.revertedWithCustomError(v2AMO, "InvalidRatioValue");
 
           await expect(
@@ -446,8 +413,8 @@ describe("V2AMO", function () {
                 boostLowerPriceSell,
                 boostUpperPriceBuy,
                 boostSellRatio,
-                usdBuyRatio,
-              ),
+                usdBuyRatio
+              )
           ).to.be.revertedWithCustomError(v2AMO, "InvalidRatioValue");
         });
       });
@@ -465,8 +432,8 @@ describe("V2AMO", function () {
             {
               from: usdAddress,
               to: boostAddress,
-              stable: stable,
-            },
+              stable: stable
+            }
           ];
 
           await router.connect(user).swapExactTokensForTokens(
@@ -474,7 +441,7 @@ describe("V2AMO", function () {
             0, // min amount out
             routeBuyBoost,
             user.address,
-            deadline,
+            deadline
           );
 
           // Test mintAndSellBoost
@@ -482,37 +449,25 @@ describe("V2AMO", function () {
           const [boostReserve, usdReserve] = await v2AMO.getReserves();
           console.log(boostReserve);
           console.log(usdReserve);
-          let boostAmount =
-            BigInt(Math.sqrt(Number(usdReserve * boostReserve))) - boostReserve;
+          let boostAmount = BigInt(Math.sqrt(Number(usdReserve * boostReserve))) - boostReserve;
           boostAmount += (boostAmount * BigInt(poolFee)) / 1000000n;
 
           // Grant necessary roles
           await v2AMO.grantRole(AMO_ROLE, amoBot.address);
-          await minter.grantRole(
-            await minter.AMO_ROLE(),
-            await v2AMO.getAddress(),
-          );
+          await minter.grantRole(await minter.AMO_ROLE(), await v2AMO.getAddress());
 
           // Test unauthorized access
           await expect(v2AMO.connect(user).mintAndSellBoost(boostAmount))
-            .to.be.revertedWithCustomError(
-              v2AMO,
-              "AccessControlUnauthorizedAccount",
-            )
+            .to.be.revertedWithCustomError(v2AMO, "AccessControlUnauthorizedAccount")
             .withArgs(user.address, AMO_ROLE);
 
           // Test authorized access
-          await expect(
-            v2AMO.connect(amoBot).mintAndSellBoost(boostAmount),
-          ).to.emit(v2AMO, "MintSell");
+          await expect(v2AMO.connect(amoBot).mintAndSellBoost(boostAmount)).to.emit(v2AMO, "MintSell");
         });
         it("Should revert mintAndSellBoost when called by non-amo", async function () {
           const boostAmount = ethers.parseUnits("990000", 18);
           await expect(v2AMO.connect(user).mintAndSellBoost(boostAmount))
-            .to.be.revertedWithCustomError(
-              v2AMO,
-              "AccessControlUnauthorizedAccount",
-            )
+            .to.be.revertedWithCustomError(v2AMO, "AccessControlUnauthorizedAccount")
             .withArgs(user.address, AMO_ROLE);
         });
       });
@@ -521,24 +476,14 @@ describe("V2AMO", function () {
         const boostAmount = ethers.parseUnits("990000", 18);
         const usdAmount = ethers.parseUnits("980000", 6);
         await expect(v2AMO.connect(user).mintSellFarm(boostAmount, 1, 1))
-          .to.be.revertedWithCustomError(
-            v2AMO,
-            "AccessControlUnauthorizedAccount",
-          )
+          .to.be.revertedWithCustomError(v2AMO, "AccessControlUnauthorizedAccount")
           .withArgs(user.address, AMO_ROLE);
       });
 
       it("Should revert unfarmBuyBurn when called by non-amo", async function () {
         // Use revertedWith for access control error
-        await expect(
-          v2AMO
-            .connect(user)
-            .unfarmBuyBurn(ethers.parseUnits("1000000", 18), 1, 1),
-        )
-          .to.be.revertedWithCustomError(
-            v2AMO,
-            "AccessControlUnauthorizedAccount",
-          )
+        await expect(v2AMO.connect(user).unfarmBuyBurn(ethers.parseUnits("1000000", 18), 1, 1))
+          .to.be.revertedWithCustomError(v2AMO, "AccessControlUnauthorizedAccount")
           .withArgs(user.address, AMO_ROLE);
       });
 
@@ -549,55 +494,31 @@ describe("V2AMO", function () {
         await v2AMO.grantRole(UNPAUSER_ROLE, unpauser.address);
 
         // Test pause
-        await expect(v2AMO.connect(pauser).pause())
-          .to.emit(v2AMO, "Paused")
-          .withArgs(pauser.address);
+        await expect(v2AMO.connect(pauser).pause()).to.emit(v2AMO, "Paused").withArgs(pauser.address);
 
         // Test operation while paused
         const boostAmount = ethers.parseUnits("1000", 18);
-        await expect(
-          v2AMO.connect(amoBot).mintAndSellBoost(boostAmount),
-        ).to.be.revertedWithCustomError(v2AMO, "EnforcedPause");
+        await expect(v2AMO.connect(amoBot).mintAndSellBoost(boostAmount)).to.be.revertedWithCustomError(
+          v2AMO,
+          "EnforcedPause"
+        );
 
         // Test unpause
-        await expect(v2AMO.connect(unpauser).unpause())
-          .to.emit(v2AMO, "Unpaused")
-          .withArgs(unpauser.address);
+        await expect(v2AMO.connect(unpauser).unpause()).to.emit(v2AMO, "Unpaused").withArgs(unpauser.address);
       });
 
       it("should allow WITHDRAWER_ROLE to withdraw ERC20 tokens", async function () {
         // Transfer some tokens to the contract
-        await testUSD
-          .connect(user)
-          .mint(amoAddress, ethers.parseUnits("1000", 6));
+        await testUSD.connect(user).mint(amoAddress, ethers.parseUnits("1000", 6));
 
         // Try withdrawing tokens without WITHDRAWER_ROLE
-        await expect(
-          v2AMO
-            .connect(user)
-            .withdrawERC20(
-              usdAddress,
-              ethers.parseUnits("1000", 6),
-              user.address,
-            ),
-        )
-          .to.be.revertedWithCustomError(
-            v2AMO,
-            "AccessControlUnauthorizedAccount",
-          )
+        await expect(v2AMO.connect(user).withdrawERC20(usdAddress, ethers.parseUnits("1000", 6), user.address))
+          .to.be.revertedWithCustomError(v2AMO, "AccessControlUnauthorizedAccount")
           .withArgs(user.address, WITHDRAWER_ROLE);
 
         // Withdraw tokens with WITHDRAWER_ROLE
-        await v2AMO
-          .connect(withdrawer)
-          .withdrawERC20(
-            usdAddress,
-            ethers.parseUnits("1000", 6),
-            user.address,
-          );
-        const usdBalanceOfUser = await testUSD.balanceOf(
-          await user.getAddress(),
-        );
+        await v2AMO.connect(withdrawer).withdrawERC20(usdAddress, ethers.parseUnits("1000", 6), user.address);
+        const usdBalanceOfUser = await testUSD.balanceOf(await user.getAddress());
         expect(usdBalanceOfUser).to.be.equal(ethers.parseUnits("1000", 6));
       });
 
@@ -608,38 +529,23 @@ describe("V2AMO", function () {
           {
             from: boostAddress,
             to: usdAddress,
-            stable: stable,
-          },
+            stable: stable
+          }
         ];
         await boost.connect(boostMinter).mint(user.address, boostToBuy);
         await boost.connect(user).approve(routerAddress, boostToBuy);
         await router
           .connect(user)
-          .swapExactTokensForTokens(
-            boostToBuy,
-            minUsdReceive,
-            routeSellBoost,
-            user.address,
-            deadline,
-          );
+          .swapExactTokensForTokens(boostToBuy, minUsdReceive, routeSellBoost, user.address, deadline);
 
         expect(await v2AMO.boostPrice()).to.be.lt(ethers.parseUnits("1", 6));
 
-        await expect(v2AMO.connect(user).unfarmBuyBurn()).to.be.emit(
-          v2AMO,
-          "PublicUnfarmBuyBurnExecuted",
-        );
-        expect(await v2AMO.boostPrice()).to.be.approximately(
-          ethers.parseUnits("1", 6),
-          delta,
-        );
+        await expect(v2AMO.connect(user).unfarmBuyBurn()).to.be.emit(v2AMO, "PublicUnfarmBuyBurnExecuted");
+        expect(await v2AMO.boostPrice()).to.be.approximately(ethers.parseUnits("1", 6), delta);
       });
 
       it("should correctly return boostPrice", async function () {
-        expect(await v2AMO.boostPrice()).to.be.approximately(
-          ethers.parseUnits("1", 6),
-          delta,
-        );
+        expect(await v2AMO.boostPrice()).to.be.approximately(ethers.parseUnits("1", 6), delta);
       });
 
       describe("addLiquidity", function () {
@@ -651,42 +557,29 @@ describe("V2AMO", function () {
           await testUSD.connect(admin).mint(amoAddress, usdAmountToAdd);
 
           // Test with non-AMO role (user)
-          await expect(
-            v2AMO
-              .connect(user)
-              .addLiquidity(usdAmountToAdd, boostMinAmount, usdMinAmount),
-          )
-            .to.be.revertedWithCustomError(
-              v2AMO,
-              "AccessControlUnauthorizedAccount",
-            )
+          await expect(v2AMO.connect(user).addLiquidity(usdAmountToAdd, boostMinAmount, usdMinAmount))
+            .to.be.revertedWithCustomError(v2AMO, "AccessControlUnauthorizedAccount")
             .withArgs(user.address, AMO_ROLE);
 
           // Test with tokenId set
           await v2AMO.connect(setter).setTokenId(1, true);
           await expect(
-            v2AMO
-              .connect(amoBot)
-              .addLiquidity(usdAmountToAdd, boostMinAmount, usdMinAmount),
+            v2AMO.connect(amoBot).addLiquidity(usdAmountToAdd, boostMinAmount, usdMinAmount)
           ).to.be.revertedWithoutReason();
 
           await v2AMO.connect(setter).setTokenId(0, false);
 
           // Test with AMO role
-          await expect(
-            v2AMO
-              .connect(amoBot)
-              .addLiquidity(usdAmountToAdd, boostMinAmount, usdMinAmount),
-          ).to.emit(v2AMO, "AddLiquidityAndDeposit");
+          await expect(v2AMO.connect(amoBot).addLiquidity(usdAmountToAdd, boostMinAmount, usdMinAmount)).to.emit(
+            v2AMO,
+            "AddLiquidityAndDeposit"
+          );
         });
 
         it("Should revert addLiquidity when called by non-amo", async function () {
           const usdBalance = ethers.parseUnits("980000", 6);
           await expect(v2AMO.connect(user).addLiquidity(usdBalance, 1, 1))
-            .to.be.revertedWithCustomError(
-              v2AMO,
-              "AccessControlUnauthorizedAccount",
-            )
+            .to.be.revertedWithCustomError(v2AMO, "AccessControlUnauthorizedAccount")
             .withArgs(user.address, AMO_ROLE);
         });
       });
@@ -699,47 +592,29 @@ describe("V2AMO", function () {
             {
               from: usdAddress,
               to: boostAddress,
-              stable: stable,
-            },
+              stable: stable
+            }
           ];
           await testUSD.connect(admin).mint(user.address, usdToBuy);
           await testUSD.connect(user).approve(routerAddress, usdToBuy);
           await router
             .connect(user)
-            .swapExactTokensForTokens(
-              usdToBuy,
-              minBoostReceive,
-              routeBuyBoost,
-              user.address,
-              deadline,
-            );
+            .swapExactTokensForTokens(usdToBuy, minBoostReceive, routeBuyBoost, user.address, deadline);
 
           expect(await v2AMO.boostPrice()).to.be.gt(ethers.parseUnits("1", 6));
 
-          await expect(v2AMO.connect(user).mintSellFarm()).to.be.emit(
-            v2AMO,
-            "PublicMintSellFarmExecuted",
-          );
-          expect(await v2AMO.boostPrice()).to.be.approximately(
-            ethers.parseUnits("1", 6),
-            delta,
-          );
+          await expect(v2AMO.connect(user).mintSellFarm()).to.be.emit(v2AMO, "PublicMintSellFarmExecuted");
+          expect(await v2AMO.boostPrice()).to.be.approximately(ethers.parseUnits("1", 6), delta);
         });
 
         it("should correctly return boostPrice", async function () {
-          expect(await v2AMO.boostPrice()).to.be.approximately(
-            ethers.parseUnits("1", 6),
-            delta,
-          );
+          expect(await v2AMO.boostPrice()).to.be.approximately(ethers.parseUnits("1", 6), delta);
         });
 
         it("Should revert mintSellFarm when called by non-amo", async function () {
           const boostAmount = ethers.parseUnits("990000", 18);
           await expect(v2AMO.connect(user).mintSellFarm(boostAmount, 1, 1))
-            .to.be.revertedWithCustomError(
-              v2AMO,
-              "AccessControlUnauthorizedAccount",
-            )
+            .to.be.revertedWithCustomError(v2AMO, "AccessControlUnauthorizedAccount")
             .withArgs(user.address, AMO_ROLE);
         });
       });
@@ -752,31 +627,19 @@ describe("V2AMO", function () {
             {
               from: boostAddress,
               to: usdAddress,
-              stable: stable,
-            },
+              stable: stable
+            }
           ];
           await boost.connect(boostMinter).mint(user.address, boostToBuy);
           await boost.connect(user).approve(routerAddress, boostToBuy);
           await router
             .connect(user)
-            .swapExactTokensForTokens(
-              boostToBuy,
-              minUsdReceive,
-              routeSellBoost,
-              user.address,
-              deadline,
-            );
+            .swapExactTokensForTokens(boostToBuy, minUsdReceive, routeSellBoost, user.address, deadline);
 
           expect(await v2AMO.boostPrice()).to.be.lt(ethers.parseUnits("1", 6));
 
-          await expect(v2AMO.connect(user).unfarmBuyBurn()).to.be.emit(
-            v2AMO,
-            "PublicUnfarmBuyBurnExecuted",
-          );
-          expect(await v2AMO.boostPrice()).to.be.approximately(
-            ethers.parseUnits("1", 6),
-            delta,
-          );
+          await expect(v2AMO.connect(user).unfarmBuyBurn()).to.be.emit(v2AMO, "PublicUnfarmBuyBurnExecuted");
+          expect(await v2AMO.boostPrice()).to.be.approximately(ethers.parseUnits("1", 6), delta);
         });
       });
     });
@@ -790,38 +653,27 @@ describe("V2AMO", function () {
             {
               from: usdAddress,
               to: boostAddress,
-              stable: stable,
-            },
+              stable: stable
+            }
           ];
           await testUSD.connect(admin).mint(user.address, usdToBuy);
           await testUSD.connect(user).approve(routerAddress, usdToBuy);
           await router
             .connect(user)
-            .swapExactTokensForTokens(
-              usdToBuy,
-              minBoostReceive,
-              routeBuyBoost,
-              user.address,
-              deadline,
-            );
+            .swapExactTokensForTokens(usdToBuy, minBoostReceive, routeBuyBoost, user.address, deadline);
 
           expect(await v2AMO.boostPrice()).to.be.gt(ethers.parseUnits("1", 6));
 
-          await expect(v2AMO.connect(user).mintSellFarm()).to.be.emit(
-            v2AMO,
-            "PublicMintSellFarmExecuted",
-          );
-          expect(await v2AMO.boostPrice()).to.be.approximately(
-            ethers.parseUnits("1", 6),
-            delta,
-          );
+          await expect(v2AMO.connect(user).mintSellFarm()).to.be.emit(v2AMO, "PublicMintSellFarmExecuted");
+          expect(await v2AMO.boostPrice()).to.be.approximately(ethers.parseUnits("1", 6), delta);
         });
 
         it("Should revert unfarmBuyBurn when price is 1", async function () {
           // Use amoBot instead of amoAddress
-          await expect(
-            v2AMO.connect(amoBot).unfarmBuyBurn(),
-          ).to.be.revertedWithCustomError(v2AMO, "InvalidReserveRatio");
+          await expect(v2AMO.connect(amoBot).unfarmBuyBurn()).to.be.revertedWithCustomError(
+            v2AMO,
+            "InvalidReserveRatio"
+          );
         });
       });
 
@@ -833,38 +685,27 @@ describe("V2AMO", function () {
             {
               from: boostAddress,
               to: usdAddress,
-              stable: stable,
-            },
+              stable: stable
+            }
           ];
           await boost.connect(boostMinter).mint(user.address, boostToBuy);
           await boost.connect(user).approve(routerAddress, boostToBuy);
           await router
             .connect(user)
-            .swapExactTokensForTokens(
-              boostToBuy,
-              minUsdReceive,
-              routeSellBoost,
-              user.address,
-              deadline,
-            );
+            .swapExactTokensForTokens(boostToBuy, minUsdReceive, routeSellBoost, user.address, deadline);
 
           expect(await v2AMO.boostPrice()).to.be.lt(ethers.parseUnits("1", 6));
 
-          await expect(v2AMO.connect(user).unfarmBuyBurn()).to.be.emit(
-            v2AMO,
-            "PublicUnfarmBuyBurnExecuted",
-          );
-          expect(await v2AMO.boostPrice()).to.be.approximately(
-            ethers.parseUnits("1", 6),
-            delta,
-          );
+          await expect(v2AMO.connect(user).unfarmBuyBurn()).to.be.emit(v2AMO, "PublicUnfarmBuyBurnExecuted");
+          expect(await v2AMO.boostPrice()).to.be.approximately(ethers.parseUnits("1", 6), delta);
         });
 
         it("Should revert mintSellFarm when price is 1", async function () {
           // Use amoBot instead of amoAddress since it's a proper signer
-          await expect(
-            v2AMO.connect(amoBot).mintSellFarm(),
-          ).to.be.revertedWithCustomError(v2AMO, "InvalidReserveRatio");
+          await expect(v2AMO.connect(amoBot).mintSellFarm()).to.be.revertedWithCustomError(
+            v2AMO,
+            "InvalidReserveRatio"
+          );
         });
       });
 
@@ -877,10 +718,7 @@ describe("V2AMO", function () {
 
           it("should not allow non-pauser to pause the contract", async function () {
             await expect(v2AMO.connect(user).pause())
-              .to.be.revertedWithCustomError(
-                v2AMO,
-                "AccessControlUnauthorizedAccount",
-              )
+              .to.be.revertedWithCustomError(v2AMO, "AccessControlUnauthorizedAccount")
               .withArgs(user.address, PAUSER_ROLE);
           });
 
@@ -889,26 +727,22 @@ describe("V2AMO", function () {
             await v2AMO.connect(pauser).pause();
 
             const boostAmount = ethers.parseUnits("990000", 18);
-            const usdBalance = await testUSD.balanceOf(
-              await v2AMO.getAddress(),
-            );
+            const usdBalance = await testUSD.balanceOf(await v2AMO.getAddress());
 
             // Use amoBot for all operations
-            await expect(
-              v2AMO.connect(amoBot).mintAndSellBoost(boostAmount),
-            ).to.be.revertedWithCustomError(v2AMO, "EnforcedPause");
+            await expect(v2AMO.connect(amoBot).mintAndSellBoost(boostAmount)).to.be.revertedWithCustomError(
+              v2AMO,
+              "EnforcedPause"
+            );
 
-            await expect(
-              v2AMO.connect(amoBot).addLiquidity(usdBalance, 1, 1),
-            ).to.be.revertedWithCustomError(v2AMO, "EnforcedPause");
+            await expect(v2AMO.connect(amoBot).addLiquidity(usdBalance, 1, 1)).to.be.revertedWithCustomError(
+              v2AMO,
+              "EnforcedPause"
+            );
 
-            await expect(
-              v2AMO.connect(amoBot).mintSellFarm(),
-            ).to.be.revertedWithCustomError(v2AMO, "EnforcedPause");
+            await expect(v2AMO.connect(amoBot).mintSellFarm()).to.be.revertedWithCustomError(v2AMO, "EnforcedPause");
 
-            await expect(
-              v2AMO.connect(amoBot).unfarmBuyBurn(),
-            ).to.be.revertedWithCustomError(v2AMO, "EnforcedPause");
+            await expect(v2AMO.connect(amoBot).unfarmBuyBurn()).to.be.revertedWithCustomError(v2AMO, "EnforcedPause");
           });
         });
       });
@@ -925,10 +759,7 @@ describe("V2AMO", function () {
         it("should not allow non-unpauser to unpause the contract", async function () {
           await v2AMO.connect(pauser).pause();
           await expect(v2AMO.connect(user).unpause())
-            .to.be.revertedWithCustomError(
-              v2AMO,
-              "AccessControlUnauthorizedAccount",
-            )
+            .to.be.revertedWithCustomError(v2AMO, "AccessControlUnauthorizedAccount")
             .withArgs(user.address, UNPAUSER_ROLE);
         });
       });
@@ -938,9 +769,10 @@ describe("V2AMO", function () {
           it(`param on index ${i}`, async function () {
             let tempParams = [...params];
             tempParams[i] = ethers.parseUnits("1.00001", 6);
-            await expect(
-              v2AMO.connect(setter).setParams(...tempParams),
-            ).to.be.revertedWithCustomError(v2AMO, "InvalidRatioValue");
+            await expect(v2AMO.connect(setter).setParams(...tempParams)).to.be.revertedWithCustomError(
+              v2AMO,
+              "InvalidRatioValue"
+            );
           });
         }
 
@@ -948,9 +780,10 @@ describe("V2AMO", function () {
           it(`param on index ${i}`, async function () {
             let tempParams = [...params];
             tempParams[i] = ethers.parseUnits("0.99999", 6);
-            await expect(
-              v2AMO.connect(setter).setParams(...tempParams),
-            ).to.be.revertedWithCustomError(v2AMO, "InvalidRatioValue");
+            await expect(v2AMO.connect(setter).setParams(...tempParams)).to.be.revertedWithCustomError(
+              v2AMO,
+              "InvalidRatioValue"
+            );
           });
         }
       });
@@ -959,29 +792,19 @@ describe("V2AMO", function () {
         it("should revert when token is not whitelisted", async function () {});
         it("should revert for non-setter", async function () {
           await expect(v2AMO.connect(user).setWhitelistedTokens(tokens, true))
-            .to.be.revertedWithCustomError(
-              v2AMO,
-              "AccessControlUnauthorizedAccount",
-            )
+            .to.be.revertedWithCustomError(v2AMO, "AccessControlUnauthorizedAccount")
             .withArgs(user.address, SETTER_ROLE);
         });
         it("should whitelist tokens", async function () {
-          await expect(
-            v2AMO.connect(setter).setWhitelistedTokens(tokens, true),
-          ).to.emit(v2AMO, "RewardTokensSet");
+          await expect(v2AMO.connect(setter).setWhitelistedTokens(tokens, true)).to.emit(v2AMO, "RewardTokensSet");
         });
         it("should revert for non-reward_collector", async function () {
           await expect(v2AMO.connect(user).getReward(tokens, true))
-            .to.be.revertedWithCustomError(
-              v2AMO,
-              "AccessControlUnauthorizedAccount",
-            )
+            .to.be.revertedWithCustomError(v2AMO, "AccessControlUnauthorizedAccount")
             .withArgs(user.address, REWARD_COLLECTOR_ROLE);
         });
         it("should get reward", async function () {
-          await expect(
-            v2AMO.connect(rewardCollector).getReward(tokens, false),
-          ).to.emit(v2AMO, "GetReward");
+          await expect(v2AMO.connect(rewardCollector).getReward(tokens, false)).to.emit(v2AMO, "GetReward");
         });
       });
     });

@@ -1,20 +1,14 @@
 import { expect } from "chai";
 import { ethers, network } from "hardhat";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
-import {
-  BoostStablecoin,
-  Minter,
-  MockERC20,
-  PriceManager,
-  V2AMO,
-} from "../../typechain-types";
+import { BoostStablecoin, Minter, MockERC20, PriceManager, V2AMO } from "../../typechain-types";
 import { deployBaseContracts, deployV2AMO, addLiquidity } from "./utils";
 
 enum PairedTokenType {
   STABLE,
   SUSDE,
   SFRAX,
-  SDAI,
+  SDAI
 }
 
 const sigs = {
@@ -25,17 +19,17 @@ const sigs = {
       signature: {
         signature: 0,
         owner: ethers.ZeroAddress,
-        nonce: ethers.ZeroAddress,
+        nonce: ethers.ZeroAddress
       },
       gatewaySignature: ethers.ZeroHash,
-      token: "susde",
+      token: "susde"
     },
     states: {
       totalSupply: "3734814116804093597606146132",
       balance: "4304104583370657539163990168",
       lastDistributionTimestamp: "1738207835",
-      vestingAmount: "460055794761904761904761",
-    },
+      vestingAmount: "460055794761904761904761"
+    }
   },
   sfrax: {
     muonSig: {
@@ -44,10 +38,10 @@ const sigs = {
       signature: {
         signature: 0,
         owner: ethers.ZeroAddress,
-        nonce: ethers.ZeroAddress,
+        nonce: ethers.ZeroAddress
       },
       gatewaySignature: ethers.ZeroHash,
-      token: "sfrax",
+      token: "sfrax"
     },
     states: {
       totalSupply: "71228619772829715106592883",
@@ -55,11 +49,11 @@ const sigs = {
       rewardsCycleData: {
         cycleEnd: "1738800000",
         lastSync: "1738195271",
-        rewardCycleAmount: "578157898242524520561322",
+        rewardCycleAmount: "578157898242524520561322"
       },
       lastRewardsDistribution: "1738219139",
-      maxDistributionPerSecondPerAsset: "3329556719",
-    },
+      maxDistributionPerSecondPerAsset: "3329556719"
+    }
   },
   sdai: {
     muonSig: {
@@ -68,17 +62,17 @@ const sigs = {
       signature: {
         signature: 0,
         owner: ethers.ZeroAddress,
-        nonce: ethers.ZeroAddress,
+        nonce: ethers.ZeroAddress
       },
       gatewaySignature: ethers.ZeroHash,
-      token: "sdai",
+      token: "sdai"
     },
     states: {
       dsr: "1000000003380572527855758393",
       chi: "1141443554266986624494275064",
-      rho: "1738222919",
-    },
-  },
+      rho: "1738222919"
+    }
+  }
 };
 
 describe("V2AMO", function () {
@@ -118,30 +112,20 @@ describe("V2AMO", function () {
         {
           forking: {
             jsonRpcUrl: "https://base-rpc.publicnode.com",
-            blockNumber: 25717500, // Optional: specify a block number
-          },
-        },
-      ],
+            blockNumber: 25717500 // Optional: specify a block number
+          }
+        }
+      ]
     });
   });
 
   describe("Aerodrome V2Pool Tests", function () {
     beforeEach(async function () {
-      [boost, usd, minter, priceManager] = await deployBaseContracts(
-        admin,
-        user,
-        initAmount,
-      );
+      [boost, usd, minter, priceManager] = await deployBaseContracts(admin, user, initAmount);
 
-      await priceManager
-        .connect(user)
-        .setSUsdeWithSig(sigs.susde.states, sigs.susde.muonSig);
-      await priceManager
-        .connect(user)
-        .setSFraxWithSig(sigs.sfrax.states, sigs.sfrax.muonSig);
-      await priceManager
-        .connect(user)
-        .setPotWithSig(sigs.sdai.states, sigs.sdai.muonSig);
+      await priceManager.connect(user).setSUsdeWithSig(sigs.susde.states, sigs.susde.muonSig);
+      await priceManager.connect(user).setSFraxWithSig(sigs.sfrax.states, sigs.sfrax.muonSig);
+      await priceManager.connect(user).setPotWithSig(sigs.sdai.states, sigs.sdai.muonSig);
 
       amo = await deployV2AMO(
         admin,
@@ -158,7 +142,7 @@ describe("V2AMO", function () {
         boostLowerPriceSell,
         boostUpperPriceBuy,
         boostSellRatio,
-        usdBuyRatio,
+        usdBuyRatio
       );
       const amoAddress = await amo.getAddress();
       const AMO_ROLE = await minter.AMO_ROLE();

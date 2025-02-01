@@ -11,7 +11,7 @@ async function deployV2AMO(
   gaugeAddress: String,
   rewardVaultAddress: String,
   tokenId: Number,
-  useTokenId: Boolean,
+  useTokenId: Boolean
 ) {
   const boostMultiplier = ethers.parseUnits("1.1", 6);
   const validRangeWidth = ethers.parseUnits("0.01", 6);
@@ -39,13 +39,13 @@ async function deployV2AMO(
     boostLowerPriceSell,
     boostUpperPriceBuy,
     boostSellRatio,
-    usdBuyRatio,
+    usdBuyRatio
   ];
 
   const V2AMO = await ethers.getContractFactory("V2AMO");
   console.log("Deploying V2AMO...");
   const amoContract = await upgrades.deployProxy(V2AMO, args, {
-    initializer: "initialize",
+    initializer: "initialize"
   });
   await amoContract.waitForDeployment();
   console.log("V2AMO deployed to:", await amoContract.getAddress());
@@ -53,7 +53,7 @@ async function deployV2AMO(
 
 enum PoolType {
   SOLIDLY_V2,
-  VELO_LIKE,
+  VELO_LIKE
 }
 
 enum Chain {
@@ -62,35 +62,35 @@ enum Chain {
   FTM = 250,
   BLAST = 81457,
   OP = 10,
-  ARB1 = 42161,
+  ARB1 = 42161
 }
 
 async function main() {
   const chains = {
     8453: {
       msigAddress: "",
-      minterAddress: "",
+      minterAddress: ""
     },
     56: {
       msigAddress: "",
-      minterAddress: "",
+      minterAddress: ""
     },
     250: {
       msigAddress: "",
-      minterAddress: "",
+      minterAddress: ""
     },
     81457: {
       msigAddress: "",
-      minterAddress: "",
+      minterAddress: ""
     },
     10: {
       msigAddress: "",
-      minterAddress: "",
+      minterAddress: ""
     },
     42161: {
       msigAddress: "",
-      minterAddress: "",
-    },
+      minterAddress: ""
+    }
   };
   const dexes = {
     aerodrome: {
@@ -101,7 +101,7 @@ async function main() {
       routerAddress: "0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43",
       gaugeAddress: "",
       tokenId: 0,
-      useTokenId: true,
+      useTokenId: true
     },
     equalizer: {
       chain: Chain.FTM,
@@ -111,7 +111,7 @@ async function main() {
       routerAddress: "0x1A05EB736873485655F29a37DEf8a0AA87F5a447",
       gaugeAddress: "",
       tokenId: 0,
-      useTokenId: false,
+      useTokenId: false
     },
     fenix: {
       chain: Chain.BLAST,
@@ -121,7 +121,7 @@ async function main() {
       routerAddress: "0xbD571125856975DBfC2E9b6d1DE496D614D7BAEE",
       gaugeAddress: "",
       tokenId: 0,
-      useTokenId: false,
+      useTokenId: false
     },
     ramses: {
       chain: Chain.ARB1,
@@ -131,7 +131,7 @@ async function main() {
       routerAddress: "0xAAA87963EFeB6f7E0a2711F397663105Acb1805e",
       gaugeAddress: "",
       tokenId: 0,
-      useTokenId: false,
+      useTokenId: false
     },
     solidly: {
       chain: Chain.FTM,
@@ -141,7 +141,7 @@ async function main() {
       routerAddress: "0x77784f96C936042A3ADB1dD29C91a55EB2A4219f",
       gaugeAddress: "",
       tokenId: 0,
-      useTokenId: false,
+      useTokenId: false
     },
     thena: {
       chain: Chain.BNB,
@@ -151,7 +151,7 @@ async function main() {
       routerAddress: "0xd4ae6eCA985340Dd434D38F470aCCce4DC78D109",
       gaugeAddress: "",
       tokenId: 0,
-      useTokenId: false,
+      useTokenId: false
     },
     velodrome: {
       chain: Chain.OP,
@@ -161,8 +161,8 @@ async function main() {
       routerAddress: "0xa062aE8A9c5e11aaA026fc2670B0D65cCc8B2858",
       gaugeAddress: "",
       tokenId: 0,
-      useTokenId: true,
-    },
+      useTokenId: true
+    }
   };
 
   const dexName = "aerodrome";
@@ -182,7 +182,7 @@ async function main() {
     dex.gaugeAddress,
     rewardVaultAddress,
     dex.tokenId,
-    dex.useTokenId,
+    dex.useTokenId
   );
 }
 
