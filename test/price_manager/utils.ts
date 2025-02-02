@@ -1,12 +1,12 @@
 import { ethers, upgrades } from "hardhat";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
-import { Minter, BoostStablecoin, MockERC20, PriceManager, V2AMO } from "../../typechain-types";
+import { BoostStablecoin, ICLPool, Minter, MockERC20, PriceManager, V2AMO, V3AMO } from "../../typechain-types";
 
 export async function deployBaseContracts(
   admin: SignerWithAddress,
   user: SignerWithAddress,
   initAmount: bigint
-): Promise<[BoostStablecoin, MockERC20, Minter, PriceManager]> {
+): Promise<[BoostStablecoin, MockERC20, Minter]> {
   const BoostFactory = await ethers.getContractFactory("BoostStablecoin");
   const boost = await upgrades.deployProxy(BoostFactory, [admin.address]);
   await boost.waitForDeployment();
@@ -31,6 +31,10 @@ export async function deployBaseContracts(
   await testUsd.connect(admin).mint(admin.address, initAmount);
   await testUsd.connect(admin).mint(user.address, initAmount);
 
+  return [boost, testUsd, minter];
+}
+
+export async function deployPriceManager(admin: SignerWithAddress): Promise<PriceManager> {
   const MuonClientFactory = await ethers.getContractFactory("MockMuonClient");
   const muonClient = await MuonClientFactory.deploy();
   await muonClient.waitForDeployment();
@@ -46,7 +50,7 @@ export async function deployBaseContracts(
   );
   await priceManager.waitForDeployment();
 
-  return [boost, testUsd, minter, priceManager];
+  return priceManager;
 }
 
 export async function deployV2AMO(
@@ -103,7 +107,66 @@ export async function deployV2AMO(
   return amo;
 }
 
-export async function addLiquidity(
+export async function deployV3AMO(
+  admin: SignerWithAddress,
+  boostAddress: string,
+  usdAddress: string,
+  poolAddress: string,
+  quoterAddress: string,
+  minterAddress: string,
+  priceManagerAddress: string,
+  pairedTokenType: number,
+  tickLower: number,
+  tickUpper: number,
+  boostMultiplier: bigint,
+  validRangeWidth: bigint,
+  validRemovingRatio: bigint,
+  boostLowerPriceSell: bigint,
+  boostUpperPriceBuy: bigint
+): Promise<V3AMO> {
+  const args = [
+    admin.address,
+    boostAddress,
+    usdAddress,
+    poolAddress,
+    1, // PoolType.CL
+    quoterAddress,
+    ethers.ZeroAddress, // poolCustomDeployer
+    minterAddress,
+    priceManagerAddress,
+    pairedTokenType,
+    tickLower,
+    tickUpper,
+    boostMultiplier,
+    validRangeWidth,
+    validRemovingRatio,
+    boostLowerPriceSell,
+    boostUpperPriceBuy
+  ];
+  const V3AMOFactory = await ethers.getContractFactory("V3AMO");
+  const amo = await upgrades.deployProxy(V3AMOFactory, args, {
+    initializer:
+      "initialize(address,address,address,address,uint8,address,address,address,address,uint8,int24,int24,uint256,uint24,uint24,uint256,uint256)"
+  });
+  await amo.waitForDeployment();
+  const AMO_ROLE = await amo.AMO_ROLE();
+  await amo.connect(admin).grantRole(AMO_ROLE, admin.address);
+  return amo;
+}
+
+export async function createCLPool(factoryAddress: string, boostAddress: string, usdAddress: string): Promise<ICLPool> {
+  const tickSpacing = 1;
+  const price = "1";
+  const poolFactory = await ethers.getContractAt("ICLFactory", factoryAddress);
+  let sqrtPriceX96 = BigInt(
+    Math.floor(Math.sqrt(Number((ethers.parseUnits(price, 6) * BigInt(2 ** 192)) / BigInt(10 ** 6))))
+  );
+  await poolFactory.createPool(boostAddress, usdAddress, tickSpacing, sqrtPriceX96);
+  const poolAddress = await poolFactory.getPool(boostAddress, usdAddress, tickSpacing);
+  return await ethers.getContractAt("ICLPool", poolAddress);
+}
+
+export async function addV2Liquidity(
   admin: SignerWithAddress,
   routerAddress: string,
   boost: BoostStablecoin,
@@ -127,10 +190,39 @@ export async function addLiquidity(
   );
 }
 
-export async function swap(
+export async function v3Swap(
   user: SignerWithAddress,
-  token0Address: string,
-  token1Address: string,
+  token0: MockERC20 | BoostStablecoin,
+  token1: MockERC20 | BoostStablecoin,
+  routerAddress: string,
+  amount: bigint
+) {
+  const deadline = Math.floor(Date.now() / 1000) + 60 * 100;
+  const router = await ethers.getContractAt("ISwapRouter", routerAddress);
+  const MIN_SQRT_RATIO = BigInt("4295128739") + BigInt(1);
+  const MAX_SQRT_RATIO = BigInt("1461446703485210103287273052203988822378723970342") - BigInt(1);
+  await token0.connect(user).approve(routerAddress, amount);
+  await token1.connect(user).approve(routerAddress, amount);
+  const tokenIn = await token0.getAddress();
+  const tokenOut = await token1.getAddress();
+  const sqrtPriceLimitX96 = tokenIn.toLowerCase() < tokenOut.toLowerCase() ? MIN_SQRT_RATIO : MAX_SQRT_RATIO;
+  const params = {
+    tokenIn: tokenIn,
+    tokenOut: tokenOut,
+    tickSpacing: 1,
+    recipient: user.address,
+    deadline: deadline,
+    amountIn: amount,
+    amountOutMinimum: 0,
+    sqrtPriceLimitX96: sqrtPriceLimitX96
+  };
+  await router.connect(user).exactInputSingle(params);
+}
+
+export async function v2Swap(
+  user: SignerWithAddress,
+  token0: MockERC20 | BoostStablecoin,
+  token1: MockERC20 | BoostStablecoin,
   routerAddress: string,
   amount: bigint
 ) {
@@ -138,11 +230,25 @@ export async function swap(
   const router = await ethers.getContractAt("IVRouter", routerAddress);
   const route = [
     {
-      from: token0Address,
-      to: token1Address,
+      from: await token0.getAddress(),
+      to: await token1.getAddress(),
       stable: false,
       factory: ethers.ZeroAddress
     }
   ];
+  await token0.connect(user).approve(routerAddress, amount);
+  await token1.connect(user).approve(routerAddress, amount);
   await router.connect(user).swapExactTokensForTokens(amount, 0, route, user.address, deadline);
+}
+
+export async function getTargetPrice(amo: V2AMO | V3AMO, log: boolean = false): Promise<BigInt> {
+  const tp = await amo.targetPrice();
+  if (log) console.log("Target Price: ", Number(tp) / 1e6);
+  return tp;
+}
+
+export async function getCurrentPrice(amo: V2AMO | V3AMO, log: boolean = false): Promise<BigInt> {
+  const cp = await amo.boostPrice();
+  if (log) console.log("Current Price:", Number(cp) / 1e6);
+  return cp;
 }

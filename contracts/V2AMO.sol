@@ -18,7 +18,6 @@ contract V2AMO is IV2AMO, MasterAMO {
     error UsdAmountOutMismatch(uint256 routerOutput, uint256 balanceChange);
     error LpAmountOutMismatch(uint256 routerOutput, uint256 balanceChange);
     error InvalidReserveRatio(uint256 ratio);
-    error PriceAlreadyInRange(uint256 price);
 
     /* ========== EVENTS ========== */
     event AddLiquidityAndDeposit(uint256 boostSpent, uint256 usdSpent, uint256 liquidity, uint256 indexed tokenId);

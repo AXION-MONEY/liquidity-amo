@@ -165,14 +165,18 @@ contract V3AMO is IV3AMO, MasterAMO {
         if (swapType == SwapType.SELL) {
             uint256 boostAmountIn = uint256(boostDelta);
             uint256 usdAmountOut = uint256(-usdDelta);
-            if (balanceOfToken(usd) < usdAmountOut || boostAmountIn > toBoostAmount(usdAmountOut))
-                revert InvalidDelta();
+            if (
+                balanceOfToken(usd) < usdAmountOut ||
+                (boostAmountIn * targetPrice()) / FACTOR > toBoostAmount(usdAmountOut)
+            ) revert InvalidDelta();
             IMinter(boostMinter).protocolMint(pool, boostAmountIn);
         } else if (swapType == SwapType.BUY) {
             uint256 usdAmountIn = uint256(usdDelta);
             uint256 boostAmountOut = uint256(-boostDelta);
-            if (balanceOfToken(boost) < boostAmountOut || usdAmountIn > toUsdAmount(boostAmountOut))
-                revert InvalidDelta();
+            if (
+                balanceOfToken(boost) < boostAmountOut ||
+                usdAmountIn > (toUsdAmount(boostAmountOut) * targetPrice()) / FACTOR
+            ) revert InvalidDelta();
             IERC20(usd).safeTransfer(pool, usdAmountIn);
         }
     }
@@ -220,7 +224,7 @@ contract V3AMO is IV3AMO, MasterAMO {
 
         (uint256 boostOwed, uint256 usdOwed) = sortAmounts(amount0Owed, amount1Owed);
         uint256 boostAmount = (toBoostAmount(usdOwed) * boostMultiplier) / FACTOR;
-        if (boostAmount < boostOwed) revert InvalidOwed();
+        if (boostAmount < (boostOwed * boostPrice()) / FACTOR) revert InvalidOwed();
 
         IERC20(usd).safeTransfer(pool, usdOwed);
         IMinter(boostMinter).protocolMint(pool, boostOwed);
@@ -263,7 +267,7 @@ contract V3AMO is IV3AMO, MasterAMO {
         uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(tickUpper);
 
         // Step 3: Sort amounts to determine amount0 and amount1
-        (uint256 amount0, uint256 amount1) = sortAmounts(type(uint128).max, usdAmount);
+        (uint256 amount0, uint256 amount1) = sortAmounts(type(uint128).max / 2, usdAmount);
 
         // Step 4: Use the Uniswap V3 LiquidityAmounts library to calculate liquidity
         liquidity = uint256(
@@ -305,13 +309,6 @@ contract V3AMO is IV3AMO, MasterAMO {
 
         (boostSpent, usdSpent) = sortAmounts(amount0, amount1);
         if (boostSpent < minBoostSpend || usdSpent < minUsdSpend) revert InsufficientTokenSpent();
-
-        // Calculate valid range for USD spent based on BOOST spent and validRangeWidth (in %)
-        uint256 allowedBoostDeviation = (boostSpent * validRangeWidth) / FACTOR; // validRange is the width in scaled dollar terms
-        if (
-            toBoostAmount(usdSpent) <= boostSpent - allowedBoostDeviation ||
-            toBoostAmount(usdSpent) >= boostSpent + allowedBoostDeviation
-        ) revert InvalidRatioToAddLiquidity();
 
         emit AddLiquidity(boostSpent, usdSpent, liquidity);
     }
@@ -500,7 +497,17 @@ contract V3AMO is IV3AMO, MasterAMO {
         newBoostPrice = boostPrice();
     }
 
-    function _validateSwap(bool boostForUsd) internal view override {}
+    function _validateSwap(bool boostForUsd) internal view override {
+        uint256 price = boostPrice();
+        uint256 tp = targetPrice();
+        if (boostForUsd) {
+            // mintSellFarm
+            if (price <= priceUpperBound(tp)) revert PriceAlreadyInRange(price);
+        } else {
+            // unfarmBuyBurn
+            if (price >= priceLowerBound(tp)) revert PriceAlreadyInRange(price);
+        }
+    }
 
     function _getSqrtPriceX96() internal view returns (uint160 _sqrtPriceX96) {
         bytes memory data;

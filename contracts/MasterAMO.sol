@@ -37,6 +37,7 @@ abstract contract MasterAMO is
     error InvalidRatioToAddLiquidity();
     error InvalidRatioToRemoveLiquidity();
     error PriceNotInRange(uint256 price);
+    error PriceAlreadyInRange(uint256 price);
     error InvalidPairedTokenType();
 
     /* ========== EVENTS ========== */
