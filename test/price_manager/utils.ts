@@ -197,6 +197,11 @@ export async function v3Swap(
   routerAddress: string,
   amount: bigint
 ) {
+  if (amount == 0n) return;
+  if (amount < 0n) {
+    amount = -amount;
+    [token0, token1] = [token1, token0];
+  }
   const deadline = Math.floor(Date.now() / 1000) + 60 * 100;
   const router = await ethers.getContractAt("ISwapRouter", routerAddress);
   const MIN_SQRT_RATIO = BigInt("4295128739") + BigInt(1);
@@ -226,6 +231,11 @@ export async function v2Swap(
   routerAddress: string,
   amount: bigint
 ) {
+  if (amount == 0n) return;
+  if (amount < 0n) {
+    amount = -amount;
+    [token0, token1] = [token1, token0];
+  }
   const deadline = Math.floor(Date.now() / 1000) + 60 * 100;
   const router = await ethers.getContractAt("IVRouter", routerAddress);
   const route = [
@@ -241,14 +251,30 @@ export async function v2Swap(
   await router.connect(user).swapExactTokensForTokens(amount, 0, route, user.address, deadline);
 }
 
-export async function getTargetPrice(amo: V2AMO | V3AMO, log: boolean = false): Promise<BigInt> {
+export async function getTargetPrice(amo: V2AMO | V3AMO, log: boolean = false): Promise<bigint> {
   const tp = await amo.targetPrice();
   if (log) console.log("Target Price: ", Number(tp) / 1e6);
   return tp;
 }
 
-export async function getCurrentPrice(amo: V2AMO | V3AMO, log: boolean = false): Promise<BigInt> {
+export async function getCurrentPrice(amo: V2AMO | V3AMO, log: boolean = false): Promise<bigint> {
   const cp = await amo.boostPrice();
   if (log) console.log("Current Price:", Number(cp) / 1e6);
   return cp;
+}
+
+export async function logPriceDiff(amo: V2AMO | V3AMO, indents: number = 1): Promise<{ tp: bigint; cp: bigint }> {
+  const tp = await amo.targetPrice();
+  const cp = await amo.boostPrice();
+  let diff;
+  let word;
+  if (cp > tp) {
+    diff = Number(cp - tp);
+    word = "above";
+  } else {
+    diff = Number(tp - cp);
+    word = "below";
+  }
+  console.log(`${"\t".repeat(indents)}Price is ${((diff / Number(tp)) * 100).toFixed(2)}% ${word}`);
+  return { tp, cp };
 }
