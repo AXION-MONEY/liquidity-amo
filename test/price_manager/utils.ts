@@ -2,6 +2,29 @@ import { ethers, upgrades } from "hardhat";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { BoostStablecoin, ICLPool, Minter, MockERC20, PriceManager, V2AMO, V3AMO } from "../../typechain-types";
 
+export enum PairedTokenType {
+  STABLE,
+  SUSDE,
+  SFRAX,
+  SDAI
+}
+
+export async function getInitPrice(priceManager: PriceManager, pairedTokenType: PairedTokenType): Promise<bigint> {
+  const ONE = BigInt(10 ** 6);
+  switch (pairedTokenType) {
+    case PairedTokenType.STABLE:
+      return ONE;
+    case PairedTokenType.SUSDE:
+      return await priceManager.sUsdePreviewDeposit(ONE);
+    case PairedTokenType.SFRAX:
+      return await priceManager.sFraxPreviewDeposit(ONE);
+    case PairedTokenType.SDAI:
+      return await priceManager.sDaiPreviewDeposit(ONE);
+    default:
+      throw new Error("Invalid pairedTokenType");
+  }
+}
+
 export async function deployBaseContracts(
   admin: SignerWithAddress,
   user: SignerWithAddress,
@@ -13,9 +36,9 @@ export async function deployBaseContracts(
   const boostAddress = await boost.getAddress();
 
   const MockErc20Factory = await ethers.getContractFactory("MockERC20");
-  const testUsd = await MockErc20Factory.deploy("USD", "USD", 18);
-  await testUsd.waitForDeployment();
-  const usdAddress = await testUsd.getAddress();
+  const usd = await MockErc20Factory.deploy("USD", "USD", 18);
+  await usd.waitForDeployment();
+  const usdAddress = await usd.getAddress();
 
   const MinterFactory = await ethers.getContractFactory("Minter");
   const minter = await upgrades.deployProxy(MinterFactory, [boostAddress, usdAddress, admin.address]);
@@ -28,10 +51,10 @@ export async function deployBaseContracts(
   await boost.grantRole(MINTER_ROLE, admin.address);
   await boost.connect(admin).mint(admin.address, initAmount);
   await boost.connect(admin).mint(user.address, initAmount);
-  await testUsd.connect(admin).mint(admin.address, initAmount);
-  await testUsd.connect(admin).mint(user.address, initAmount);
+  await usd.connect(admin).mint(admin.address, initAmount);
+  await usd.connect(admin).mint(user.address, initAmount);
 
-  return [boost, testUsd, minter];
+  return [boost, usd, minter];
 }
 
 export async function deployPriceManager(admin: SignerWithAddress): Promise<PriceManager> {

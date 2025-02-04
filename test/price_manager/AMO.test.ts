@@ -3,6 +3,7 @@ import { ethers, network } from "hardhat";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { BoostStablecoin, Minter, MockERC20, PriceManager, V2AMO, V3AMO } from "../../typechain-types";
 import {
+  PairedTokenType,
   deployBaseContracts,
   deployV2AMO,
   addV2Liquidity,
@@ -13,15 +14,9 @@ import {
   createCLPool,
   v3Swap,
   logPriceDiff,
-  getTestCaseTitle
+  getTestCaseTitle,
+  getInitPrice
 } from "./utils";
-
-enum PairedTokenType {
-  STABLE,
-  SUSDE,
-  SFRAX,
-  SDAI
-}
 
 const sigs = {
   susde: {
@@ -88,6 +83,7 @@ const sigs = {
 };
 
 describe("Price Manager tests", function () {
+  const pairedTokenType = PairedTokenType.STABLE;
   const LOG_PRICES = false;
   const initAmount = ethers.parseUnits("11000000", 18); // 11M
   const lpAmount = ethers.parseUnits("1000000", 18); // 1M
@@ -145,7 +141,7 @@ describe("Price Manager tests", function () {
   describe("V3AMO", function () {
     beforeEach(async function () {
       [boost, usd, minter] = await deployBaseContracts(admin, user, initAmount);
-      const initPrice = await priceManager.sUsdePreviewDeposit(10 ** 6);
+      const initPrice = await getInitPrice(priceManager, pairedTokenType);
       const pool = await createCLPool(AERO_POOL_FACTORY, boost, usd, initPrice);
 
       v3amo = await deployV3AMO(
@@ -156,7 +152,7 @@ describe("Price Manager tests", function () {
         AERO_QUOTER,
         await minter.getAddress(),
         await priceManager.getAddress(),
-        PairedTokenType.SUSDE,
+        pairedTokenType,
         tickLower,
         tickUpper,
         boostMultiplier,
@@ -175,7 +171,7 @@ describe("Price Manager tests", function () {
     });
 
     describe("V3 Public mintSellFarm", () => {
-      for (const swapAmount of ["5000", "65000", "900000", "0", "-5000"]) {
+      for (const swapAmount of ["8000", "65000", "900000", "0", "-5000"]) {
         it(getTestCaseTitle(swapAmount), async function () {
           await v3Swap(user, usd, boost, AERO_V3_ROUTER, ethers.parseUnits(swapAmount, 18));
           const { tp, cp } = await logPriceDiff(v3amo);
@@ -222,7 +218,7 @@ describe("Price Manager tests", function () {
         poolFee,
         await minter.getAddress(),
         await priceManager.getAddress(),
-        PairedTokenType.SUSDE,
+        pairedTokenType,
         AERO_V2_ROUTER,
         boostMultiplier,
         validRangeWidth,
@@ -235,12 +231,12 @@ describe("Price Manager tests", function () {
       const amoAddress = await v2amo.getAddress();
       const AMO_ROLE = await minter.AMO_ROLE();
       await minter.connect(admin).grantRole(AMO_ROLE, amoAddress);
-      const initPrice = await priceManager.sUsdePreviewDeposit(10 ** 6);
+      const initPrice = await getInitPrice(priceManager, pairedTokenType);
       await addV2Liquidity(admin, AERO_V2_ROUTER, boost, usd, amoAddress, lpAmount, initPrice);
     });
 
     describe("V2 Public mintSellFarm", () => {
-      for (const swapAmount of ["5000", "65000", "900000", "0", "-5000"]) {
+      for (const swapAmount of ["8000", "65000", "900000", "0", "-5000"]) {
         it(getTestCaseTitle(swapAmount), async function () {
           await v2Swap(user, usd, boost, AERO_V2_ROUTER, ethers.parseUnits(swapAmount, 18));
           const { tp, cp } = await logPriceDiff(v2amo);
