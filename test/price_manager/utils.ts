@@ -154,13 +154,24 @@ export async function deployV3AMO(
   return amo;
 }
 
-export async function createCLPool(factoryAddress: string, boostAddress: string, usdAddress: string): Promise<ICLPool> {
+export async function createCLPool(
+  factoryAddress: string,
+  boost: BoostStablecoin,
+  usd: MockERC20,
+  price: bigint = ethers.parseUnits("1", 6)
+): Promise<ICLPool> {
+  const boostAddress = await boost.getAddress();
+  const boostDecimals = await boost.decimals();
+  const usdAddress = await usd.getAddress();
+  const usdDecimals = await usd.decimals();
   const tickSpacing = 1;
-  const price = "1";
+  if (usdAddress.toLowerCase() < boostAddress.toLowerCase()) price = BigInt(10 ** 12) / price;
+  let priceX96 = Number((price * BigInt(2 ** 192)) / BigInt(10 ** 6));
+  const decimalsDiff = Number(boostDecimals - usdDecimals);
+  if (boostAddress.toLowerCase() < usdAddress.toLowerCase()) priceX96 /= 10 ** decimalsDiff;
+  else priceX96 *= 10 ** decimalsDiff;
+  let sqrtPriceX96 = BigInt(Math.floor(Math.sqrt(priceX96)));
   const poolFactory = await ethers.getContractAt("ICLFactory", factoryAddress);
-  let sqrtPriceX96 = BigInt(
-    Math.floor(Math.sqrt(Number((ethers.parseUnits(price, 6) * BigInt(2 ** 192)) / BigInt(10 ** 6))))
-  );
   await poolFactory.createPool(boostAddress, usdAddress, tickSpacing, sqrtPriceX96);
   const poolAddress = await poolFactory.getPool(boostAddress, usdAddress, tickSpacing);
   return await ethers.getContractAt("ICLPool", poolAddress);
@@ -172,17 +183,19 @@ export async function addV2Liquidity(
   boost: BoostStablecoin,
   usd: MockERC20,
   amoAddress: string,
-  amount: bigint
+  boostAmount: bigint,
+  price: bigint = ethers.parseUnits("1", 6)
 ) {
   const router = await ethers.getContractAt("IVRouter", routerAddress);
-  await boost.connect(admin).approve(routerAddress, amount);
-  await usd.connect(admin).approve(routerAddress, amount);
+  const usdAmount = (boostAmount * price) / BigInt(10 ** 6);
+  await boost.connect(admin).approve(routerAddress, boostAmount);
+  await usd.connect(admin).approve(routerAddress, usdAmount);
   await router.connect(admin).addLiquidity(
     await boost.getAddress(),
     await usd.getAddress(),
     false, // stable
-    amount,
-    amount,
+    boostAmount,
+    usdAmount,
     0, // min amounts = 0 for testing
     0,
     amoAddress,
@@ -277,4 +290,13 @@ export async function logPriceDiff(amo: V2AMO | V3AMO, indents: number = 1): Pro
   }
   console.log(`${"\t".repeat(indents)}Price is ${((diff / Number(tp)) * 100).toFixed(2)}% ${word}`);
   return { tp, cp };
+}
+
+export function getTestCaseTitle(swapAmount: string, ubb: boolean = false): string {
+  let executeWord = "above";
+  let revertWord = "below";
+  if (ubb) [executeWord, revertWord] = [revertWord, executeWord];
+  if (Number(swapAmount) > 0) return `execute when the price is ${executeWord} the target price (${swapAmount})`;
+  else if (Number(swapAmount) < 0) return `revert when the price is ${revertWord} the target price (${swapAmount})`;
+  else return "revert when the price is already in range";
 }

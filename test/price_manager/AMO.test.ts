@@ -6,14 +6,14 @@ import {
   deployBaseContracts,
   deployV2AMO,
   addV2Liquidity,
-  getTargetPrice,
   getCurrentPrice,
   v2Swap,
   deployPriceManager,
   deployV3AMO,
   createCLPool,
   v3Swap,
-  logPriceDiff
+  logPriceDiff,
+  getTestCaseTitle
 } from "./utils";
 
 enum PairedTokenType {
@@ -145,15 +145,13 @@ describe("Price Manager tests", function () {
   describe("V3AMO", function () {
     beforeEach(async function () {
       [boost, usd, minter] = await deployBaseContracts(admin, user, initAmount);
-      const boostAddress = await boost.getAddress();
-      const usdAddress = await usd.getAddress();
-
-      const pool = await createCLPool(AERO_POOL_FACTORY, boostAddress, usdAddress);
+      const initPrice = await priceManager.sUsdePreviewDeposit(10 ** 6);
+      const pool = await createCLPool(AERO_POOL_FACTORY, boost, usd, initPrice);
 
       v3amo = await deployV3AMO(
         admin,
-        boostAddress,
-        usdAddress,
+        await boost.getAddress(),
+        await usd.getAddress(),
         await pool.getAddress(),
         AERO_QUOTER,
         await minter.getAddress(),
@@ -177,40 +175,39 @@ describe("Price Manager tests", function () {
     });
 
     describe("V3 Public mintSellFarm", () => {
-      for (const swapAmount of ["65000", "0", "-700000"]) {
-        it(`execute when the price is above the target price (${swapAmount})`, async function () {
-          await v3Swap(user, boost, usd, AERO_V3_ROUTER, ethers.parseUnits(swapAmount, 18));
-          const { tp } = await logPriceDiff(v3amo);
-          await v3amo["mintSellFarm()"]();
-          const cp = await getCurrentPrice(v3amo, LOG_PRICES);
-          expect(cp).to.be.approximately(tp, delta);
+      for (const swapAmount of ["5000", "65000", "900000", "0", "-5000"]) {
+        it(getTestCaseTitle(swapAmount), async function () {
+          await v3Swap(user, usd, boost, AERO_V3_ROUTER, ethers.parseUnits(swapAmount, 18));
+          const { tp, cp } = await logPriceDiff(v3amo);
+          if (Number(swapAmount) > 0) {
+            await v3amo["mintSellFarm()"]();
+            const newPrice = await getCurrentPrice(v3amo, LOG_PRICES);
+            expect(newPrice).to.be.approximately(tp, delta);
+          } else {
+            await expect(v3amo["mintSellFarm()"]())
+              .to.be.revertedWithCustomError(v3amo, "PriceAlreadyInRange")
+              .withArgs(cp);
+          }
         });
       }
-      it("revert when the price is below the target price", async function () {
-        await v3Swap(user, boost, usd, AERO_V3_ROUTER, ethers.parseUnits("80000", 18));
-        const { cp } = await logPriceDiff(v3amo);
-        await expect(v3amo["mintSellFarm()"]())
-          .to.be.revertedWithCustomError(v3amo, "PriceAlreadyInRange")
-          .withArgs(cp);
-      });
     });
 
     describe("V3 Public unfarmBuyBurn", () => {
-      for (const swapAmount of ["80000", "150000", "1000000"]) {
-        it(`execute when the price is below the target price (${swapAmount})`, async function () {
+      for (const swapAmount of ["8000", "65000", "900000", "0", "-5000"]) {
+        it(getTestCaseTitle(swapAmount, true), async function () {
           await v3Swap(user, boost, usd, AERO_V3_ROUTER, ethers.parseUnits(swapAmount, 18));
-          const { tp } = await logPriceDiff(v3amo);
-          await v3amo["unfarmBuyBurn()"]();
-          const cp = await getCurrentPrice(v3amo, LOG_PRICES);
-          expect(cp).to.be.approximately(tp, delta);
+          const { tp, cp } = await logPriceDiff(v3amo);
+          if (Number(swapAmount) > 0) {
+            await v3amo["unfarmBuyBurn()"]();
+            const newPrice = await getCurrentPrice(v3amo, LOG_PRICES);
+            expect(newPrice).to.be.approximately(tp, delta);
+          } else {
+            await expect(v3amo["unfarmBuyBurn()"]())
+              .to.be.revertedWithCustomError(v3amo, "PriceAlreadyInRange")
+              .withArgs(cp);
+          }
         });
       }
-      it("revert when the price is above the target price", async function () {
-        const { cp } = await logPriceDiff(v3amo);
-        await expect(v3amo["unfarmBuyBurn()"]())
-          .to.be.revertedWithCustomError(v3amo, "PriceAlreadyInRange")
-          .withArgs(cp);
-      });
     });
   });
 
@@ -238,44 +235,44 @@ describe("Price Manager tests", function () {
       const amoAddress = await v2amo.getAddress();
       const AMO_ROLE = await minter.AMO_ROLE();
       await minter.connect(admin).grantRole(AMO_ROLE, amoAddress);
-      await addV2Liquidity(admin, AERO_V2_ROUTER, boost, usd, amoAddress, lpAmount);
+      const initPrice = await priceManager.sUsdePreviewDeposit(10 ** 6);
+      await addV2Liquidity(admin, AERO_V2_ROUTER, boost, usd, amoAddress, lpAmount, initPrice);
     });
 
     describe("V2 Public mintSellFarm", () => {
-      for (const swapAmount of ["65000", "0", "-700000"]) {
-        it(`execute when the price is above the target price (${swapAmount})`, async function () {
-          await v2Swap(user, boost, usd, AERO_V2_ROUTER, ethers.parseUnits(swapAmount, 18));
-          const { tp } = await logPriceDiff(v2amo);
-          await v2amo["mintSellFarm()"]();
-          const cp = await getCurrentPrice(v2amo, LOG_PRICES);
-          expect(cp).to.be.approximately(tp, delta);
+      for (const swapAmount of ["5000", "65000", "900000", "0", "-5000"]) {
+        it(getTestCaseTitle(swapAmount), async function () {
+          await v2Swap(user, usd, boost, AERO_V2_ROUTER, ethers.parseUnits(swapAmount, 18));
+          const { tp, cp } = await logPriceDiff(v2amo);
+          if (Number(swapAmount) > 0) {
+            await v2amo["mintSellFarm()"]();
+            const newPrice = await getCurrentPrice(v2amo, LOG_PRICES);
+            expect(newPrice).to.be.approximately(tp, delta);
+          } else {
+            await expect(v2amo["mintSellFarm()"]())
+              .to.be.revertedWithCustomError(v2amo, "InvalidReserveRatio")
+              .withArgs(cp);
+          }
         });
       }
-      it("revert when the price is below the target price", async function () {
-        await v2Swap(user, boost, usd, AERO_V2_ROUTER, ethers.parseUnits("80000", 18));
-        const { cp } = await logPriceDiff(v2amo);
-        await expect(v2amo["mintSellFarm()"]())
-          .to.be.revertedWithCustomError(v2amo, "InvalidReserveRatio")
-          .withArgs(cp);
-      });
     });
 
     describe("V2 Public unfarmBuyBurn", () => {
-      for (const swapAmount of ["80000", "150000", "1000000"]) {
-        it(`execute when the price is below the target price (${swapAmount})`, async function () {
+      for (const swapAmount of ["8000", "65000", "900000", "0", "-5000"]) {
+        it(getTestCaseTitle(swapAmount, false), async function () {
           await v2Swap(user, boost, usd, AERO_V2_ROUTER, ethers.parseUnits(swapAmount, 18));
-          const { tp } = await logPriceDiff(v2amo);
-          await v2amo["unfarmBuyBurn()"]();
-          const cp = await getCurrentPrice(v2amo, LOG_PRICES);
-          expect(cp).to.be.approximately(tp, delta);
+          const { tp, cp } = await logPriceDiff(v2amo);
+          if (Number(swapAmount) > 0) {
+            await v2amo["unfarmBuyBurn()"]();
+            const newPrice = await getCurrentPrice(v2amo, LOG_PRICES);
+            expect(newPrice).to.be.approximately(tp, delta);
+          } else {
+            await expect(v2amo["unfarmBuyBurn()"]())
+              .to.be.revertedWithCustomError(v2amo, "InvalidReserveRatio")
+              .withArgs(cp);
+          }
         });
       }
-      it("revert when the price is above the target price", async function () {
-        const { cp } = await logPriceDiff(v2amo);
-        await expect(v2amo["unfarmBuyBurn()"]())
-          .to.be.revertedWithCustomError(v2amo, "InvalidReserveRatio")
-          .withArgs(cp);
-      });
     });
   });
 });
