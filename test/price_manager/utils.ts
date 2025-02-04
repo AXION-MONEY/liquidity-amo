@@ -9,6 +9,21 @@ export enum PairedTokenType {
   SDAI
 }
 
+export function pairedTokenTypeName(pairedTokenType: PairedTokenType): string {
+  switch (pairedTokenType) {
+    case PairedTokenType.STABLE:
+      return "STABLE";
+    case PairedTokenType.SUSDE:
+      return "SUSDE";
+    case PairedTokenType.SFRAX:
+      return "SFRAX";
+    case PairedTokenType.SDAI:
+      return "SDAI";
+    default:
+      throw new Error("Invalid pairedTokenType");
+  }
+}
+
 export async function getInitPrice(priceManager: PriceManager, pairedTokenType: PairedTokenType): Promise<bigint> {
   const ONE = BigInt(10 ** 6);
   switch (pairedTokenType) {
@@ -28,7 +43,8 @@ export async function getInitPrice(priceManager: PriceManager, pairedTokenType: 
 export async function deployBaseContracts(
   admin: SignerWithAddress,
   user: SignerWithAddress,
-  initAmount: bigint
+  usdDecimals: number,
+  initAmount: string
 ): Promise<[BoostStablecoin, MockERC20, Minter]> {
   const BoostFactory = await ethers.getContractFactory("BoostStablecoin");
   const boost = await upgrades.deployProxy(BoostFactory, [admin.address]);
@@ -36,7 +52,7 @@ export async function deployBaseContracts(
   const boostAddress = await boost.getAddress();
 
   const MockErc20Factory = await ethers.getContractFactory("MockERC20");
-  const usd = await MockErc20Factory.deploy("USD", "USD", 18);
+  const usd = await MockErc20Factory.deploy("USD", "USD", usdDecimals);
   await usd.waitForDeployment();
   const usdAddress = await usd.getAddress();
 
@@ -49,10 +65,10 @@ export async function deployBaseContracts(
 
   await boost.grantRole(MINTER_ROLE, minterAddress);
   await boost.grantRole(MINTER_ROLE, admin.address);
-  await boost.connect(admin).mint(admin.address, initAmount);
-  await boost.connect(admin).mint(user.address, initAmount);
-  await usd.connect(admin).mint(admin.address, initAmount);
-  await usd.connect(admin).mint(user.address, initAmount);
+  await boost.connect(admin).mint(admin.address, ethers.parseUnits(initAmount, 18));
+  await boost.connect(admin).mint(user.address, ethers.parseUnits(initAmount, 18));
+  await usd.connect(admin).mint(admin.address, ethers.parseUnits(initAmount, usdDecimals));
+  await usd.connect(admin).mint(user.address, ethers.parseUnits(initAmount, usdDecimals));
 
   return [boost, usd, minter];
 }
@@ -206,11 +222,13 @@ export async function addV2Liquidity(
   boost: BoostStablecoin,
   usd: MockERC20,
   amoAddress: string,
-  boostAmount: bigint,
+  amount: string,
   price: bigint = ethers.parseUnits("1", 6)
 ) {
   const router = await ethers.getContractAt("IVRouter", routerAddress);
-  const usdAmount = (boostAmount * price) / BigInt(10 ** 6);
+  const boostAmount = ethers.parseUnits(amount, 18);
+  let usdAmount = ethers.parseUnits(amount, await usd.decimals());
+  usdAmount = (usdAmount * price) / BigInt(10 ** 6);
   await boost.connect(admin).approve(routerAddress, boostAmount);
   await usd.connect(admin).approve(routerAddress, usdAmount);
   await router.connect(admin).addLiquidity(
@@ -231,13 +249,15 @@ export async function v3Swap(
   token0: MockERC20 | BoostStablecoin,
   token1: MockERC20 | BoostStablecoin,
   routerAddress: string,
-  amount: bigint
+  swapAmount: string
 ) {
-  if (amount == 0n) return;
-  if (amount < 0n) {
-    amount = -amount;
+  let _swapAmount = Number(swapAmount);
+  if (_swapAmount == 0) return;
+  if (_swapAmount < 0) {
+    _swapAmount = -_swapAmount;
     [token0, token1] = [token1, token0];
   }
+  const amount = ethers.parseUnits(_swapAmount.toString(), await token0.decimals());
   const deadline = Math.floor(Date.now() / 1000) + 60 * 100;
   const router = await ethers.getContractAt("ISwapRouter", routerAddress);
   const MIN_SQRT_RATIO = BigInt("4295128739") + BigInt(1);
@@ -265,13 +285,15 @@ export async function v2Swap(
   token0: MockERC20 | BoostStablecoin,
   token1: MockERC20 | BoostStablecoin,
   routerAddress: string,
-  amount: bigint
+  swapAmount: string
 ) {
-  if (amount == 0n) return;
-  if (amount < 0n) {
-    amount = -amount;
+  let _swapAmount = Number(swapAmount);
+  if (_swapAmount == 0) return;
+  if (_swapAmount < 0) {
+    _swapAmount = -_swapAmount;
     [token0, token1] = [token1, token0];
   }
+  const amount = ethers.parseUnits(_swapAmount.toString(), await token0.decimals());
   const deadline = Math.floor(Date.now() / 1000) + 60 * 100;
   const router = await ethers.getContractAt("IVRouter", routerAddress);
   const route = [
@@ -299,7 +321,7 @@ export async function getCurrentPrice(amo: V2AMO | V3AMO, log: boolean = false):
   return cp;
 }
 
-export async function logPriceDiff(amo: V2AMO | V3AMO, indents: number = 1): Promise<{ tp: bigint; cp: bigint }> {
+export async function logPriceDiff(amo: V2AMO | V3AMO, indents: number = 2): Promise<{ tp: bigint; cp: bigint }> {
   const tp = await amo.targetPrice();
   const cp = await amo.boostPrice();
   let diff;
