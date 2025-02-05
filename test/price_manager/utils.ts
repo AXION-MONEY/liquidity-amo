@@ -197,13 +197,13 @@ export async function createCLPool(
   factoryAddress: string,
   boost: BoostStablecoin,
   usd: MockERC20,
-  price: bigint = ethers.parseUnits("1", 6)
+  price: bigint = ethers.parseUnits("1", 6),
+  tickSpacing: number
 ): Promise<ICLPool> {
   const boostAddress = await boost.getAddress();
   const boostDecimals = await boost.decimals();
   const usdAddress = await usd.getAddress();
   const usdDecimals = await usd.decimals();
-  const tickSpacing = 1;
   if (usdAddress.toLowerCase() < boostAddress.toLowerCase()) price = BigInt(10 ** 12) / price;
   let priceX96 = Number((price * BigInt(2 ** 192)) / BigInt(10 ** 6));
   const decimalsDiff = Number(boostDecimals - usdDecimals);
@@ -248,6 +248,7 @@ export async function v3Swap(
   user: SignerWithAddress,
   token0: MockERC20 | BoostStablecoin,
   token1: MockERC20 | BoostStablecoin,
+  tickSpacing: number,
   routerAddress: string,
   swapAmount: string
 ) {
@@ -270,7 +271,7 @@ export async function v3Swap(
   const params = {
     tokenIn: tokenIn,
     tokenOut: tokenOut,
-    tickSpacing: 1,
+    tickSpacing: tickSpacing,
     recipient: user.address,
     deadline: deadline,
     amountIn: amount,

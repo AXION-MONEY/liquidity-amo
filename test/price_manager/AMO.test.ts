@@ -84,6 +84,7 @@ const sigs = {
 };
 
 describe("Price Manager tests", function () {
+  let tickSpacing = 1; // Valid values for Aero: [1, 50, 100, 200, 2_000]
   const LOG_PRICES = false;
   const initAmount = "11000000"; // 11M
   const lpAmount = "1000000"; // 1M
@@ -91,7 +92,8 @@ describe("Price Manager tests", function () {
 
   // AMO consts
   const boostMultiplier = ethers.parseUnits("1.01", 6);
-  const validRangeWidth = ethers.parseUnits("0.01", 6);
+  const _vrw = tickSpacing == 2_000 ? "0.02" : "0.01";
+  const validRangeWidth = ethers.parseUnits(_vrw, 6);
   const validRemovingRatio = ethers.parseUnits("1.01", 6);
   const boostLowerPriceSell = ethers.parseUnits("0.99", 6);
   const boostUpperPriceBuy = ethers.parseUnits("1.01", 6);
@@ -106,8 +108,7 @@ describe("Price Manager tests", function () {
   const AERO_POOL_FACTORY = "0x5e7BB104d84c7CB9B682AaC2F3d509f5F406809A";
   const AERO_QUOTER = "0x254cF9E1E6e233aa1AC962CB9B05b2cfeAaE15b0";
   const AERO_V3_ROUTER = "0xBE6D8f0d05cC4be24d5167a3eF062215bE6D18a5"; // SwapRouter
-  const tickLower = -887272;
-  const tickUpper = 887272;
+  const maxTickValue = 887272;
 
   let admin: SignerWithAddress;
   let user: SignerWithAddress;
@@ -146,8 +147,10 @@ describe("Price Manager tests", function () {
             beforeEach(async function () {
               [boost, usd, minter] = await deployBaseContracts(admin, user, usdDecimals, initAmount);
               const initPrice = await getInitPrice(priceManager, pairedTokenType);
-              const pool = await createCLPool(AERO_POOL_FACTORY, boost, usd, initPrice);
+              const pool = await createCLPool(AERO_POOL_FACTORY, boost, usd, initPrice, tickSpacing);
 
+              const tickUpper = Math.floor(maxTickValue / tickSpacing) * tickSpacing;
+              const tickLower = -tickUpper;
               v3amo = await deployV3AMO(
                 admin,
                 await boost.getAddress(),
@@ -176,7 +179,7 @@ describe("Price Manager tests", function () {
             describe("V3 Public mintSellFarm", () => {
               for (const swapAmount of ["8000", "65000", "900000", "0", "-5000"]) {
                 it(getTestCaseTitle(swapAmount), async function () {
-                  await v3Swap(user, usd, boost, AERO_V3_ROUTER, swapAmount);
+                  await v3Swap(user, usd, boost, tickSpacing, AERO_V3_ROUTER, swapAmount);
                   const { tp, cp } = await logPriceDiff(v3amo);
                   if (Number(swapAmount) > 0) {
                     await v3amo["mintSellFarm()"]();
@@ -194,7 +197,7 @@ describe("Price Manager tests", function () {
             describe("V3 Public unfarmBuyBurn", () => {
               for (const swapAmount of ["8000", "65000", "900000", "0", "-5000"]) {
                 it(getTestCaseTitle(swapAmount, true), async function () {
-                  await v3Swap(user, boost, usd, AERO_V3_ROUTER, swapAmount);
+                  await v3Swap(user, boost, usd, tickSpacing, AERO_V3_ROUTER, swapAmount);
                   const { tp, cp } = await logPriceDiff(v3amo);
                   if (Number(swapAmount) > 0) {
                     await v3amo["unfarmBuyBurn()"]();
