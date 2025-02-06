@@ -16,7 +16,8 @@ import {
   logPriceDiff,
   getTestCaseTitle,
   getInitPrice,
-  pairedTokenTypeName
+  pairedTokenTypeName,
+  getTickBounds
 } from "./utils";
 
 const sigs = {
@@ -83,7 +84,35 @@ const sigs = {
   }
 };
 
+async function initNetwork(): Promise<PriceManager> {
+  const [admin, user] = await ethers.getSigners();
+  await network.provider.request({
+    method: "hardhat_reset",
+    params: [
+      {
+        forking: {
+          jsonRpcUrl: "https://base-rpc.publicnode.com",
+          blockNumber: 25717500 // Optional: specify a block number
+        }
+      }
+    ]
+  });
+  const priceManager = await deployPriceManager(admin);
+  await priceManager.connect(user).setSUsdeWithSig(sigs.susde.states, sigs.susde.muonSig);
+  await priceManager.connect(user).setSFraxWithSig(sigs.sfrax.states, sigs.sfrax.muonSig);
+  await priceManager.connect(user).setPotWithSig(sigs.sdai.states, sigs.sdai.muonSig);
+  return priceManager;
+}
+
 describe("Price Manager tests", function () {
+  const priceBounds = [
+    [undefined, undefined], // full range
+    ["0.7", "1.5"],
+    ["0.5", "2.0"],
+    ["0.1", "10.0"]
+  ];
+  const swapAmounts = ["25000", "65000", "900000", "0", "-5000"];
+  // const swapAmounts = ["1000000"];
   let tickSpacing = 1; // Valid values for Aero: [1, 50, 100, 200, 2_000]
   const LOG_PRICES = false;
   const initAmount = "11000000"; // 11M
@@ -108,7 +137,6 @@ describe("Price Manager tests", function () {
   const AERO_POOL_FACTORY = "0x5e7BB104d84c7CB9B682AaC2F3d509f5F406809A";
   const AERO_QUOTER = "0x254cF9E1E6e233aa1AC962CB9B05b2cfeAaE15b0";
   const AERO_V3_ROUTER = "0xBE6D8f0d05cC4be24d5167a3eF062215bE6D18a5"; // SwapRouter
-  const maxTickValue = 887272;
 
   let admin: SignerWithAddress;
   let user: SignerWithAddress;
@@ -120,37 +148,22 @@ describe("Price Manager tests", function () {
   let v2amo: V2AMO;
   let v3amo: V3AMO;
 
-  before(async () => {
-    [admin, user] = await ethers.getSigners();
-    await network.provider.request({
-      method: "hardhat_reset",
-      params: [
-        {
-          forking: {
-            jsonRpcUrl: "https://base-rpc.publicnode.com",
-            blockNumber: 25717500 // Optional: specify a block number
-          }
-        }
-      ]
-    });
-    priceManager = await deployPriceManager(admin);
-    await priceManager.connect(user).setSUsdeWithSig(sigs.susde.states, sigs.susde.muonSig);
-    await priceManager.connect(user).setSFraxWithSig(sigs.sfrax.states, sigs.sfrax.muonSig);
-    await priceManager.connect(user).setPotWithSig(sigs.sdai.states, sigs.sdai.muonSig);
-  });
-
   for (const pairedTokenType of [PairedTokenType.SUSDE, PairedTokenType.STABLE]) {
     describe(`Paired token type: ${pairedTokenTypeName(pairedTokenType)}`, function () {
       for (const usdDecimals of [6, 18]) {
         describe(`USD decimals: ${usdDecimals}`, function () {
+          before(async () => {
+            priceManager = await initNetwork();
+            [admin, user] = await ethers.getSigners();
+            console.log(`\t\t\t\t\t\t\tNetwork init for ${pairedTokenTypeName(pairedTokenType)}\t${usdDecimals}`);
+          });
           describe("V3AMO", function () {
             beforeEach(async function () {
               [boost, usd, minter] = await deployBaseContracts(admin, user, usdDecimals, initAmount);
               const initPrice = await getInitPrice(priceManager, pairedTokenType);
               const pool = await createCLPool(AERO_POOL_FACTORY, boost, usd, initPrice, tickSpacing);
 
-              const tickUpper = Math.floor(maxTickValue / tickSpacing) * tickSpacing;
-              const tickLower = -tickUpper;
+              const { tickLower, tickUpper } = await getTickBounds(boost, usd, tickSpacing);
               v3amo = await deployV3AMO(
                 admin,
                 await boost.getAddress(),
@@ -177,7 +190,7 @@ describe("Price Manager tests", function () {
             });
 
             describe("V3 Public mintSellFarm", () => {
-              for (const swapAmount of ["8000", "65000", "900000", "0", "-5000"]) {
+              for (const swapAmount of swapAmounts) {
                 it(getTestCaseTitle(swapAmount), async function () {
                   await v3Swap(user, usd, boost, tickSpacing, AERO_V3_ROUTER, swapAmount);
                   const { tp, cp } = await logPriceDiff(v3amo);
@@ -195,7 +208,7 @@ describe("Price Manager tests", function () {
             });
 
             describe("V3 Public unfarmBuyBurn", () => {
-              for (const swapAmount of ["8000", "65000", "900000", "0", "-5000"]) {
+              for (const swapAmount of swapAmounts) {
                 it(getTestCaseTitle(swapAmount, true), async function () {
                   await v3Swap(user, boost, usd, tickSpacing, AERO_V3_ROUTER, swapAmount);
                   const { tp, cp } = await logPriceDiff(v3amo);
@@ -242,7 +255,7 @@ describe("Price Manager tests", function () {
             });
 
             describe("V2 Public mintSellFarm", () => {
-              for (const swapAmount of ["8000", "65000", "900000", "0", "-5000"]) {
+              for (const swapAmount of swapAmounts) {
                 it(getTestCaseTitle(swapAmount), async function () {
                   await v2Swap(user, usd, boost, AERO_V2_ROUTER, swapAmount);
                   const { tp, cp } = await logPriceDiff(v2amo);
@@ -260,7 +273,7 @@ describe("Price Manager tests", function () {
             });
 
             describe("V2 Public unfarmBuyBurn", () => {
-              for (const swapAmount of ["8000", "65000", "900000", "0", "-5000"]) {
+              for (const swapAmount of swapAmounts) {
                 it(getTestCaseTitle(swapAmount, false), async function () {
                   await v2Swap(user, boost, usd, AERO_V2_ROUTER, swapAmount);
                   const { tp, cp } = await logPriceDiff(v2amo);
