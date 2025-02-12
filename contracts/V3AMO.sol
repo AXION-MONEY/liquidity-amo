@@ -223,8 +223,14 @@ contract V3AMO is IV3AMO, MasterAMO {
         if (msg.sender != pool) revert UntrustedCaller(msg.sender);
 
         (uint256 boostOwed, uint256 usdOwed) = sortAmounts(amount0Owed, amount1Owed);
-        uint256 boostAmount = (toBoostAmount(usdOwed) * boostMultiplier) / FACTOR;
-        if (boostAmount < (boostOwed * boostPrice()) / FACTOR) revert InvalidOwed();
+        (uint256 amount0, uint256 amount1) = LiquidityAmounts.getAmountsForLiquidity(
+            _getSqrtPriceX96(),
+            TickMath.getSqrtRatioAtTick(tickLower),
+            TickMath.getSqrtRatioAtTick(tickUpper),
+            uint128(_getLiquidityForUsdAmount(usdOwed))
+        );
+        (uint256 boostAmount, ) = sortAmounts(amount0, amount1);
+        if (boostAmount + 1 < boostOwed) revert InvalidOwed();
 
         IERC20(usd).safeTransfer(pool, usdOwed);
         IMinter(boostMinter).protocolMint(pool, boostOwed);

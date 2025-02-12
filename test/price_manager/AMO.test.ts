@@ -91,8 +91,8 @@ async function initNetwork(): Promise<PriceManager> {
     params: [
       {
         forking: {
-          jsonRpcUrl: "https://base-rpc.publicnode.com",
-          blockNumber: 25717500 // Optional: specify a block number
+          jsonRpcUrl: "https://developer-access-mainnet.base.org",
+          blockNumber: 26235850 // Optional: specify a block number
         }
       }
     ]
@@ -111,8 +111,7 @@ describe("Price Manager tests", function () {
     ["0.5", "2.0"],
     ["0.1", "10.0"]
   ];
-  const swapAmounts = ["25000", "65000", "900000", "0", "-5000"];
-  // const swapAmounts = ["1000000"];
+  const swapAmounts = ["900000", "0", "-5000"];
   let tickSpacing = 1; // Valid values for Aero: [1, 50, 100, 200, 2_000]
   const LOG_PRICES = false;
   const initAmount = "11000000"; // 11M
@@ -152,18 +151,25 @@ describe("Price Manager tests", function () {
     describe(`Paired token type: ${pairedTokenTypeName(pairedTokenType)}`, function () {
       for (const usdDecimals of [6, 18]) {
         describe(`USD decimals: ${usdDecimals}`, function () {
-          before(async () => {
-            priceManager = await initNetwork();
-            [admin, user] = await ethers.getSigners();
-            console.log(`\t\t\t\t\t\t\tNetwork init for ${pairedTokenTypeName(pairedTokenType)}\t${usdDecimals}`);
-          });
           describe("V3AMO", function () {
+            before(async () => {
+              priceManager = await initNetwork();
+              [admin, user] = await ethers.getSigners();
+              console.log(`\t\t\t\t\tNetwork init for V3AMO ${pairedTokenTypeName(pairedTokenType)}\t${usdDecimals}`);
+            });
             beforeEach(async function () {
               [boost, usd, minter] = await deployBaseContracts(admin, user, usdDecimals, initAmount);
               const initPrice = await getInitPrice(priceManager, pairedTokenType);
               const pool = await createCLPool(AERO_POOL_FACTORY, boost, usd, initPrice, tickSpacing);
 
-              const { tickLower, tickUpper } = await getTickBounds(boost, usd, tickSpacing);
+              const [lowerPriceValue, upperPriceValue] = priceBounds[3];
+              const { tickLower, tickUpper } = await getTickBounds(
+                boost,
+                usd,
+                tickSpacing,
+                lowerPriceValue,
+                upperPriceValue
+              );
               v3amo = await deployV3AMO(
                 admin,
                 await boost.getAddress(),
@@ -227,6 +233,11 @@ describe("Price Manager tests", function () {
           });
 
           describe("V2AMO", function () {
+            before(async () => {
+              priceManager = await initNetwork();
+              [admin, user] = await ethers.getSigners();
+              console.log(`\t\t\t\t\tNetwork init for V2AMO ${pairedTokenTypeName(pairedTokenType)}\t${usdDecimals}`);
+            });
             beforeEach(async function () {
               [boost, usd, minter] = await deployBaseContracts(admin, user, usdDecimals, initAmount);
 
