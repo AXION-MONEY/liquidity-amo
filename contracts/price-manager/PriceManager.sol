@@ -134,6 +134,7 @@ contract PriceManager is IPriceManager, Initializable, AccessControlEnumerableUp
         if (srcBlock.timestamp <= sDaiLastBlock.timestamp) revert OldBlock(srcBlock.timestamp, sDaiLastBlock.timestamp);
         if (_pot.rho > block.timestamp) revert InvalidLastDistribution();
         pot = _pot;
+        sDaiLastBlock = srcBlock;
         emit PotSet(_pot, srcBlock);
     }
 
