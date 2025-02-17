@@ -3,6 +3,10 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
+/**
+ * @title StakedFraxLib
+ * @dev use the calculation in the sFRAX contract https://etherscan.io/token/0xa663b02cf0a4b149d2ad41910cb81e23e1c41c32
+ */
 library StakedFraxLib {
     using Math for uint256;
 
@@ -27,6 +31,12 @@ library StakedFraxLib {
         y = uint40(x);
     }
 
+    /**
+     * @notice calculates the amount of rewards to distribute based on the rewards cycle data and the time elapsed
+     * @param _rewardsCycleData The rewards cycle data
+     * @param _deltaTime The time elapsed since the last rewards distribution
+     * @return _rewardToDistribute The amount of rewards to distribute
+    */
     function _calculateRewardsToDistribute(
         RewardsCycleData memory _rewardsCycleData,
         uint256 _deltaTime
@@ -36,6 +46,10 @@ library StakedFraxLib {
             (_rewardsCycleData.cycleEnd - _rewardsCycleData.lastSync);
     }
 
+
+    /**
+      * @notice calculates the amount of rewards to distribute
+    */
     function calculateRewardsToDistribute(
         StakedFrax memory self,
         uint256 _deltaTime
@@ -50,6 +64,10 @@ library StakedFraxLib {
         }
     }
 
+    /**
+     * @notice The ```previewDistributeRewards``` function is used to preview the rewards distributed at the top of the block
+     * @return _rewardToDistribute The amount of underlying to distribute
+    */
     function previewDistributeRewards(StakedFrax memory self) internal view returns (uint256 _rewardToDistribute) {
         // Cache state for gas savings
         RewardsCycleData memory _rewardsCycleData = self.rewardsCycleData;

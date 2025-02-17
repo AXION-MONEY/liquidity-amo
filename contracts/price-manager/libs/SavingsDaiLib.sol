@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+/**
+ * @title SavingsDaiLib
+ * @dev use the calculation in the sDAI contract https://etherscan.io/address/0x83f20f44975d03b1b09e64809b757c47f942beea
+ */
 library SavingsDaiLib {
     struct Pot {
         uint256 dsr; // the Dai Savings Rate
