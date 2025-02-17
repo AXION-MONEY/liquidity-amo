@@ -55,6 +55,7 @@ abstract contract MasterAMO is
     event MintSell(uint256 boostAmountIn, uint256 usdAmountOut);
     event PublicMintSellFarmExecuted(uint256 liquidity, uint256 newBoostPrice);
     event PublicUnfarmBuyBurnExecuted(uint256 liquidity, uint256 newBoostPrice);
+    event SetTargetPricePremium(uint256 premium);
 
     /* ========= MODIFIERS ========= */
     /**
@@ -107,6 +108,9 @@ abstract contract MasterAMO is
     /// @inheritdoc IMasterAMO
     uint256 public override boostUpperPriceBuy;
 
+    // @inheritdoc IMasterAMO
+    uint256 public override targetPricePremium;
+
     /* ========== CONSTANTS ========== */
     uint8 internal constant PRICE_DECIMALS = 6; // BOOST price decimals.
     uint8 internal constant PARAMS_DECIMALS = 6; // Internal decimals for parameter calculations.
@@ -156,6 +160,20 @@ abstract contract MasterAMO is
         boostMinter = boostMinter_;
         priceManager = priceManager_;
         pairedTokenType = pairedTokenType_;
+        targetPricePremium = 0; // Default Value to 0
+    }
+    ////////////////////////// SETTER ACTIONS //////////////////////////
+    /**
+     * @notice Sets the premium offset used in calculating the target price for staked pairs.
+     * @dev The target price premium is added to the preview deposit value for staked tokens (SUSDE, SFRAX, SDAI)
+     *      to compute the target price. This premium represents the allowable price slippage and must be set lower than the pull fee.
+     *      Only accounts with the SETTER_ROLE are authorized to update this parameter.
+     *
+     * @param _targetPricePremium The new premium offset value to be applied in target price calculations.
+     */
+    function setTargetPricePremium(uint256 _targetPricePremium) external onlyRole(SETTER_ROLE) {
+        targetPricePremium = _targetPricePremium;
+        emit SetTargetPricePremium(targetPricePremium);
     }
 
     ////////////////////////// PAUSE ACTIONS //////////////////////////
@@ -459,11 +477,14 @@ abstract contract MasterAMO is
 
     /// @inheritdoc IMasterAMO
     function targetPrice() public view override returns (uint256 price) {
-        uint256 one = 10 ** PRICE_DECIMALS;
-        if (pairedTokenType == PairedTokenType.STABLE) return one;
-        else if (pairedTokenType == PairedTokenType.SUSDE) return IPriceManager(priceManager).sUsdePreviewDeposit(one);
-        else if (pairedTokenType == PairedTokenType.SFRAX) return IPriceManager(priceManager).sFraxPreviewDeposit(one);
-        else if (pairedTokenType == PairedTokenType.SDAI) return IPriceManager(priceManager).sDaiPreviewDeposit(one);
+        uint256 baseUnit = 10 ** PRICE_DECIMALS;
+        if (pairedTokenType == PairedTokenType.STABLE) return baseUnit;
+        else if (pairedTokenType == PairedTokenType.SUSDE)
+            return IPriceManager(priceManager).sUsdePreviewDeposit(baseUnit) + targetPricePremium;
+        else if (pairedTokenType == PairedTokenType.SFRAX)
+            return IPriceManager(priceManager).sFraxPreviewDeposit(baseUnit) + targetPricePremium;
+        else if (pairedTokenType == PairedTokenType.SDAI)
+            return IPriceManager(priceManager).sDaiPreviewDeposit(baseUnit) + targetPricePremium;
         else revert InvalidPairedTokenType();
     }
 

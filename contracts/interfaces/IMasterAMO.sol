@@ -68,6 +68,15 @@ interface IMasterAMO {
     /// @notice Returns the BOOST upper price after buy (in 6 decimals)
     function boostUpperPriceBuy() external view returns (uint256);
 
+    /**
+     * @notice Retrieves the current premium offset used for staked pairs in target price calculations.
+     * @dev This premium value is added to the preview deposit amount from the PriceManager for staked tokens
+     *      to derive the overall target price. It represents the price slippage and is expected to be lower than the pull fee.
+     *
+     * @return The current premium offset.
+     */
+    function targetPricePremium() external view returns (uint256);
+
     /* ========== FUNCTIONS ========== */
     /**
      * @notice Pauses the contract, disabling specific functionalities
@@ -173,8 +182,14 @@ interface IMasterAMO {
     function boostPrice() external view returns (uint256 price);
 
     /**
-     * @notice This view function returns the target BOOST price with PRICE_DECIMALS = 6
-     * @return price the target BOOST price
+     * @notice Retrieves the target price for Boost based on the paired token type.
+     * @dev The target price is determined as follows:
+     *      - For a STABLE paired token, the target price is set to a fixed base unit (1 × 10^PRICE_DECIMALS).
+     *      - For staked pairs (SUSDE, SFRAX, SDAI), the target price is calculated by querying the corresponding
+     *        preview deposit function from the PriceManager using the base unit, and then adding a price offset
+     *        (targetPricePremium). This premium represents a slippage adjustment and must be set lower than the pull fee.
+     *
+     * @return price The computed target price.
      */
     function targetPrice() external view returns (uint256 price);
 }
