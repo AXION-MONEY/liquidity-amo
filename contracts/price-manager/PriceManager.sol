@@ -103,6 +103,10 @@ contract PriceManager is IPriceManager, Initializable, AccessControlEnumerableUp
         _grantRole(SETTER_ROLE, setter);
     }
 
+    // =============================================================
+    //                           HELPER FUNCTIONS
+    // =============================================================
+
     /**
      * @notice setMuonClient initiate (re-initiate) muonClient.
      * @dev Can be called Only by SETTER ROLE.
@@ -111,6 +115,22 @@ contract PriceManager is IPriceManager, Initializable, AccessControlEnumerableUp
     function setMuonClient(address _muonClientAddress) public onlyRole(SETTER_ROLE) {
         muonClient = IMuonClient(_muonClientAddress);
         emit SetMuonClient(_muonClientAddress);
+    }
+
+    /**
+     * @notice Helper function to validate the source block's timestamp.
+     * @param srcTimestamp The timestamp of the provided source block.
+     * @param lastTimestamp The timestamp of the last processed block.
+     */
+    function _validateSrcBlock(uint256 srcTimestamp, uint256 lastTimestamp) internal view {
+        // srcBlock.timestamp is not in the future
+        if (srcTimestamp > block.timestamp) {
+            revert InvalidBlock(srcTimestamp, block.timestamp);
+        }
+        // srcBlock.timestamp is newer than the previous timestamp
+         if (srcTimestamp <= lastTimestamp) {
+            revert OldBlock(srcTimestamp, lastTimestamp);
+        }
     }
 
     // =============================================================
@@ -123,11 +143,7 @@ contract PriceManager is IPriceManager, Initializable, AccessControlEnumerableUp
      * @param srcBlock The block reference associated with the update.
      */
     function _setSUsde(StakedUSDeLib.StakedUSDe calldata _sUSDe, Block calldata srcBlock) internal {
-        // srcBlock.timestamp is not in the future
-        if (srcBlock.timestamp > block.timestamp) revert InvalidBlock(srcBlock.timestamp, block.timestamp);
-        // srcBlock.timestamp is newer than the previous timestamp
-        if (srcBlock.timestamp <= sUsdeLastBlock.timestamp)
-            revert OldBlock(srcBlock.timestamp, sUsdeLastBlock.timestamp);
+        _validateSrcBlock(srcBlock.timestamp, sUsdeLastBlock.timestamp);
         // lastDistributionTimestamp is not in the future
         if (_sUSDe.lastDistributionTimestamp > block.timestamp) revert InvalidLastDistribution();
 
@@ -185,11 +201,7 @@ contract PriceManager is IPriceManager, Initializable, AccessControlEnumerableUp
      * @param srcBlock The block reference associated with the update.
      */
     function _setSFrax(StakedFraxLib.StakedFrax calldata _sFRAX, Block calldata srcBlock) internal {
-        // srcBlock.timestamp is not in the future
-        if (srcBlock.timestamp > block.timestamp) revert InvalidBlock(srcBlock.timestamp, block.timestamp);
-        // srcBlock.timestamp is newer than the previous timestamp
-        if (srcBlock.timestamp <= sFraxLastBlock.timestamp)
-            revert OldBlock(srcBlock.timestamp, sFraxLastBlock.timestamp);
+        _validateSrcBlock(srcBlock.timestamp, sFraxLastBlock.timestamp);
         // lastDistributionTimestamp is not in the future
         if (_sFRAX.lastRewardsDistribution > block.timestamp) revert InvalidLastDistribution();
 
@@ -245,9 +257,7 @@ contract PriceManager is IPriceManager, Initializable, AccessControlEnumerableUp
      * @param srcBlock The block reference associated with the update.
      */
     function _setPot(SavingsDaiLib.Pot calldata _pot, Block calldata srcBlock) internal {
-        // checking times to valid not in the future and also is newer than the previous timestamp
-        if (srcBlock.timestamp > block.timestamp) revert InvalidBlock(srcBlock.timestamp, block.timestamp);
-        if (srcBlock.timestamp <= sDaiLastBlock.timestamp) revert OldBlock(srcBlock.timestamp, sDaiLastBlock.timestamp);
+        _validateSrcBlock(srcBlock.timestamp, sDaiLastBlock.timestamp);
         if (_pot.rho > block.timestamp) revert InvalidLastDistribution();
 
         pot = _pot;
