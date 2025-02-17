@@ -126,7 +126,7 @@ export async function deployPriceManager(admin: SignerWithAddress): Promise<Pric
   const PriceManagerFactory = await ethers.getContractFactory("PriceManager");
   const priceManager = await upgrades.deployProxy(
     PriceManagerFactory,
-    [admin.address, admin.address, muonClientAddress],
+    [admin.address, admin.address, admin.address, muonClientAddress],
     {
       initializer: "initialize"
     }

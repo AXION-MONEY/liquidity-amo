@@ -78,26 +78,27 @@ contract PriceManager is IPriceManager, Initializable, AccessControlEnumerableUp
     /**
      * @notice Initializes the contract with an admin, a setter, and the Muon client address.
      * @param admin The address to be granted DEFAULT_ADMIN_ROLE.
-     * @param token_updater The address to be granted TOKEN_UPDATER.
+     * @param tokenUpdater The address to be granted TOKEN_UPDATER_ROLE.
      * @param setter The address to be granted asset setter roles.
      * @param muonClientAddress The address of the Muon client contract.
      */
     function initialize(
         address admin,
-        address token_updater,
+        address tokenUpdater,
         address setter,
         address muonClientAddress
     ) public initializer {
         __AccessControlEnumerable_init();
 
-        if (admin == address(0) || muonClient == address(0) || setter == address(0) || token_updater == address(0))
-            revert ZeroAddress();
+        if (
+            admin == address(0) || muonClientAddress == address(0) || setter == address(0) || tokenUpdater == address(0)
+        ) revert ZeroAddress();
 
         _grantRole(SETTER_ROLE, msg.sender);
         setMuonClient(muonClientAddress);
         _revokeRole(SETTER_ROLE, msg.sender);
 
-        _grantRole(TOKEN_UPDATER_ROLE, token_updater);
+        _grantRole(TOKEN_UPDATER_ROLE, tokenUpdater);
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(SETTER_ROLE, setter);
     }
