@@ -36,7 +36,7 @@ library StakedFraxLib {
      * @param _rewardsCycleData The rewards cycle data
      * @param _deltaTime The time elapsed since the last rewards distribution
      * @return _rewardToDistribute The amount of rewards to distribute
-    */
+     */
     function _calculateRewardsToDistribute(
         RewardsCycleData memory _rewardsCycleData,
         uint256 _deltaTime
@@ -46,10 +46,9 @@ library StakedFraxLib {
             (_rewardsCycleData.cycleEnd - _rewardsCycleData.lastSync);
     }
 
-
     /**
-      * @notice calculates the amount of rewards to distribute
-    */
+     * @notice calculates the amount of rewards to distribute
+     */
     function calculateRewardsToDistribute(
         StakedFrax memory self,
         uint256 _deltaTime
@@ -67,7 +66,7 @@ library StakedFraxLib {
     /**
      * @notice The ```previewDistributeRewards``` function is used to preview the rewards distributed at the top of the block
      * @return _rewardToDistribute The amount of underlying to distribute
-    */
+     */
     function previewDistributeRewards(StakedFrax memory self) internal view returns (uint256 _rewardToDistribute) {
         // Cache state for gas savings
         RewardsCycleData memory _rewardsCycleData = self.rewardsCycleData;
