@@ -128,7 +128,7 @@ contract PriceManager is IPriceManager, Initializable, AccessControlEnumerableUp
             revert InvalidBlock(srcTimestamp, block.timestamp);
         }
         // srcBlock.timestamp is newer than the previous timestamp
-         if (srcTimestamp <= lastTimestamp) {
+        if (srcTimestamp <= lastTimestamp) {
             revert OldBlock(srcTimestamp, lastTimestamp);
         }
     }
