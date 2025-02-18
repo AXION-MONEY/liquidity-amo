@@ -203,11 +203,12 @@ contract V2AMO is IV2AMO, MasterAMO {
     ) internal override returns (uint256 boostAmountIn, uint256 usdAmountOut) {
         // Mint the specified amount of BOOST tokens
         IMinter(boostMinter).protocolMint(address(this), boostAmount);
-
+        // get the target price of the Pair for stable pairs 1 for staked stables lower than 1
+        uint256 boostTargetPrice = targetPrice();
         // Approve the transfer of BOOST tokens to the router
         IERC20(boost).approve(router, boostAmount);
 
-        uint256 minUsdAmountOut = (toUsdAmount(boostAmount) * targetPrice()) / FACTOR;
+        uint256 minUsdAmountOut = (toUsdAmount(boostAmount) * boostTargetPrice) / FACTOR;
 
         uint256 usdBalanceBefore = balanceOfToken(usd);
         // Execute the swap and store the amounts of tokens involved, based on the pool type
@@ -251,7 +252,7 @@ contract V2AMO is IV2AMO, MasterAMO {
 
         if (usdAmountOut < minUsdAmountOut) revert InsufficientOutputAmount(usdAmountOut, minUsdAmountOut);
         uint256 price = boostPrice();
-        if (price <= priceLowerBound(targetPrice())) revert PriceNotInRange(price);
+        if (price <= priceLowerBound(boostTargetPrice)) revert PriceNotInRange(price);
         emit MintSell(boostAmount, usdAmountOut);
     }
 
@@ -264,8 +265,9 @@ contract V2AMO is IV2AMO, MasterAMO {
         // Price needs to be in range: 1 +- validRangeRatio / 1e6 == factor +- validRangeRatio
         // if price is too high, we need to mint and sell more before we add liquidity
         uint256 price = boostPrice();
-        uint256 tp = targetPrice();
-        if (price <= priceLowerBound(tp) || price >= priceUpperBound(tp)) revert InvalidRatioToAddLiquidity();
+        uint256 boostTargetPrice = targetPrice();
+        if (price <= priceLowerBound(boostTargetPrice) || price >= priceUpperBound(boostTargetPrice))
+            revert InvalidRatioToAddLiquidity();
 
         // Mint the specified amount of BOOST tokens
         uint256 boostAmount = (toBoostAmount(usdAmount) * boostMultiplier) / FACTOR;
@@ -352,12 +354,14 @@ contract V2AMO is IV2AMO, MasterAMO {
             );
         }
 
+        uint256 boostTargetPrice = targetPrice();
+
         uint256 usdBalanceAfter = balanceOfToken(usd);
 
         if (usdRemoved != usdBalanceAfter - usdBalanceBefore)
             revert UsdAmountOutMismatch(usdRemoved, usdBalanceAfter - usdBalanceBefore);
 
-        if ((((boostRemoved * validRemovingRatio) / FACTOR) * targetPrice()) / FACTOR < toBoostAmount(usdRemoved))
+        if ((((boostRemoved * validRemovingRatio) / FACTOR) * boostTargetPrice) / FACTOR < toBoostAmount(usdRemoved))
             revert InvalidRatioToRemoveLiquidity();
 
         // Swap USD for BOOST based on pool type
@@ -370,7 +374,7 @@ contract V2AMO is IV2AMO, MasterAMO {
 
             amounts = IVRouter(router).swapExactTokensForTokens(
                 usdRemoved,
-                (toBoostAmount(usdRemoved) * FACTOR) / targetPrice(),
+                (toBoostAmount(usdRemoved) * FACTOR) / boostTargetPrice,
                 routes,
                 address(this),
                 block.timestamp + 300
@@ -389,7 +393,7 @@ contract V2AMO is IV2AMO, MasterAMO {
         }
 
         uint256 price = boostPrice();
-        if (price >= priceUpperBound(targetPrice())) revert PriceNotInRange(price);
+        if (price >= priceUpperBound(boostTargetPrice)) revert PriceNotInRange(price);
 
         usdAmountIn = amounts[0];
         boostAmountOut = amounts[1];
@@ -461,17 +465,17 @@ contract V2AMO is IV2AMO, MasterAMO {
     function _validateSwap(bool boostForUsd) internal view override {
         (uint256 boostReserve, uint256 usdReserve) = getReserves();
         uint256 price = boostPrice();
-        uint256 tp = targetPrice();
+        uint256 boostTargetPrice = targetPrice();
         if (boostForUsd) {
             // mintSellFarm
-            if ((boostReserve * tp) / FACTOR >= usdReserve)
+            if ((boostReserve * boostTargetPrice) / FACTOR >= usdReserve)
                 revert InvalidReserveRatio({ratio: (FACTOR * usdReserve) / boostReserve});
-            if (price <= priceUpperBound(tp)) revert PriceAlreadyInRange(price);
+            if (price <= priceUpperBound(boostTargetPrice)) revert PriceAlreadyInRange(price);
         } else {
             // unfarmBuyBurn
-            if (usdReserve >= (boostReserve * tp) / FACTOR)
+            if (usdReserve >= (boostReserve * boostTargetPrice) / FACTOR)
                 revert InvalidReserveRatio({ratio: (FACTOR * usdReserve) / boostReserve});
-            if (price >= priceLowerBound(tp)) revert PriceAlreadyInRange(price);
+            if (price >= priceLowerBound(boostTargetPrice)) revert PriceAlreadyInRange(price);
         }
     }
 
