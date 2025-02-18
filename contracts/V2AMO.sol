@@ -208,7 +208,8 @@ contract V2AMO is IV2AMO, MasterAMO {
         // Approve the transfer of BOOST tokens to the router
         IERC20(boost).approve(router, boostAmount);
 
-        uint256 minUsdAmountOut = (toUsdAmount(boostAmount) * boostTargetPrice) / FACTOR;
+        uint256 boostAmountWithoutFee = boostAmount - ((boostAmount * poolFee) / FACTOR);
+        uint256 minUsdAmountOut = (toUsdAmount(boostAmountWithoutFee) * boostTargetPrice) / FACTOR;
 
         uint256 usdBalanceBefore = balanceOfToken(usd);
         // Execute the swap and store the amounts of tokens involved, based on the pool type
@@ -368,13 +369,15 @@ contract V2AMO is IV2AMO, MasterAMO {
         IERC20(usd).forceApprove(router, usdRemoved);
 
         uint256[] memory amounts;
+        uint256 usdRemovedWithoutFee = usdRemoved - ((usdRemoved * poolFee) / FACTOR);
+        uint256 minBoostAmountOut = (toBoostAmount(usdRemovedWithoutFee) * FACTOR) / boostTargetPrice;
         if (poolType == PoolType.VELO_LIKE) {
             IVRouter.Route[] memory routes = new IVRouter.Route[](1);
             routes[0] = IVRouter.Route({from: usd, to: boost, stable: stable, factory: factory});
 
             amounts = IVRouter(router).swapExactTokensForTokens(
                 usdRemoved,
-                (toBoostAmount(usdRemoved) * FACTOR) / boostTargetPrice,
+                minBoostAmountOut,
                 routes,
                 address(this),
                 block.timestamp + 300
@@ -385,7 +388,7 @@ contract V2AMO is IV2AMO, MasterAMO {
 
             amounts = ISolidlyRouter(router).swapExactTokensForTokens(
                 usdRemoved,
-                toBoostAmount(usdRemoved),
+                minBoostAmountOut,
                 routes,
                 address(this),
                 block.timestamp + 300
