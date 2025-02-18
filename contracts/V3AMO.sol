@@ -159,7 +159,7 @@ contract V3AMO is IV3AMO, MasterAMO {
      */
     function _swapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) internal {
         if (msg.sender != pool) revert UntrustedCaller(msg.sender);
-
+        uint256 boostTargetPrice = targetPrice();
         (int256 boostDelta, int256 usdDelta) = sortAmounts(amount0Delta, amount1Delta);
         SwapType swapType = abi.decode(data, (SwapType));
         if (swapType == SwapType.SELL) {
@@ -167,7 +167,7 @@ contract V3AMO is IV3AMO, MasterAMO {
             uint256 usdAmountOut = uint256(-usdDelta);
             if (
                 balanceOfToken(usd) < usdAmountOut ||
-                (boostAmountIn * targetPrice()) / FACTOR > toBoostAmount(usdAmountOut)
+                (boostAmountIn * boostTargetPrice) / FACTOR > toBoostAmount(usdAmountOut)
             ) revert InvalidDelta();
             IMinter(boostMinter).protocolMint(pool, boostAmountIn);
         } else if (swapType == SwapType.BUY) {
@@ -175,7 +175,7 @@ contract V3AMO is IV3AMO, MasterAMO {
             uint256 boostAmountOut = uint256(-boostDelta);
             if (
                 balanceOfToken(boost) < boostAmountOut ||
-                usdAmountIn > (toUsdAmount(boostAmountOut) * targetPrice()) / FACTOR
+                usdAmountIn > (toUsdAmount(boostAmountOut) * boostTargetPrice) / FACTOR
             ) revert InvalidDelta();
             IERC20(usd).safeTransfer(pool, usdAmountIn);
         }
@@ -554,9 +554,9 @@ contract V3AMO is IV3AMO, MasterAMO {
 
     /// @inheritdoc IV3AMO
     function targetSqrtPriceX96() public view override returns (uint160) {
-        uint256 tp = targetPrice();
-        if (usd < boost) tp = FACTOR ** 2 / tp; // Multiplicative inverse of target price
-        uint256 priceX96 = (tp * Q96 ** 2) / 10 ** PRICE_DECIMALS;
+        uint256 boostTargetPrice = targetPrice();
+        if (usd < boost) boostTargetPrice = FACTOR ** 2 / boostTargetPrice; // Multiplicative inverse of target price
+        uint256 priceX96 = (boostTargetPrice * Q96 ** 2) / 10 ** PRICE_DECIMALS;
         uint8 decimalsDiff = boostDecimals - usdDecimals;
         // adjusting the price
         if (boost < usd) priceX96 /= 10 ** decimalsDiff;
