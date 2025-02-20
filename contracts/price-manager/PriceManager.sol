@@ -123,11 +123,11 @@ contract PriceManager is IPriceManager, Initializable, AccessControlEnumerableUp
      * @param lastTimestamp The timestamp of the last processed block.
      */
     function _validateSrcBlock(uint256 srcTimestamp, uint256 lastTimestamp) internal view {
-        // srcBlock.timestamp is not in the future
+        // check that the signed srcBlock.timestamp is not in the future
         if (srcTimestamp > block.timestamp) {
             revert InvalidBlock(srcTimestamp, block.timestamp);
         }
-        // srcBlock.timestamp is newer than the previous timestamp
+        // check if that the signed srcBlock.timestamp is newer than the previous signed/stored timestamp
         if (srcTimestamp <= lastTimestamp) {
             revert OldBlock(srcTimestamp, lastTimestamp);
         }
