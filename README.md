@@ -1,7 +1,7 @@
 # Liquidity AMO —— rebalancing the liquidity and stable price altogether
 
 ## Organization
-The AMO manages a significant portion of the USDC backing for the stablecoin (referred to as BOOST in this version). There are two functions:
+The AMO manages a significant portion of the USDC ( or staked stable ) backing for the stablecoin (referred to as BOOST in this version). There are two functions:
 * v3AMO.sol For ve33 Dexes/pools based on CLAMM (Uniswap v3 and algebra contracts).
 * v2AMO.sol For ve33 Dexes based on Uniswap v2 contracts.
 
@@ -47,11 +47,21 @@ Token Transfer Guard: This ensures that token transfers are only allowed when th
 ## II) LiquidityAMO:
 The LiquidityAMO smart contract is designed for a dual purpose:
 * it maintains the BOOST peg to USD in ve33 pool.
-* It provides protocol-owned liquidity to the pools 
+* It provides protocol-owned liquidity to the pools. 
 
 This joint operation involves
 * When BOOST is above par, minting BOOST tokens, selling them for USD, then farming the USDC with free-minted BOOST 
 * When BOOST is below par, removing liquidity from the pool, buying back BOOST from the pool with the USD, then burning BOOST
+
+Sub-cases:
+* the AMO contracts deal with two cases: a reference stable coin with value one ( eg USDC or DAI ), and a stakedstablecoin (eg sUSDe or sDAI) which value drifts ups progressively
+* this is reflected in the variable: `pairedTokenType_`
+
+Staked stable case: when BOOST is paired with a staked stablecoin, the logic is as follows
+* the `pricemanager.sol` contracts updates the staked price state variable
+* the equilibrium univ2 "xyz" pool balances are updated in the `AMOv2.sol` contract
+* the bot ( a simple logic bot will be shared !FIXME!) also monitors prices and pool balances to trigger rebalancing
+* rebalancing can also be done permissionlessly
 
 **Note on vocabulary:** 
 * Free-minted BOOST is called protocol-owned BOOST in the Frax vocabulary; it has no backing and is created when the protocol receives USD — and burned when the USDC is redeemed.
