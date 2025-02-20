@@ -144,3 +144,30 @@ Technically, it triggers the AMO mechanisms where the amount to mint, sell and f
 3) A user-friendly interface: 
 The PublicAMO contract provides a simpler interface for users or other contracts to interact with the underlying LiquidityAMO functionality, such as minting, selling, adding/removing liquidity, etc., without exposing all the internal difficulties of the LiquidityAMO contract.
 
+# Readme for price manager
+
+## Organisation
+
+This folder comprises two files:
+*  PriceManager.sol, a contract that serves both to update the price of the staked stables AND to store the last value
+*  PriceManagerQuoter.sol, a view function to the price of the staked stables
+
+## Logic of pricemanager.sol
+
+*  The contracts call a Muon oracle to update the price of the staked stables
+*  for instance, the staked price of sUSDe ( staked eThena USD(e)) is updated calling the internal function `function _setSUsde(StakedUSDeLib.StakedUSDe calldata _sUSDe, Block calldata srcBlock)`
+*  this function reads the Muon signature (that includes the data such as timestamp and blocknumber) and extracts the data
+*  then `muonClient.verifyTSSAndGW()` verifies that the signature has the correct data ( eg gateway etc...)
+*  the function `function _validateSrcBlock` of the `pricemanager.sol` contract checks if the signature has been issued in more recent timeblocks than that of the current price state variable
+_ (we also verify that the price has not been signed at a future tmestamp)_ !FIXME! do we need that? a next block price is better than a last hours price!!!
+
+
+## Logic of PriceManagerQuoter.sol
+
+The `PriceManagerQuoter.sol` contract contains value-adding view functions that will be used in the AMO
+
+## Implementation
+
+* The price state variables can be implemented permissionless.
+* In addition, msig has the ability to update state variables (which can be useful in case of any unknown issue) — for instance the `function setSUsde()` is trusted
+* Axion team will run a bot that will probably be the most frequent updater ( a simple bot logic will be shared in the price manager folder later !FIXME!)
