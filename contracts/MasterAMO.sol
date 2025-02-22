@@ -93,7 +93,7 @@ abstract contract MasterAMO is
     /// @inheritdoc IMasterAMO
     address public override boostMinter;
 
-    address public priceManager;
+    address public priceManager; // # FIXME: price manager address
     PairedTokenType public pairedTokenType;
 
     /// @inheritdoc IMasterAMO
@@ -114,7 +114,7 @@ abstract contract MasterAMO is
     /* ========== CONSTANTS ========== */
     uint8 internal constant PRICE_DECIMALS = 6; // BOOST price decimals.
     uint8 internal constant PARAMS_DECIMALS = 6; // Internal decimals for parameter calculations.
-    uint256 internal constant FACTOR = 10 ** PARAMS_DECIMALS; // Scaling factor.
+    uint256 internal constant FACTOR = 10 ** PARAMS_DECIMALS; // Scaling factor. // # FIXME: Rename ScaledUnit
     bool internal constant SELL_BOOST = true; // Indicator for a Boost-to-USD swap.
     bool internal constant BUY_BOOST = false; // Indicator for a USD-to-Boost swap.
 
@@ -475,6 +475,7 @@ abstract contract MasterAMO is
      */
     function boostPrice() public view virtual returns (uint256 price);
 
+    // # FIXME: rename to a better name like targetBoostRelativePrice
     /// @inheritdoc IMasterAMO
     function targetPrice() public view override returns (uint256 price) {
         uint256 baseUnit = 10 ** PRICE_DECIMALS;

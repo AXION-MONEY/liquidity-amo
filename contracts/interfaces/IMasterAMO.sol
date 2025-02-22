@@ -4,7 +4,7 @@ pragma solidity 0.8.28;
 interface IMasterAMO {
     /* ========== ENUMS ========== */
     enum PairedTokenType {
-        STABLE,
+        STABLE, // # FIXME: rename to USD
         SUSDE,
         SFRAX,
         SDAI
