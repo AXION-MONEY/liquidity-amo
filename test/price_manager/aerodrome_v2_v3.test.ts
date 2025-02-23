@@ -1,7 +1,15 @@
 import { expect } from "chai";
 import { ethers, network } from "hardhat";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
-import { BoostStablecoin, Minter, MockERC20, PriceManager, V2AMO, V3AMO } from "../../typechain-types";
+import {
+  BoostStablecoin,
+  Minter,
+  MockERC20,
+  MockUniswapV3PoolCaller,
+  PriceManager,
+  V2AMO,
+  V3AMO
+} from "../../typechain-types";
 import {
   PairedTokenType,
   deployBaseContracts,
@@ -17,7 +25,8 @@ import {
   getInitPrice,
   pairedTokenTypeName,
   getTickBounds,
-  initNetwork
+  initNetwork,
+  PoolType
 } from "./utils";
 
 describe("Price Manager tests", function () {
@@ -64,6 +73,7 @@ describe("Price Manager tests", function () {
   let priceManager: PriceManager;
   let v2amo: V2AMO;
   let v3amo: V3AMO;
+  let poolCaller: MockUniswapV3PoolCaller;
 
   for (const pairedTokenType of [PairedTokenType.SUSDE, PairedTokenType.STABLE]) {
     describe(`Paired token type: ${pairedTokenTypeName(pairedTokenType)}`, function () {
@@ -78,6 +88,9 @@ describe("Price Manager tests", function () {
               [boost, usd, minter] = await deployBaseContracts(admin, user, usdDecimals, initAmount);
               const initPrice = await getInitPrice(priceManager, pairedTokenType);
               const pool = await createCLPool(AERO_POOL_FACTORY, boost, usd, initPrice, tickSpacing);
+              const factory = await ethers.getContractFactory("MockUniswapV3PoolCaller");
+              poolCaller = await factory.deploy(await pool.getAddress());
+              await poolCaller.waitForDeployment();
 
               const [lowerPriceValue, upperPriceValue] = priceBounds[3];
               const { tickLower, tickUpper } = await getTickBounds(
@@ -92,6 +105,7 @@ describe("Price Manager tests", function () {
                 await boost.getAddress(),
                 await usd.getAddress(),
                 await pool.getAddress(),
+                PoolType.CL,
                 AERO_QUOTER,
                 await minter.getAddress(),
                 await priceManager.getAddress(),
@@ -115,7 +129,7 @@ describe("Price Manager tests", function () {
             describe("V3 Public mintSellFarm", () => {
               for (const swapAmount of swapAmounts) {
                 it(getTestCaseTitle(swapAmount), async function () {
-                  await v3Swap(user, usd, boost, tickSpacing, AERO_V3_ROUTER, swapAmount);
+                  await v3Swap(user, poolCaller, usd, boost, swapAmount);
                   const { tp, cp } = await logPriceDiff(v3amo);
                   if (Number(swapAmount) > 0) {
                     await v3amo["mintSellFarm()"]();
@@ -133,7 +147,7 @@ describe("Price Manager tests", function () {
             describe("V3 Public unfarmBuyBurn", () => {
               for (const swapAmount of swapAmounts) {
                 it(getTestCaseTitle(swapAmount, true), async function () {
-                  await v3Swap(user, boost, usd, tickSpacing, AERO_V3_ROUTER, swapAmount);
+                  await v3Swap(user, poolCaller, boost, usd, swapAmount);
                   const { tp, cp } = await logPriceDiff(v3amo);
                   if (Number(swapAmount) > 0) {
                     await v3amo["unfarmBuyBurn()"]();

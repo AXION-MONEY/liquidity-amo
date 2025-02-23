@@ -2,7 +2,17 @@ import { ethers, network, upgrades } from "hardhat";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { nearestUsableTick, TickMath, priceToClosestTick } from "@uniswap/v3-sdk";
 import { Price, Token } from "@uniswap/sdk-core";
-import { BoostStablecoin, ICLPool, Minter, MockERC20, PriceManager, V2AMO, V3AMO } from "../../typechain-types";
+import {
+  BoostStablecoin,
+  ICLPool,
+  Minter,
+  MockERC20,
+  PriceManager,
+  V2AMO,
+  V3AMO,
+  IRamsesV2Pool,
+  MockUniswapV3PoolCaller
+} from "../../typechain-types";
 
 const sigs = {
   susde: {
@@ -73,6 +83,15 @@ export enum PairedTokenType {
   SUSDE,
   SFRAX,
   SDAI
+}
+
+export enum PoolType {
+  SOLIDLY_V3,
+  CL, // Aerodrome, Velodrome
+  ALGEBRA_V1_0,
+  ALGEBRA_V1_9,
+  ALGEBRA_INTEGRAL,
+  RAMSES_V2
 }
 
 export async function initNetwork(
@@ -282,6 +301,7 @@ export async function deployV3AMO(
   boostAddress: string,
   usdAddress: string,
   poolAddress: string,
+  poolType: PoolType,
   quoterAddress: string,
   minterAddress: string,
   priceManagerAddress: string,
@@ -299,7 +319,7 @@ export async function deployV3AMO(
     boostAddress,
     usdAddress,
     poolAddress,
-    1, // PoolType.CL
+    poolType,
     quoterAddress,
     ethers.ZeroAddress, // poolCustomDeployer
     minterAddress,
@@ -324,13 +344,11 @@ export async function deployV3AMO(
   return amo;
 }
 
-export async function createCLPool(
-  factoryAddress: string,
+async function _beforeCreatePool(
   boost: BoostStablecoin,
   usd: MockERC20,
-  price: bigint = ethers.parseUnits("1", 6),
-  tickSpacing: number
-): Promise<ICLPool> {
+  price: bigint
+): Promise<[string, string, bigint]> {
   const boostAddress = await boost.getAddress();
   const boostDecimals = await boost.decimals();
   const usdAddress = await usd.getAddress();
@@ -341,10 +359,37 @@ export async function createCLPool(
   if (boostAddress.toLowerCase() < usdAddress.toLowerCase()) priceX96 /= 10 ** decimalsDiff;
   else priceX96 *= 10 ** decimalsDiff;
   let sqrtPriceX96 = BigInt(Math.floor(Math.sqrt(priceX96)));
+  return [boostAddress, usdAddress, sqrtPriceX96];
+}
+
+export async function createCLPool(
+  factoryAddress: string,
+  boost: BoostStablecoin,
+  usd: MockERC20,
+  price: bigint,
+  tickSpacing: number
+): Promise<ICLPool> {
+  const [boostAddress, usdAddress, sqrtPriceX96] = await _beforeCreatePool(boost, usd, price);
   const poolFactory = await ethers.getContractAt("ICLFactory", factoryAddress);
   await poolFactory.createPool(boostAddress, usdAddress, tickSpacing, sqrtPriceX96);
   const poolAddress = await poolFactory.getPool(boostAddress, usdAddress, tickSpacing);
   return await ethers.getContractAt("ICLPool", poolAddress);
+}
+
+export async function createRamsesPool(
+  factoryAddress: string,
+  boost: BoostStablecoin,
+  usd: MockERC20,
+  price: bigint,
+  fee: number
+): Promise<IRamsesV2Pool> {
+  const [boostAddress, usdAddress, sqrtPriceX96] = await _beforeCreatePool(boost, usd, price);
+  const poolFactory = await ethers.getContractAt("IRamsesV2Factory", factoryAddress);
+  await poolFactory.createPool(boostAddress, usdAddress, fee);
+  const poolAddress = await poolFactory.getPool(boostAddress, usdAddress, fee);
+  const pool = await ethers.getContractAt("IRamsesV2Pool", poolAddress);
+  await pool.initialize(sqrtPriceX96);
+  return pool;
 }
 
 export async function addV2Liquidity(
@@ -377,10 +422,9 @@ export async function addV2Liquidity(
 
 export async function v3Swap(
   user: SignerWithAddress,
+  poolCaller: MockUniswapV3PoolCaller,
   token0: MockERC20 | BoostStablecoin,
   token1: MockERC20 | BoostStablecoin,
-  tickSpacing: number,
-  routerAddress: string,
   swapAmount: string
 ) {
   let _swapAmount = Number(swapAmount);
@@ -390,26 +434,14 @@ export async function v3Swap(
     [token0, token1] = [token1, token0];
   }
   const amount = ethers.parseUnits(_swapAmount.toString(), await token0.decimals());
-  const deadline = Math.floor(Date.now() / 1000) + 60 * 100;
-  const router = await ethers.getContractAt("ISwapRouter", routerAddress);
   const MIN_SQRT_RATIO = BigInt("4295128739") + BigInt(1);
   const MAX_SQRT_RATIO = BigInt("1461446703485210103287273052203988822378723970342") - BigInt(1);
-  await token0.connect(user).approve(routerAddress, amount);
-  await token1.connect(user).approve(routerAddress, amount);
+  await token0.connect(user).approve(await poolCaller.getAddress(), amount);
   const tokenIn = await token0.getAddress();
   const tokenOut = await token1.getAddress();
-  const sqrtPriceLimitX96 = tokenIn.toLowerCase() < tokenOut.toLowerCase() ? MIN_SQRT_RATIO : MAX_SQRT_RATIO;
-  const params = {
-    tokenIn: tokenIn,
-    tokenOut: tokenOut,
-    tickSpacing: tickSpacing,
-    recipient: user.address,
-    deadline: deadline,
-    amountIn: amount,
-    amountOutMinimum: 0,
-    sqrtPriceLimitX96: sqrtPriceLimitX96
-  };
-  await router.connect(user).exactInputSingle(params);
+  const zeroForOne = tokenIn.toLowerCase() < tokenOut.toLowerCase();
+  const sqrtPriceLimitX96 = zeroForOne ? MIN_SQRT_RATIO : MAX_SQRT_RATIO;
+  await poolCaller.connect(user).swap(user.address, zeroForOne, amount, sqrtPriceLimitX96);
 }
 
 export async function v2Swap(
