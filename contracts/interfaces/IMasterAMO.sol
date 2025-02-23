@@ -6,9 +6,9 @@ pragma solidity 0.8.28;
  * @notice Interface defining core functions, roles, and events for Automated Market Operations (AMO).
  */
 interface IMasterAMO {
-    // =============================================================
+    // -------------------------------------------------------------
     //                           ERRORS
-    // =============================================================
+    // -------------------------------------------------------------
 
     /// @notice Reverts when an operation is attempted with a zero address.
     error ZeroAddress();
@@ -34,9 +34,9 @@ interface IMasterAMO {
     /// @notice Reverts when an unsupported paired token type is used.
     error InvalidPairedTokenType();
 
-    // =============================================================
+    // -------------------------------------------------------------
     //                           EVENTS
-    // =============================================================
+    // -------------------------------------------------------------
 
     /**
      * @notice Emitted when BOOST is minted and sold for USD.
@@ -65,9 +65,9 @@ interface IMasterAMO {
      */
     event SetTargetPricePremium(uint256 premium);
 
-    // =============================================================
+    // -------------------------------------------------------------
     //                           ENUMS
-    // =============================================================
+    // -------------------------------------------------------------
     enum PairedTokenType {
         STABLE, // TODO: Consider renaming to USD for clarity
         SUSDE,
@@ -75,9 +75,9 @@ interface IMasterAMO {
         SDAI
     }
 
-    // =============================================================
-    //                           ROLES
-    // =============================================================
+    // -------------------------------------------------------------
+    //                            ROLES
+    // -------------------------------------------------------------
     /// @notice Returns the identifier for the SETTER_ROLE.
     function SETTER_ROLE() external view returns (bytes32);
 
@@ -93,9 +93,9 @@ interface IMasterAMO {
     /// @notice Returns the identifier for the WITHDRAWER_ROLE.
     function WITHDRAWER_ROLE() external view returns (bytes32);
 
-    // =============================================================
-    //                           VARIABLES
-    // =============================================================
+    // -------------------------------------------------------------
+    //                        STATE VARIABLES
+    // -------------------------------------------------------------
     /// @notice Address of the BOOST token.
     function boost() external view returns (address);
 
@@ -145,9 +145,9 @@ interface IMasterAMO {
     /// @notice Type of the PairToken either USD or other Staked Stable types.
     function pairedTokenType() external view returns (PairedTokenType);
 
-    // =============================================================
+    // -------------------------------------------------------------
     //                           FUNCTIONS
-    // =============================================================
+    // -------------------------------------------------------------
     /**
      * @notice Pauses the contract.
      * @dev Only accounts with PAUSER_ROLE can invoke this.
@@ -249,7 +249,6 @@ interface IMasterAMO {
      * @return price The current BOOST price (using 6 decimals).
      */
     function boostPrice() external view returns (uint256 price);
-
 
     /**
      * @notice Retrieves the target price for Boost based on the paired token type.

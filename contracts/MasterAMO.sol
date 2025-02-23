@@ -42,7 +42,7 @@ abstract contract MasterAMO is
     using SafeERC20 for IERC20;
 
     // -------------------------------------------------------------
-    //                          ROLES
+    //                             ROLES
     // -------------------------------------------------------------
     /// @inheritdoc IMasterAMO
     bytes32 public constant override SETTER_ROLE = keccak256("SETTER_ROLE");
@@ -58,6 +58,8 @@ abstract contract MasterAMO is
     // -------------------------------------------------------------
     //                        STATE VARIABLES
     // -------------------------------------------------------------
+
+    ////// IMMUTABLE //////
     /// @inheritdoc IMasterAMO
     address public override boost;
     /// @inheritdoc IMasterAMO
@@ -74,6 +76,8 @@ abstract contract MasterAMO is
     address public priceManager;
     /// @inheritdoc IMasterAMO
     PairedTokenType public pairedTokenType;
+
+    ////// MUTABLE //////
     /// @inheritdoc IMasterAMO
     uint256 public override boostMultiplier;
     /// @inheritdoc IMasterAMO
@@ -88,7 +92,7 @@ abstract contract MasterAMO is
     uint256 public override targetPricePremium;
 
     // -------------------------------------------------------------
-    //                        INTERNAL CONSTANTS
+    //                      INTERNAL CONSTANTS
     // -------------------------------------------------------------
     // @notice BOOST price decimals
     uint8 internal constant PRICE_DECIMALS = 6;
@@ -101,9 +105,9 @@ abstract contract MasterAMO is
     // @notice Indicates a USD → Boost swap.
     bool internal constant BUY_BOOST = false;
 
-    // =============================================================
-    //                         MODIFIER
-    // =============================================================
+    // -------------------------------------------------------------
+    //                           MODIFIERS
+    // -------------------------------------------------------------
     /**
      * @dev Modifier to validate swap parameters.
      * @param boostForUsd A boolean indicating the swap direction: true for Boost → USD, false for USD → Boost.
@@ -113,9 +117,9 @@ abstract contract MasterAMO is
         _;
     }
 
-    // =============================================================
+    // -------------------------------------------------------------
     //                        INITIALIZATION
-    // =============================================================
+    // -------------------------------------------------------------
     /**
      * @notice Initializes the MasterAMO contract.
      * @param admin Address to be granted the DEFAULT_ADMIN_ROLE.
@@ -159,9 +163,9 @@ abstract contract MasterAMO is
         targetPricePremium = 0; // Default value.
     }
 
-    // =============================================================
+    // -------------------------------------------------------------
     //                        SETTER ACTIONS
-    // =============================================================
+    // -------------------------------------------------------------
     /**
      * @notice Sets the premium offset used in target price calculations.
      * @param _targetPricePremium The new premium offset.
@@ -171,9 +175,9 @@ abstract contract MasterAMO is
         emit SetTargetPricePremium(targetPricePremium);
     }
 
-    // =============================================================
+    // -------------------------------------------------------------
     //                        PAUSE ACTIONS
-    // =============================================================
+    // -------------------------------------------------------------
     /// @inheritdoc IMasterAMO
     function pause() external override onlyRole(PAUSER_ROLE) {
         _pause();
@@ -184,9 +188,9 @@ abstract contract MasterAMO is
         _unpause();
     }
 
-    // =============================================================
+    // -------------------------------------------------------------
     //                INTERNAL HELPER VIEW FUNCTIONS
-    // =============================================================
+    // -------------------------------------------------------------
     /**
      * @notice Sorts two token amounts based on token addresses.
      * @param amount0 The first token amount.
@@ -260,11 +264,11 @@ abstract contract MasterAMO is
      */
     function _validateSwap(bool boostForUsd) internal view virtual;
 
-    // =============================================================
-    //                      INTERNAL VIRTUAL FUNCTIONS
-    // =============================================================
+    // -------------------------------------------------------------
+    //                   INTERNAL FUNCTIONS
+    // -------------------------------------------------------------
 
-    ////// MINT-SELL-FARM FUNCTIONS ///////
+    ////// MINT-SELL-FARM FUNCTIONS //////
 
     /**
      * @notice Internal function to mint BOOST and sell it for USD.
@@ -328,7 +332,7 @@ abstract contract MasterAMO is
      */
     function _mintSellFarm() internal virtual returns (uint256 liquidity, uint256 newBoostPrice);
 
-    ////// UNFARM-BUY-BURN FUNCTIONS ///////
+    ////// UNFARM-BUY-BURN FUNCTIONS //////
 
     /**
      * @notice Internal function to remove liquidity, buy BOOST, and burn it.
@@ -355,11 +359,11 @@ abstract contract MasterAMO is
      */
     function _unfarmBuyBurn() internal virtual returns (uint256 liquidity, uint256 newBoostPrice);
 
-    // =============================================================
+    // -------------------------------------------------------------
     //                      EXTERNAL FUNCTIONS
-    // =============================================================
+    // -------------------------------------------------------------
 
-    ////// AMO ROLE FUNCTIONS ///////
+    ////// AMO ROLE FUNCTIONS //////
 
     /// @inheritdoc IMasterAMO
     function mintAndSellBoost(
@@ -431,7 +435,7 @@ abstract contract MasterAMO is
         );
     }
 
-    ////// PUBLIC  FUNCTIONS ///////
+    ////// PUBLIC FUNCTIONS //////
 
     /// @inheritdoc IMasterAMO
     function mintSellFarm()
@@ -463,7 +467,7 @@ abstract contract MasterAMO is
         emit PublicUnfarmBuyBurnExecuted(liquidity, newBoostPrice);
     }
 
-    ////// WITHDRAWAL FUNCTIONS ///////
+    ////// WITHDRAWAL FUNCTIONS //////
 
     /// @inheritdoc IMasterAMO
     function withdrawERC20(
@@ -475,9 +479,9 @@ abstract contract MasterAMO is
         IERC20(token).safeTransfer(recipient, amount);
     }
 
-    // =============================================================
+    // -------------------------------------------------------------
     //                        VIEW FUNCTIONS
-    // =============================================================
+    // -------------------------------------------------------------
     /// @inheritdoc IMasterAMO
     function boostPrice() public view virtual override returns (uint256 price);
 
