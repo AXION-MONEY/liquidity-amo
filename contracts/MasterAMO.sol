@@ -41,33 +41,9 @@ abstract contract MasterAMO is
 {
     using SafeERC20 for IERC20;
 
-    /* ========== ERRORS ========== */
-    error ZeroAddress();
-    error InvalidRatioValue();
-    error InsufficientOutputAmount(uint256 outputAmount, uint256 minRequired);
-    error InvalidRatioToAddLiquidity();
-    error InvalidRatioToRemoveLiquidity();
-    error PriceNotInRange(uint256 price);
-    error PriceAlreadyInRange(uint256 price);
-    error InvalidPairedTokenType();
-
-    /* ========== EVENTS ========== */
-    event MintSell(uint256 boostAmountIn, uint256 usdAmountOut);
-    event PublicMintSellFarmExecuted(uint256 liquidity, uint256 newBoostPrice);
-    event PublicUnfarmBuyBurnExecuted(uint256 liquidity, uint256 newBoostPrice);
-    event SetTargetPricePremium(uint256 premium);
-
-    /* ========= MODIFIERS ========= */
-    /**
-     * @dev Modifier to validate swap parameters.
-     * @param boostForUsd A boolean indicating the swap direction: true for Boost → USD, false for USD → Boost.
-     */
-    modifier validateSwap(bool boostForUsd) {
-        _validateSwap(boostForUsd);
-        _;
-    }
-
-    /* ========== ROLES ========== */
+    // -------------------------------------------------------------
+    //                          ROLES
+    // -------------------------------------------------------------
     /// @inheritdoc IMasterAMO
     bytes32 public constant override SETTER_ROLE = keccak256("SETTER_ROLE");
     /// @inheritdoc IMasterAMO
@@ -79,7 +55,9 @@ abstract contract MasterAMO is
     /// @inheritdoc IMasterAMO
     bytes32 public constant override WITHDRAWER_ROLE = keccak256("WITHDRAWER_ROLE");
 
-    /* ========== VARIABLES ========== */
+    // -------------------------------------------------------------
+    //                        STATE VARIABLES
+    // -------------------------------------------------------------
     /// @inheritdoc IMasterAMO
     address public override boost;
     /// @inheritdoc IMasterAMO
@@ -92,43 +70,61 @@ abstract contract MasterAMO is
     uint8 public override usdDecimals;
     /// @inheritdoc IMasterAMO
     address public override boostMinter;
-
-    address public priceManager; // # FIXME: price manager address
+    /// @inheritdoc IMasterAMO
+    address public priceManager;
+    /// @inheritdoc IMasterAMO
     PairedTokenType public pairedTokenType;
-
     /// @inheritdoc IMasterAMO
     uint256 public override boostMultiplier;
     /// @inheritdoc IMasterAMO
     uint24 public override validRangeWidth;
     /// @inheritdoc IMasterAMO
     uint24 public override validRemovingRatio;
-
     /// @inheritdoc IMasterAMO
     uint256 public override boostLowerPriceSell;
     /// @inheritdoc IMasterAMO
     uint256 public override boostUpperPriceBuy;
-
-    // @inheritdoc IMasterAMO
+    /// @inheritdoc IMasterAMO
     uint256 public override targetPricePremium;
 
-    /* ========== CONSTANTS ========== */
-    uint8 internal constant PRICE_DECIMALS = 6; // BOOST price decimals.
-    uint8 internal constant PARAMS_DECIMALS = 6; // Internal decimals for parameter calculations.
-    uint256 internal constant FACTOR = 10 ** PARAMS_DECIMALS; // Scaling factor. // # FIXME: Rename ScaledUnit
-    bool internal constant SELL_BOOST = true; // Indicator for a Boost-to-USD swap.
-    bool internal constant BUY_BOOST = false; // Indicator for a USD-to-Boost swap.
+    // -------------------------------------------------------------
+    //                        INTERNAL CONSTANTS
+    // -------------------------------------------------------------
+    // @notice BOOST price decimals
+    uint8 internal constant PRICE_DECIMALS = 6;
+    // @notice Decimals for parameter calculations.
+    uint8 internal constant PARAMS_DECIMALS = 6;
+    // @notice Scaling factor.
+    uint256 internal constant FACTOR = 10 ** PARAMS_DECIMALS;
+    // @notice Indicates a Boost → USD swap.
+    bool internal constant SELL_BOOST = true;
+    // @notice Indicates a USD → Boost swap.
+    bool internal constant BUY_BOOST = false;
 
-    /* ========== FUNCTIONS ========== */
+    // =============================================================
+    //                         MODIFIER
+    // =============================================================
+    /**
+     * @dev Modifier to validate swap parameters.
+     * @param boostForUsd A boolean indicating the swap direction: true for Boost → USD, false for USD → Boost.
+     */
+    modifier validateSwap(bool boostForUsd) {
+        _validateSwap(boostForUsd);
+        _;
+    }
+
+    // =============================================================
+    //                        INITIALIZATION
+    // =============================================================
     /**
      * @notice Initializes the MasterAMO contract.
      * @param admin Address to be granted the DEFAULT_ADMIN_ROLE.
      * @param boost_ Address of the Boost stablecoin.
-     * @param usd_ Address of the USD stablecoin (e.g., USDC or USDT).
+     * @param usd_ Address of the USD stablecoin.
      * @param pool_ Address of the liquidity pool for the Boost-USD pair.
      * @param boostMinter_ Address of the Boost minter contract.
      * @param priceManager_ Address of the price manager contract.
-     * @param pairedTokenType_ The type of token paired with Boost (e.g., STABLE, SUSDE, SFRAX, SDAI).
-     * @dev Ensures no critical parameter is the zero address.
+     * @param pairedTokenType_ The type of token paired with Boost.
      */
     function initialize(
         address admin,
@@ -160,23 +156,24 @@ abstract contract MasterAMO is
         boostMinter = boostMinter_;
         priceManager = priceManager_;
         pairedTokenType = pairedTokenType_;
-        targetPricePremium = 0; // Default Value to 0
+        targetPricePremium = 0; // Default value.
     }
-    ////////////////////////// SETTER ACTIONS //////////////////////////
+
+    // =============================================================
+    //                        SETTER ACTIONS
+    // =============================================================
     /**
-     * @notice Sets the premium offset used in calculating the target price for staked pairs.
-     * @dev The target price premium is added to the preview deposit value for staked tokens (SUSDE, SFRAX, SDAI)
-     *      to compute the target price. This premium represents the allowable price slippage and must be set lower than the pull fee.
-     *      Only accounts with the SETTER_ROLE are authorized to update this parameter.
-     *
-     * @param _targetPricePremium The new premium offset value to be applied in target price calculations.
+     * @notice Sets the premium offset used in target price calculations.
+     * @param _targetPricePremium The new premium offset.
      */
     function setTargetPricePremium(uint256 _targetPricePremium) external onlyRole(SETTER_ROLE) {
         targetPricePremium = _targetPricePremium;
         emit SetTargetPricePremium(targetPricePremium);
     }
 
-    ////////////////////////// PAUSE ACTIONS //////////////////////////
+    // =============================================================
+    //                        PAUSE ACTIONS
+    // =============================================================
     /// @inheritdoc IMasterAMO
     function pause() external override onlyRole(PAUSER_ROLE) {
         _pause();
@@ -187,17 +184,182 @@ abstract contract MasterAMO is
         _unpause();
     }
 
-    ////////////////////////// AMO_ROLE ACTIONS //////////////////////////
+    // =============================================================
+    //                INTERNAL HELPER VIEW FUNCTIONS
+    // =============================================================
     /**
-     * @notice Internal function to mint and sell Boost for USD.
-     * @param boostAmount The amount of Boost tokens to mint.
-     * @return boostAmountIn The amount of Boost tokens used in the process.
-     * @return usdAmountOut The amount of USD tokens received from the sale.
+     * @notice Sorts two token amounts based on token addresses.
+     * @param amount0 The first token amount.
+     * @param amount1 The second token amount.
+     * @return (uint256, uint256) The sorted token amounts.
+     */
+    function sortAmounts(uint256 amount0, uint256 amount1) internal view returns (uint256, uint256) {
+        if (boost < usd) return (amount0, amount1);
+        return (amount1, amount0);
+    }
+
+    /**
+     * @notice Sorts two signed token amounts based on token addresses.
+     * @param amount0 The first token amount.
+     * @param amount1 The second token amount.
+     * @return (int256, int256) The sorted token amounts.
+     */
+    function sortAmounts(int256 amount0, int256 amount1) internal view returns (int256, int256) {
+        if (boost < usd) return (amount0, amount1);
+        return (amount1, amount0);
+    }
+
+    /**
+     * @notice Converts a USD amount to the equivalent BOOST amount.
+     * @param usdAmount Amount in USD.
+     * @return The corresponding BOOST amount.
+     */
+    function toBoostAmount(uint256 usdAmount) internal view returns (uint256) {
+        return usdAmount * 10 ** (boostDecimals - usdDecimals);
+    }
+
+    /**
+     * @notice Converts a BOOST amount to the equivalent USD amount.
+     * @param boostAmount Amount in BOOST.
+     * @return The corresponding USD amount.
+     */
+    function toUsdAmount(uint256 boostAmount) internal view returns (uint256) {
+        return boostAmount / 10 ** (boostDecimals - usdDecimals);
+    }
+
+    /**
+     * @notice Retrieves the balance of a specified token held by this contract.
+     * @param token ERC20 token address.
+     * @return The token balance.
+     */
+    function balanceOfToken(address token) internal view returns (uint256) {
+        return IERC20(token).balanceOf(address(this));
+    }
+
+    /**
+     * @notice Calculates the lower price bound based on the valid range.
+     * @param price Current price.
+     * @return The lower bound price.
+     */
+    function priceLowerBound(uint256 price) internal view returns (uint256) {
+        return price - ((price * validRangeWidth) / FACTOR);
+    }
+
+    /**
+     * @notice Calculates the upper price bound based on the valid range.
+     * @param price Current price.
+     * @return The upper bound price.
+     */
+    function priceUpperBound(uint256 price) internal view returns (uint256) {
+        return price + ((price * validRangeWidth) / FACTOR);
+    }
+
+    /**
+     * @notice Internal function to validate swap parameters.
+     * @param boostForUsd Swap direction: true for Boost → USD, false for USD → Boost.
+     */
+    function _validateSwap(bool boostForUsd) internal view virtual;
+
+    // =============================================================
+    //                      INTERNAL VIRTUAL FUNCTIONS
+    // =============================================================
+
+    ////// MINT-SELL-FARM FUNCTIONS ///////
+
+    /**
+     * @notice Internal function to mint BOOST and sell it for USD.
+     * @param boostAmount The amount of BOOST to mint.
+     * @return boostAmountIn BOOST tokens sent to the pool.
+     * @return usdAmountOut USD tokens received.
      * @dev Must be implemented by a derived contract.
      */
     function _mintAndSellBoost(
         uint256 boostAmount
     ) internal virtual returns (uint256 boostAmountIn, uint256 usdAmountOut);
+
+    /**
+     * @notice Internal function to add liquidity to the pool.
+     * @param usdAmount The USD amount to add.
+     * @param minBoostSpend Minimum BOOST tokens to spend.
+     * @param minUsdSpend Minimum USD tokens to spend.
+     * @return boostSpent BOOST tokens spent.
+     * @return usdSpent USD tokens spent.
+     * @return liquidity Liquidity tokens received.
+     * @dev Must be implemented by a derived contract.
+     */
+    function _addLiquidity(
+        uint256 usdAmount,
+        uint256 minBoostSpend,
+        uint256 minUsdSpend
+    ) internal virtual returns (uint256 boostSpent, uint256 usdSpent, uint256 liquidity);
+
+    /**
+     * @notice Internal function that mints, sells BOOST, and adds liquidity.
+     * @param boostAmount The BOOST amount to mint.
+     * @param minBoostSpend Minimum BOOST tokens to spend.
+     * @param minUsdSpend Minimum USD tokens to spend.
+     * @return boostAmountIn BOOST tokens used in the swap.
+     * @return usdAmountOut USD tokens received from the swap.
+     * @return boostSpent BOOST tokens spent in liquidity addition.
+     * @return usdSpent USD tokens spent in liquidity addition.
+     * @return liquidity Liquidity tokens received.
+     */
+    function _mintSellFarm(
+        uint256 boostAmount,
+        uint256 minBoostSpend,
+        uint256 minUsdSpend
+    )
+        internal
+        returns (uint256 boostAmountIn, uint256 usdAmountOut, uint256 boostSpent, uint256 usdSpent, uint256 liquidity)
+    {
+        (boostAmountIn, usdAmountOut) = _mintAndSellBoost(boostAmount);
+        uint256 price = boostPrice();
+        uint256 tp = targetPrice();
+        if (price > priceLowerBound(tp) && price < priceUpperBound(tp)) {
+            uint256 usdBalance = IERC20(usd).balanceOf(address(this));
+            (boostSpent, usdSpent, liquidity) = _addLiquidity(usdBalance, minBoostSpend, minUsdSpend);
+        }
+    }
+    /**
+     * @notice Internal function to perform mint, sell and liquidity addition when BOOST is over peg.
+     * @return liquidity Liquidity tokens received.
+     * @return newBoostPrice The new average BOOST price after the operation.
+     * @dev Must be implemented by a derived contract.
+     */
+    function _mintSellFarm() internal virtual returns (uint256 liquidity, uint256 newBoostPrice);
+
+    ////// UNFARM-BUY-BURN FUNCTIONS ///////
+
+    /**
+     * @notice Internal function to remove liquidity, buy BOOST, and burn it.
+     * @param liquidity The liquidity tokens to remove.
+     * @param minBoostRemove Minimum BOOST tokens to remove.
+     * @param minUsdRemove Minimum USD tokens to remove.
+     * @return boostRemoved BOOST tokens removed.
+     * @return usdRemoved USD tokens removed.
+     * @return usdAmountIn USD tokens used to buy BOOST.
+     * @return boostAmountOut BOOST tokens obtained.
+     * @dev Must be implemented by a derived contract.
+     */
+    function _unfarmBuyBurn(
+        uint256 liquidity,
+        uint256 minBoostRemove,
+        uint256 minUsdRemove
+    ) internal virtual returns (uint256 boostRemoved, uint256 usdRemoved, uint256 usdAmountIn, uint256 boostAmountOut);
+
+    /**
+     * @notice Internal function to perform un-farming, buying, and burning when BOOST is under peg.
+     * @return liquidity Liquidity tokens affected.
+     * @return newBoostPrice The new average BOOST price after the operation.
+     * @dev Must be implemented by a derived contract.
+     */
+    function _unfarmBuyBurn() internal virtual returns (uint256 liquidity, uint256 newBoostPrice);
+
+    // =============================================================
+    //                      EXTERNAL FUNCTIONS
+    // =============================================================
+
+    ////// AMO ROLE FUNCTIONS ///////
 
     /// @inheritdoc IMasterAMO
     function mintAndSellBoost(
@@ -213,12 +375,6 @@ abstract contract MasterAMO is
         (boostAmountIn, usdAmountOut) = _mintAndSellBoost(boostAmount);
     }
 
-    function _addLiquidity(
-        uint256 usdAmount,
-        uint256 minBoostSpend,
-        uint256 minUsdSpend
-    ) internal virtual returns (uint256 boostSpent, uint256 usdSpent, uint256 liquidity);
-
     /// @inheritdoc IMasterAMO
     function addLiquidity(
         uint256 usdAmount,
@@ -233,36 +389,6 @@ abstract contract MasterAMO is
         returns (uint256 boostSpent, uint256 usdSpent, uint256 liquidity)
     {
         (boostSpent, usdSpent, liquidity) = _addLiquidity(usdAmount, minBoostSpend, minUsdSpend);
-    }
-
-    /**
-     * @notice Internal function that combines minting, selling, and farming (liquidity addition).
-     * @param boostAmount The amount of Boost tokens to mint.
-     * @param minBoostSpend The minimum Boost tokens to spend for liquidity.
-     * @param minUsdSpend The minimum USD tokens to spend for liquidity.
-     * @return boostAmountIn The amount of Boost tokens used for minting and selling.
-     * @return usdAmountOut The amount of USD tokens received from selling Boost.
-     * @return boostSpent The amount of Boost tokens spent when adding liquidity.
-     * @return usdSpent The amount of USD tokens spent when adding liquidity.
-     * @return liquidity The liquidity tokens received from the pool.
-     * @dev Liquidity addition is executed only if the current Boost price is within a specific range.
-     */
-    function _mintSellFarm(
-        uint256 boostAmount,
-        uint256 minBoostSpend,
-        uint256 minUsdSpend
-    )
-        internal
-        returns (uint256 boostAmountIn, uint256 usdAmountOut, uint256 boostSpent, uint256 usdSpent, uint256 liquidity)
-    {
-        (boostAmountIn, usdAmountOut) = _mintAndSellBoost(boostAmount);
-
-        uint256 price = boostPrice();
-        uint256 tp = targetPrice();
-        if (price > priceLowerBound(tp) && price < priceUpperBound(tp)) {
-            uint256 usdBalance = IERC20(usd).balanceOf(address(this));
-            (boostSpent, usdSpent, liquidity) = _addLiquidity(usdBalance, minBoostSpend, minUsdSpend);
-        }
     }
 
     /// @inheritdoc IMasterAMO
@@ -285,23 +411,6 @@ abstract contract MasterAMO is
         );
     }
 
-    /**
-     * @notice Internal function to remove liquidity, buy Boost, and burn the acquired Boost.
-     * @param liquidity The amount of liquidity tokens to remove.
-     * @param minBoostRemove The minimum Boost tokens to remove.
-     * @param minUsdRemove The minimum USD tokens to remove.
-     * @return boostRemoved The amount of Boost tokens removed.
-     * @return usdRemoved The amount of USD tokens removed.
-     * @return usdAmountIn The USD amount used to buy Boost.
-     * @return boostAmountOut The amount of Boost tokens obtained after purchase.
-     * @dev Must be implemented by a derived contract.
-     */
-    function _unfarmBuyBurn(
-        uint256 liquidity,
-        uint256 minBoostRemove,
-        uint256 minUsdRemove
-    ) internal virtual returns (uint256 boostRemoved, uint256 usdRemoved, uint256 usdAmountIn, uint256 boostAmountOut);
-
     /// @inheritdoc IMasterAMO
     function unfarmBuyBurn(
         uint256 liquidity,
@@ -322,23 +431,9 @@ abstract contract MasterAMO is
         );
     }
 
-    ////////////////////////// PUBLIC FUNCTIONS //////////////////////////
-    /**
-     * @notice Internal function to perform the mint, sell, and farming (liquidity addition) operations
-     *         in a public context when Boost is over peg.
-     * @return liquidity The liquidity tokens received.
-     * @return newBoostPrice The new average price of Boost after the operation.
-     * @dev Must be implemented by a derived contract.
-     */
-    function _mintSellFarm() internal virtual returns (uint256 liquidity, uint256 newBoostPrice);
+    ////// PUBLIC  FUNCTIONS ///////
 
-    /**
-     * @notice Public function to execute mint, sell, and farm operations when Boost is over peg.
-     * @return liquidity The liquidity tokens received.
-     * @return newBoostPrice The new average price of Boost after the operation.
-     * @dev Validates that the resulting Boost price is not below the lower price threshold.
-     *      Callable when the contract is not paused and with a validated swap (Boost → USD).
-     */
+    /// @inheritdoc IMasterAMO
     function mintSellFarm()
         external
         override
@@ -347,31 +442,13 @@ abstract contract MasterAMO is
         validateSwap(SELL_BOOST)
         returns (uint256 liquidity, uint256 newBoostPrice)
     {
-        // Perform the mint and sell, and return liquidity and the new Boost price
         (liquidity, newBoostPrice) = _mintSellFarm();
-        // Checks if the actual average price of boost when selling is greater than the boostLowerPriceSell
         uint256 tp = targetPrice();
         if (newBoostPrice < (tp * boostLowerPriceSell) / FACTOR) revert PriceNotInRange(newBoostPrice);
-
         emit PublicMintSellFarmExecuted(liquidity, newBoostPrice);
     }
 
-    /**
-     * @notice Internal function to perform the un-farming, buying, and burning operations
-     *         in a public context when Boost is under peg.
-     * @return liquidity The liquidity tokens affected.
-     * @return newBoostPrice The new average price of Boost after the operation.
-     * @dev Must be implemented by a derived contract.
-     */
-    function _unfarmBuyBurn() internal virtual returns (uint256 liquidity, uint256 newBoostPrice);
-
-    /**
-     * @notice Public function to execute un-farming, buying, and burning operations when Boost is under peg.
-     * @return liquidity The liquidity tokens affected.
-     * @return newBoostPrice The new average price of Boost after the operation.
-     * @dev Validates that the resulting Boost price does not exceed the upper price threshold.
-     *      Callable when the contract is not paused and with a validated swap (USD → Boost).
-     */
+    /// @inheritdoc IMasterAMO
     function unfarmBuyBurn()
         external
         override
@@ -381,14 +458,13 @@ abstract contract MasterAMO is
         returns (uint256 liquidity, uint256 newBoostPrice)
     {
         (liquidity, newBoostPrice) = _unfarmBuyBurn();
-        // Checks if the actual average price of boost when buying is less than the boostUpperPriceBuy
         uint256 tp = targetPrice();
         if (newBoostPrice > (tp * boostUpperPriceBuy) / FACTOR) revert PriceNotInRange(newBoostPrice);
-
         emit PublicUnfarmBuyBurnExecuted(liquidity, newBoostPrice);
     }
 
-    ////////////////////////// WITHDRAWAL FUNCTIONS //////////////////////////
+    ////// WITHDRAWAL FUNCTIONS ///////
+
     /// @inheritdoc IMasterAMO
     function withdrawERC20(
         address token,
@@ -399,83 +475,12 @@ abstract contract MasterAMO is
         IERC20(token).safeTransfer(recipient, amount);
     }
 
-    ////////////////////////// INTERNAL HELPER FUNCTIONS //////////////////////////
-    /**
-     * @notice Sorts two token amounts based on the token addresses.
-     * @param amount0 The first token amount.
-     * @param amount1 The second token amount.
-     * @return (uint256, uint256) The sorted token amounts.
-     */
-    function sortAmounts(uint256 amount0, uint256 amount1) internal view returns (uint256, uint256) {
-        if (boost < usd) return (amount0, amount1);
-        return (amount1, amount0);
-    }
+    // =============================================================
+    //                        VIEW FUNCTIONS
+    // =============================================================
+    /// @inheritdoc IMasterAMO
+    function boostPrice() public view virtual override returns (uint256 price);
 
-    /**
-     * @notice Sorts two signed token amounts based on the token addresses.
-     * @param amount0 The first token amount.
-     * @param amount1 The second token amount.
-     * @return (int256, int256) The sorted token amounts.
-     */
-    function sortAmounts(int256 amount0, int256 amount1) internal view returns (int256, int256) {
-        if (boost < usd) return (amount0, amount1);
-        return (amount1, amount0);
-    }
-
-    /**
-     * @notice Converts a USD amount to the equivalent Boost amount based on token decimals.
-     * @param usdAmount The amount in USD.
-     * @return The corresponding amount in Boost.
-     */
-    function toBoostAmount(uint256 usdAmount) internal view returns (uint256) {
-        return usdAmount * 10 ** (boostDecimals - usdDecimals);
-    }
-
-    /**
-     * @notice Converts a Boost amount to the equivalent USD amount based on token decimals.
-     * @param boostAmount The amount in Boost.
-     * @return The corresponding amount in USD.
-     */
-    function toUsdAmount(uint256 boostAmount) internal view returns (uint256) {
-        return boostAmount / 10 ** (boostDecimals - usdDecimals);
-    }
-
-    /**
-     * @notice Retrieves the balance of a specified token held by this contract.
-     * @param token The address of the ERC20 token.
-     * @return The token balance.
-     */
-    function balanceOfToken(address token) internal view returns (uint256) {
-        return IERC20(token).balanceOf(address(this));
-    }
-
-    /**
-     * @notice Calculates the lower bound for a given price based on the valid range width.
-     * @param price The current price.
-     * @return The lower bound price.
-     */
-    function priceLowerBound(uint256 price) internal view returns (uint256) {
-        return price - ((price * validRangeWidth) / FACTOR);
-    }
-
-    /**
-     * @notice Calculates the upper bound for a given price based on the valid range width.
-     * @param price The current price.
-     * @return The upper bound price.
-     */
-    function priceUpperBound(uint256 price) internal view returns (uint256) {
-        return price + ((price * validRangeWidth) / FACTOR);
-    }
-
-    ////////////////////////// VIEW FUNCTIONS //////////////////////////
-    /**
-     * @notice Retrieves the current price of Boost tokens.
-     * @return price The current Boost price.
-     * @dev Must be implemented by a derived contract.
-     */
-    function boostPrice() public view virtual returns (uint256 price);
-
-    // # FIXME: rename to a better name like targetBoostRelativePrice
     /// @inheritdoc IMasterAMO
     function targetPrice() public view override returns (uint256 price) {
         uint256 baseUnit = 10 ** PRICE_DECIMALS;
@@ -488,6 +493,4 @@ abstract contract MasterAMO is
             return IPriceManager(priceManager).sDaiPreviewDeposit(baseUnit) + targetPricePremium;
         else revert InvalidPairedTokenType();
     }
-
-    function _validateSwap(bool boostForUsd) internal view virtual;
 }
