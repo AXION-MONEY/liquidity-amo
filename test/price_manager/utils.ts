@@ -1,14 +1,101 @@
-import { ethers, upgrades } from "hardhat";
+import { ethers, network, upgrades } from "hardhat";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { nearestUsableTick, TickMath, priceToClosestTick } from "@uniswap/v3-sdk";
 import { Price, Token } from "@uniswap/sdk-core";
 import { BoostStablecoin, ICLPool, Minter, MockERC20, PriceManager, V2AMO, V3AMO } from "../../typechain-types";
+
+const sigs = {
+  susde: {
+    muonSig: {
+      srcBlock: { number: 21736000, timestamp: 1738223759 },
+      reqId: ethers.ZeroHash,
+      signature: {
+        signature: 0,
+        owner: ethers.ZeroAddress,
+        nonce: ethers.ZeroAddress
+      },
+      gatewaySignature: ethers.ZeroHash,
+      token: "susde"
+    },
+    states: {
+      totalSupply: "3734814116804093597606146132",
+      balance: "4304104583370657539163990168",
+      lastDistributionTimestamp: "1738207835",
+      vestingAmount: "460055794761904761904761"
+    }
+  },
+  sfrax: {
+    muonSig: {
+      srcBlock: { number: 21736000, timestamp: 1738223759 },
+      reqId: ethers.ZeroHash,
+      signature: {
+        signature: 0,
+        owner: ethers.ZeroAddress,
+        nonce: ethers.ZeroAddress
+      },
+      gatewaySignature: ethers.ZeroHash,
+      token: "sfrax"
+    },
+    states: {
+      totalSupply: "71228619772829715106592883",
+      storedTotalAssets: "79039466004482887067661211",
+      rewardsCycleData: {
+        cycleEnd: "1738800000",
+        lastSync: "1738195271",
+        rewardCycleAmount: "578157898242524520561322"
+      },
+      lastRewardsDistribution: "1738219139",
+      maxDistributionPerSecondPerAsset: "3329556719"
+    }
+  },
+  sdai: {
+    muonSig: {
+      srcBlock: { number: 21736000, timestamp: 1738223759 },
+      reqId: ethers.ZeroHash,
+      signature: {
+        signature: 0,
+        owner: ethers.ZeroAddress,
+        nonce: ethers.ZeroAddress
+      },
+      gatewaySignature: ethers.ZeroHash,
+      token: "sdai"
+    },
+    states: {
+      dsr: "1000000003380572527855758393",
+      chi: "1141443554266986624494275064",
+      rho: "1738222919"
+    }
+  }
+};
 
 export enum PairedTokenType {
   STABLE,
   SUSDE,
   SFRAX,
   SDAI
+}
+
+export async function initNetwork(
+  jsonRpcUrl: string,
+  blockNumber?: number
+): Promise<[SignerWithAddress, SignerWithAddress, PriceManager]> {
+  const [admin, user] = await ethers.getSigners();
+  await network.provider.request({
+    method: "hardhat_reset",
+    params: [
+      {
+        forking: {
+          jsonRpcUrl: jsonRpcUrl,
+          blockNumber: blockNumber
+        }
+      }
+    ]
+  });
+  const priceManager = await deployPriceManager(admin);
+  await priceManager.connect(user).setSUsdeWithSig(sigs.susde.states, sigs.susde.muonSig);
+  await priceManager.connect(user).setSFraxWithSig(sigs.sfrax.states, sigs.sfrax.muonSig);
+  await priceManager.connect(user).setPotWithSig(sigs.sdai.states, sigs.sdai.muonSig);
+  return [admin, user, priceManager];
 }
 
 export function pairedTokenTypeName(pairedTokenType: PairedTokenType): string {

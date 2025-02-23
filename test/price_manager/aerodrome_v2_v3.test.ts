@@ -9,7 +9,6 @@ import {
   addV2Liquidity,
   getCurrentPrice,
   v2Swap,
-  deployPriceManager,
   deployV3AMO,
   createCLPool,
   v3Swap,
@@ -17,94 +16,13 @@ import {
   getTestCaseTitle,
   getInitPrice,
   pairedTokenTypeName,
-  getTickBounds
+  getTickBounds,
+  initNetwork
 } from "./utils";
 
-const sigs = {
-  susde: {
-    muonSig: {
-      srcBlock: { number: 21736000, timestamp: 1738223759 },
-      reqId: ethers.ZeroHash,
-      signature: {
-        signature: 0,
-        owner: ethers.ZeroAddress,
-        nonce: ethers.ZeroAddress
-      },
-      gatewaySignature: ethers.ZeroHash,
-      token: "susde"
-    },
-    states: {
-      totalSupply: "3734814116804093597606146132",
-      balance: "4304104583370657539163990168",
-      lastDistributionTimestamp: "1738207835",
-      vestingAmount: "460055794761904761904761"
-    }
-  },
-  sfrax: {
-    muonSig: {
-      srcBlock: { number: 21736000, timestamp: 1738223759 },
-      reqId: ethers.ZeroHash,
-      signature: {
-        signature: 0,
-        owner: ethers.ZeroAddress,
-        nonce: ethers.ZeroAddress
-      },
-      gatewaySignature: ethers.ZeroHash,
-      token: "sfrax"
-    },
-    states: {
-      totalSupply: "71228619772829715106592883",
-      storedTotalAssets: "79039466004482887067661211",
-      rewardsCycleData: {
-        cycleEnd: "1738800000",
-        lastSync: "1738195271",
-        rewardCycleAmount: "578157898242524520561322"
-      },
-      lastRewardsDistribution: "1738219139",
-      maxDistributionPerSecondPerAsset: "3329556719"
-    }
-  },
-  sdai: {
-    muonSig: {
-      srcBlock: { number: 21736000, timestamp: 1738223759 },
-      reqId: ethers.ZeroHash,
-      signature: {
-        signature: 0,
-        owner: ethers.ZeroAddress,
-        nonce: ethers.ZeroAddress
-      },
-      gatewaySignature: ethers.ZeroHash,
-      token: "sdai"
-    },
-    states: {
-      dsr: "1000000003380572527855758393",
-      chi: "1141443554266986624494275064",
-      rho: "1738222919"
-    }
-  }
-};
-
-async function initNetwork(): Promise<PriceManager> {
-  const [admin, user] = await ethers.getSigners();
-  await network.provider.request({
-    method: "hardhat_reset",
-    params: [
-      {
-        forking: {
-          jsonRpcUrl: "https://developer-access-mainnet.base.org",
-          blockNumber: 26235850 // Optional: specify a block number
-        }
-      }
-    ]
-  });
-  const priceManager = await deployPriceManager(admin);
-  await priceManager.connect(user).setSUsdeWithSig(sigs.susde.states, sigs.susde.muonSig);
-  await priceManager.connect(user).setSFraxWithSig(sigs.sfrax.states, sigs.sfrax.muonSig);
-  await priceManager.connect(user).setPotWithSig(sigs.sdai.states, sigs.sdai.muonSig);
-  return priceManager;
-}
-
 describe("Price Manager tests", function () {
+  const rpcUrl = "https://developer-access-mainnet.base.org";
+  const forkingBlock = 26235850;
   const priceBounds = [
     [undefined, undefined], // full range
     ["0.7", "1.5"],
@@ -153,8 +71,7 @@ describe("Price Manager tests", function () {
         describe(`USD decimals: ${usdDecimals}`, function () {
           describe("V3AMO", function () {
             before(async () => {
-              priceManager = await initNetwork();
-              [admin, user] = await ethers.getSigners();
+              [admin, user, priceManager] = await initNetwork(rpcUrl, forkingBlock);
               console.log(`\t\t\t\t\tNetwork init for V3AMO ${pairedTokenTypeName(pairedTokenType)}\t${usdDecimals}`);
             });
             beforeEach(async function () {
@@ -234,8 +151,7 @@ describe("Price Manager tests", function () {
 
           describe("V2AMO", function () {
             before(async () => {
-              priceManager = await initNetwork();
-              [admin, user] = await ethers.getSigners();
+              [admin, user, priceManager] = await initNetwork(rpcUrl, forkingBlock);
               console.log(`\t\t\t\t\tNetwork init for V2AMO ${pairedTokenTypeName(pairedTokenType)}\t${usdDecimals}`);
             });
             beforeEach(async function () {
