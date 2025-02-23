@@ -85,13 +85,18 @@ export enum PairedTokenType {
   SDAI
 }
 
-export enum PoolType {
+export enum V3PoolType {
   SOLIDLY_V3,
   CL, // Aerodrome, Velodrome
   ALGEBRA_V1_0,
   ALGEBRA_V1_9,
   ALGEBRA_INTEGRAL,
   RAMSES_V2
+}
+
+export enum V2PoolType {
+  SOLIDLY_V2,
+  VELO_LIKE // Aerodrome, Velodrome
 }
 
 export async function initNetwork(
@@ -247,6 +252,7 @@ export async function deployV2AMO(
   boostAddress: string,
   usdAddress: string,
   poolFee: bigint,
+  poolType: V2PoolType,
   minterAddress: string,
   priceManagerAddress: string,
   pairedTokenType: number,
@@ -263,13 +269,22 @@ export async function deployV2AMO(
   const gauge = await GaugeFactory.deploy();
   await gauge.waitForDeployment();
   const gaugeAddress = await gauge.getAddress();
+  const stable = false;
+  if (poolType === V2PoolType.SOLIDLY_V2) {
+    const router = await ethers.getContractAt("ISolidlyRouter", routerAddress);
+    if ((await router.pairFor(boostAddress, usdAddress, stable)) === ethers.ZeroAddress) {
+      const factoryAddress = await router.factory();
+      const factory = await ethers.getContractAt("IFactory", factoryAddress);
+      await factory.createPair(boostAddress, usdAddress, stable);
+    }
+  }
   const args = [
     admin.address,
     boostAddress,
     usdAddress,
-    false, // stable
+    stable,
     poolFee,
-    1, // VELO_LIKE
+    poolType,
     minterAddress,
     priceManagerAddress,
     pairedTokenType,
@@ -301,7 +316,7 @@ export async function deployV3AMO(
   boostAddress: string,
   usdAddress: string,
   poolAddress: string,
-  poolType: PoolType,
+  poolType: V3PoolType,
   quoterAddress: string,
   minterAddress: string,
   priceManagerAddress: string,
@@ -444,7 +459,7 @@ export async function v3Swap(
   await poolCaller.connect(user).swap(user.address, zeroForOne, amount, sqrtPriceLimitX96);
 }
 
-export async function v2Swap(
+export async function v2VeloSwap(
   user: SignerWithAddress,
   token0: MockERC20 | BoostStablecoin,
   token1: MockERC20 | BoostStablecoin,
@@ -466,6 +481,34 @@ export async function v2Swap(
       to: await token1.getAddress(),
       stable: false,
       factory: ethers.ZeroAddress
+    }
+  ];
+  await token0.connect(user).approve(routerAddress, amount);
+  await token1.connect(user).approve(routerAddress, amount);
+  await router.connect(user).swapExactTokensForTokens(amount, 0, route, user.address, deadline);
+}
+
+export async function v2Swap(
+  user: SignerWithAddress,
+  token0: MockERC20 | BoostStablecoin,
+  token1: MockERC20 | BoostStablecoin,
+  routerAddress: string,
+  swapAmount: string
+) {
+  let _swapAmount = Number(swapAmount);
+  if (_swapAmount == 0) return;
+  if (_swapAmount < 0) {
+    _swapAmount = -_swapAmount;
+    [token0, token1] = [token1, token0];
+  }
+  const amount = ethers.parseUnits(_swapAmount.toString(), await token0.decimals());
+  const deadline = Math.floor(Date.now() / 1000) + 60 * 100;
+  const router = await ethers.getContractAt("ISolidlyRouter", routerAddress);
+  const route = [
+    {
+      from: await token0.getAddress(),
+      to: await token1.getAddress(),
+      stable: false
     }
   ];
   await token0.connect(user).approve(routerAddress, amount);
