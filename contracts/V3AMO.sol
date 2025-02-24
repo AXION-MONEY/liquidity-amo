@@ -22,38 +22,20 @@ import {IV3AMO} from "./interfaces/v3/IV3AMO.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
+/**
+ * @title V3AMO Contract
+ * @notice Implements Automated Market Operations (AMO) for V3 pools using various DEX protocols.
+ * @dev Inherits from MasterAMO and implements the IV3AMO interface.
+ */
 contract V3AMO is IV3AMO, MasterAMO {
     using SafeERC20 for IERC20;
     using SafeCast for uint256;
 
-    /* ========== ERRORS ========== */
-    error UntrustedCaller(address caller);
-    error InvalidDelta();
-    error InvalidOwed();
-    error InsufficientTokenSpent();
+    // -------------------------------------------------------------
+    //                         STATE VARIABLES
+    // -------------------------------------------------------------
 
-    /* ========== EVENTS ========== */
-    event AddLiquidity(uint256 boostSpent, uint256 usdSpent, uint256 liquidity);
-    event UnfarmBuyBurn(
-        uint256 boostRemoved,
-        uint256 usdRemoved,
-        uint256 liquidity,
-        uint256 usdAmountIn,
-        uint256 boostAmountOut,
-        uint256 boostCollectedFee,
-        uint256 usdCollectedFee
-    );
-    event TickBoundsSet(int24 tickLower, int24 tickUpper);
-    event ParamsSet(
-        address quoter,
-        uint256 boostMultiplier,
-        uint24 validRangeWidth,
-        uint24 validRemovingRatio,
-        uint256 boostLowerPriceSell,
-        uint256 boostUpperPriceBuy
-    );
-
-    /* ========== VARIABLES ========== */
+    ////// IMMUTABLE //////
     /// @inheritdoc IV3AMO
     PoolType public override poolType;
     /// @inheritdoc IV3AMO
@@ -65,18 +47,46 @@ contract V3AMO is IV3AMO, MasterAMO {
     /// @inheritdoc IV3AMO
     address public override quoter;
 
-    /* ========== CONSTANTS ========== */
-    uint160 internal constant MIN_SQRT_RATIO = 4295128739;
-    uint160 internal constant MAX_SQRT_RATIO = 1461446703485210103287273052203988822378723970342;
+    // -------------------------------------------------------------
+    //                         INTERNAL CONSTANTS
+    // -------------------------------------------------------------
+    // @notice Q96 is a fixed-point scaling factor (2^96) used in Uniswap V3 calculations to represent prices in Q64.96 format.
     uint256 internal constant Q96 = 2 ** 96;
-    uint24 internal constant SQRT10 = 3162278; // sqrt(10) = 3.162278
+    // @notice SQRT10 is the square root of 10 scaled to 6 decimals (3.162278) used
+    uint24 internal constant SQRT10 = 3162278;
 
-    /* ========== FUNCTIONS ========== */
+    // -------------------------------------------------------------
+    //                        INITIALIZATION
+    // -------------------------------------------------------------
+    /**
+     * @notice Constructor disables initializers.
+     * @dev Custom constructor for upgradeable contracts.
+     */
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
     }
 
+    /**
+     * @notice Initializes the V3AMO contract.
+     * @param admin Address with admin privileges.
+     * @param boost_ Address of the BOOST token.
+     * @param usd_ Address of the USD token.
+     * @param pool_ Address of the liquidity pool.
+     * @param poolType_ The type of pool.
+     * @param quoter_ Address of the quoter contract.
+     * @param poolCustomDeployer_ Address of the custom deployer for Algebra integral pools.
+     * @param boostMinter_ Address of the BOOST minter contract.
+     * @param priceManager_ Address of the price manager contract.
+     * @param pairedTokenType_ The paired token type.
+     * @param tickLower_ Lower tick boundary.
+     * @param tickUpper_ Upper tick boundary.
+     * @param boostMultiplier_ Multiplier for BOOST minting.
+     * @param validRangeWidth_ Valid range width for liquidity addition.
+     * @param validRemovingRatio_ Valid ratio for liquidity removal.
+     * @param boostLowerPriceSell_ Lower price threshold for selling BOOST.
+     * @param boostUpperPriceBuy_ Upper price threshold for buying BOOST.
+     */
     function initialize(
         address admin,
         address boost_,
@@ -113,7 +123,10 @@ contract V3AMO is IV3AMO, MasterAMO {
         _revokeRole(SETTER_ROLE, msg.sender);
     }
 
-    ////////////////////////// SETTER_ROLE ACTIONS //////////////////////////
+    // -------------------------------------------------------------
+    //                   SETTER_ROLE ACTIONS
+    // -------------------------------------------------------------
+
     /// @inheritdoc IV3AMO
     function setTickBounds(int24 tickLower_, int24 tickUpper_) public override onlyRole(SETTER_ROLE) {
         tickLower = tickLower_;
@@ -131,8 +144,6 @@ contract V3AMO is IV3AMO, MasterAMO {
         uint256 boostUpperPriceBuy_
     ) public override onlyRole(SETTER_ROLE) {
         if (validRangeWidth_ > FACTOR || validRemovingRatio_ < FACTOR) revert InvalidRatioValue();
-        // validRangeWidth is a few percentage points (scaled with FACTOR). So it needs to be lower than 1 (scaled with FACTOR)
-        // validRemovingRatio needs to be greater than 1 (we remove more BOOST than USD otherwise the pool is balanced)
         quoter = quoter_;
         boostMultiplier = boostMultiplier_;
         validRangeWidth = validRangeWidth_;
@@ -149,13 +160,78 @@ contract V3AMO is IV3AMO, MasterAMO {
         );
     }
 
+    // -------------------------------------------------------------
+    //                INTERNAL HELPER VIEW FUNCTIONS
+    // -------------------------------------------------------------
     /**
-     * @dev Internal function to handle swap callbacks from Uniswap V3 pools.
-     * @param amount0Delta Amount of token0 involved in the swap.
-     * @param amount1Delta Amount of token1 involved in the swap.
+     * @notice Internal function to calculate liquidity for a given USD amount.
+     * @param usdAmount USD amount.
+     * @return liquidity Calculated liquidity.
+     */
+    function _getLiquidityForUsdAmount(uint256 usdAmount) internal view returns (uint256 liquidity) {
+        uint160 sqrtRatioX96 = _getSqrtPriceX96();
+        uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(tickLower);
+        uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(tickUpper);
+
+        if (usd < boost) {
+            if (sqrtRatioX96 >= sqrtRatioBX96) return 0;
+            return
+                LiquidityAmounts.getLiquidityForAmount0(
+                    uint160(Math.max(sqrtRatioX96, sqrtRatioAX96)),
+                    sqrtRatioBX96,
+                    usdAmount
+                );
+        } else {
+            if (sqrtRatioX96 <= sqrtRatioAX96) return 0;
+            return
+                LiquidityAmounts.getLiquidityForAmount1(
+                    sqrtRatioAX96,
+                    uint160(Math.min(sqrtRatioX96, sqrtRatioBX96)),
+                    usdAmount
+                );
+        }
+    }
+
+    /**
+     * @notice Retrieves the current sqrt price from the pool.
+     * @return _sqrtPriceX96 The sqrt price in Q64.96 format.
+     */
+    function _getSqrtPriceX96() internal view returns (uint160 _sqrtPriceX96) {
+        bytes memory data;
+        if (
+            poolType == PoolType.ALGEBRA_V1_0 ||
+            poolType == PoolType.ALGEBRA_V1_9 ||
+            poolType == PoolType.ALGEBRA_INTEGRAL
+        ) {
+            (, data) = pool.staticcall(abi.encodeWithSignature("globalState()"));
+        } else {
+            (, data) = pool.staticcall(abi.encodeWithSignature("slot0()"));
+        }
+        _sqrtPriceX96 = abi.decode(data, (uint160));
+    }
+
+    /// @inheritdoc MasterAMO
+    function _validateSwap(bool boostForUsd) internal view override {
+        uint256 price = boostPrice();
+        uint256 tp = targetPrice();
+        if (boostForUsd) {
+            if (price <= priceUpperBound(tp)) revert PriceAlreadyInRange(price);
+        } else {
+            if (price >= priceLowerBound(tp)) revert PriceAlreadyInRange(price);
+        }
+    }
+
+    // -------------------------------------------------------------
+    //                   INTERNAL FUNCTIONS
+    // -------------------------------------------------------------
+
+    ////// CALLBACK FUNCTIONS //////
+    /**
+     * @notice Internal function handling swap callbacks from various pools.
+     * @param amount0Delta Change in token0 amount.
+     * @param amount1Delta Change in token1 amount.
      * @param data Encoded swap type data.
-     * @dev the pool uses _swapCallback to buy (resp to sell) the desired amount of BOOST to repeg in UnfarmBuyBurn (resp. in MintSellFarm)
-     * @dev calling _swapCallback is more gas efficient than calling the router —- in effect we're using it as an efficient and secure call to the router
+     * @dev Processes swap based on SwapType. Reverts if caller is untrusted.
      */
     function _swapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) internal {
         if (msg.sender != pool) revert UntrustedCaller(msg.sender);
@@ -181,123 +257,52 @@ contract V3AMO is IV3AMO, MasterAMO {
         }
     }
 
-    ////////////////////////// CALLBACK FUNCTIONS //////////////////////////
-    function solidlyV3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) external {
-        _swapCallback(amount0Delta, amount1Delta, data);
-    }
-
-    function uniswapV3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) external {
-        _swapCallback(amount0Delta, amount1Delta, data);
-    }
-
-    function algebraSwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) external {
-        _swapCallback(amount0Delta, amount1Delta, data);
-    }
-
-    function ramsesV2SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) external {
-        _swapCallback(amount0Delta, amount1Delta, data);
-    }
-
-    function solidlyV3MintCallback(uint256 amount0Owed, uint256 amount1Owed, bytes calldata data) external {
-        _mintCallback(amount0Owed, amount1Owed, data);
-    }
-
-    function uniswapV3MintCallback(uint256 amount0Owed, uint256 amount1Owed, bytes calldata data) external {
-        _mintCallback(amount0Owed, amount1Owed, data);
-    }
-
-    function algebraMintCallback(uint256 amount0Owed, uint256 amount1Owed, bytes calldata data) external {
-        _mintCallback(amount0Owed, amount1Owed, data);
-    }
-
-    function ramsesV2MintCallback(uint256 amount0Owed, uint256 amount1Owed, bytes calldata data) external {
-        _mintCallback(amount0Owed, amount1Owed, data);
-    }
-
     /**
-     * @dev internal function called by the pool to transfer the USD and BOOST
-     * @param amount0Owed represent BOOST and USD — depends on order
-     * @param amount1Owed represent BOOST and USD — depends on order
+     * @notice Internal function handling mint callbacks.
+     * @param amount0Owed Amount of token0 owed.
+     * @param amount1Owed Amount of token1 owed.
+     * @param data Callback data.
      */
-    function _mintCallback(uint256 amount0Owed, uint256 amount1Owed, bytes calldata) internal {
+    function _mintCallback(uint256 amount0Owed, uint256 amount1Owed, bytes calldata data) internal {
         if (msg.sender != pool) revert UntrustedCaller(msg.sender);
-
         (uint256 boostOwed, uint256 usdOwed) = sortAmounts(amount0Owed, amount1Owed);
         IERC20(usd).safeTransfer(pool, usdOwed);
         IMinter(boostMinter).protocolMint(pool, boostOwed);
     }
 
-    ////////////////////////// AMO_ROLE ACTIONS //////////////////////////
+    ////// MINT-SELL-FARM FUNCTIONS //////
+
+    /// @inheritdoc MasterAMO
     function _mintAndSellBoost(
         uint256 boostAmount
     ) internal override returns (uint256 boostAmountIn, uint256 usdAmountOut) {
-        // Mint BOOST and execute the swap BOOST->USD
-        // The swap is executed at the targetSqrtPriceX96
         (int256 amount0, int256 amount1) = IUniswapV3Pool(pool).swap(
             address(this),
             boost < usd, // zeroForOne
-            int256(boostAmount), // Amount of BOOST tokens being swapped
-            targetSqrtPriceX96(), // The target square root price
+            int256(boostAmount),
+            targetSqrtPriceX96(),
             abi.encode(SwapType.SELL)
         );
-
         (int256 boostDelta, int256 usdDelta) = sortAmounts(amount0, amount1);
-        boostAmountIn = uint256(boostDelta); // BOOST tokens used in the swap
-        usdAmountOut = uint256(-usdDelta); // USD tokens received from the swap
-
+        boostAmountIn = uint256(boostDelta);
+        usdAmountOut = uint256(-usdDelta);
         emit MintSell(boostAmountIn, usdAmountOut);
     }
 
-    /**
-     * @notice Calculates the liquidity required to match a given USD amount.
-     * @dev This function ensures accurate liquidity estimation by using the current pool state and tick bounds.
-     *      It avoids inaccuracies by leveraging the Uniswap V3 price and liquidity formulas.
-     * @param usdAmount The amount of USD for which the corresponding liquidity is to be calculated.
-     * @return liquidity The calculated liquidity amount corresponding to the given USD amount.
-     */
-    function _getLiquidityForUsdAmount(uint256 usdAmount) internal view returns (uint256 liquidity) {
-        // Step 1: Fetch the current price and pool data
-        uint160 sqrtRatioX96 = _getSqrtPriceX96();
-
-        // Step 2: Fetch the price bounds corresponding to the tickLower and tickUpper
-        uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(tickLower);
-        uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(tickUpper);
-
-        // Step 3: Use the Uniswap V3 LiquidityAmounts library to calculate liquidity
-        if (usd < boost) {
-            if (sqrtRatioX96 >= sqrtRatioBX96) return 0;
-            return
-                LiquidityAmounts.getLiquidityForAmount0(
-                    uint160(Math.max(sqrtRatioX96, sqrtRatioAX96)),
-                    sqrtRatioBX96,
-                    usdAmount
-                );
-        } else {
-            if (sqrtRatioX96 <= sqrtRatioAX96) return 0;
-            return
-                LiquidityAmounts.getLiquidityForAmount1(
-                    sqrtRatioAX96,
-                    uint160(Math.min(sqrtRatioX96, sqrtRatioBX96)),
-                    usdAmount
-                );
-        }
-    }
-
+    /// @inheritdoc MasterAMO
     function _addLiquidity(
         uint256 usdAmount,
         uint256 minBoostSpend,
         uint256 minUsdSpend
     ) internal override returns (uint256 boostSpent, uint256 usdSpent, uint256 liquidity) {
         liquidity = _getLiquidityForUsdAmount(usdAmount);
-
-        // Add liquidity to the BOOST-USD pool within the specified tick range (we are full range in this version)
         uint256 amount0;
         uint256 amount1;
         if (
             poolType == PoolType.ALGEBRA_V1_0 ||
             poolType == PoolType.ALGEBRA_V1_9 ||
             poolType == PoolType.ALGEBRA_INTEGRAL
-        )
+        ) {
             (amount0, amount1, ) = IAlgebraPool(pool).mint(
                 address(this),
                 address(this),
@@ -306,29 +311,17 @@ contract V3AMO is IV3AMO, MasterAMO {
                 uint128(liquidity),
                 ""
             );
-        else
+        } else {
             (amount0, amount1) = IUniswapV3Pool(pool).mint(address(this), tickLower, tickUpper, uint128(liquidity), "");
-
+        }
         (boostSpent, usdSpent) = sortAmounts(amount0, amount1);
         if (boostSpent < minBoostSpend || usdSpent < minUsdSpend) revert InsufficientTokenSpent();
-
         emit AddLiquidity(boostSpent, usdSpent, liquidity);
     }
 
-    /**
-     * @notice Removes liquidity, swaps USD for BOOST to repeg BOOST, and burns excess BOOST.
-     * @dev Fixes the issue of incorrectly estimating liquidity in V3 pools by using `quoteSwap` for solidly and
-            Quoter contract for other univ3 forks like algebra
-     *      to calculate the required amount of liquidity based on the deviation from the target price.
-     *      This ensures the liquidity removed and USD swapped are calculated precisely.
-     * @param liquidity Amount of liquidity to remove from the pool.
-     * @param minBoostRemove Minimum amount of BOOST tokens to remove when withdrawing liquidity.
-     * @param minUsdRemove Minimum amount of USD tokens to remove when withdrawing liquidity.
-     * @return boostRemoved Amount of BOOST tokens removed from the pool.
-     * @return usdRemoved Amount of USD tokens removed from the pool.
-     * @return usdAmountIn Amount of USD tokens swapped into BOOST.
-     * @return boostAmountOut Amount of BOOST tokens bought and burned.
-     */
+    ////// UNFARM-BUY-BURN FUNCTIONS //////
+
+    /// @inheritdoc MasterAMO
     function _unfarmBuyBurn(
         uint256 liquidity,
         uint256 minBoostRemove,
@@ -338,21 +331,19 @@ contract V3AMO is IV3AMO, MasterAMO {
         override
         returns (uint256 boostRemoved, uint256 usdRemoved, uint256 usdAmountIn, uint256 boostAmountOut)
     {
-        // Step 1: Remove liquidity from the pool
-        // Remove liquidity and store the amounts of USD and BOOST tokens received
         uint256 amount0FromBurn;
         uint256 amount1FromBurn;
-        if (poolType == PoolType.ALGEBRA_INTEGRAL)
+        if (poolType == PoolType.ALGEBRA_INTEGRAL) {
             (amount0FromBurn, amount1FromBurn) = IAlgebraIntegralPool(pool).burn(
                 tickLower,
                 tickUpper,
                 uint128(liquidity),
                 ""
             );
-        else (amount0FromBurn, amount1FromBurn) = IUniswapV3Pool(pool).burn(tickLower, tickUpper, uint128(liquidity));
+        } else {
+            (amount0FromBurn, amount1FromBurn) = IUniswapV3Pool(pool).burn(tickLower, tickUpper, uint128(liquidity));
+        }
         (boostRemoved, usdRemoved) = sortAmounts(amount0FromBurn, amount1FromBurn);
-
-        // Ensure the BOOST amount removed from our full-range position is greater than or equal to the USD amount removed
         if (boostRemoved < minBoostRemove) revert InsufficientOutputAmount(boostRemoved, minBoostRemove);
         if (usdRemoved < minUsdRemove) revert InsufficientOutputAmount(usdRemoved, minUsdRemove);
 
@@ -371,21 +362,16 @@ contract V3AMO is IV3AMO, MasterAMO {
         );
         (uint256 boostCollected, uint256 usdCollected) = sortAmounts(amount0Collected, amount1Collected);
 
-        // Ensure the BOOST amount removed from our full-range position is greater than or equal to the USD amount removed
-        // this calculation/check is valid because based on our full-range liquidity (not on the aggregate pool liquidity)
         if ((((boostRemoved * validRemovingRatio) / FACTOR) * targetPrice()) / FACTOR < toBoostAmount(usdRemoved))
             revert InvalidRatioToRemoveLiquidity();
 
-        // Step 4: Use quoteSwap to determine the USD needed to bring the price back to peg
         (int256 amount0, int256 amount1) = IUniswapV3Pool(pool).swap(
             address(this),
             boost > usd, // zeroForOne
-            int256(usdRemoved), // Maximum USD to use for the swap
-            targetSqrtPriceX96(), // Target price for the swap
+            int256(usdRemoved),
+            targetSqrtPriceX96(),
             abi.encode(SwapType.BUY)
         );
-
-        // Step 5: We farm/AMO the residual USD
         (int256 boostDelta, int256 usdDelta) = sortAmounts(amount0, amount1);
         usdAmountIn = uint256(usdDelta);
         boostAmountOut = uint256(-boostDelta);
@@ -393,47 +379,36 @@ contract V3AMO is IV3AMO, MasterAMO {
         uint256 unusedUsdAmount = usdRemoved - usdAmountIn;
         if (unusedUsdAmount > 0) _addLiquidity(unusedUsdAmount, 1, 1);
 
-        // Step 6: Burn the BOOST tokens collected from liquidity removal, collected owed tokens and swap
         IBoostStablecoin(boost).burn(boostCollected + boostAmountOut);
 
-        // Final step: emit event:
         emit UnfarmBuyBurn(
             boostRemoved,
             usdRemoved,
             liquidity,
             usdAmountIn,
             boostAmountOut,
-            boostCollected - boostRemoved, // boostCollectedFee
-            usdCollected - usdRemoved // usdCollectedFee
+            boostCollected - boostRemoved,
+            usdCollected - usdRemoved
         );
     }
 
-    ////////////////////////// PUBLIC FUNCTIONS //////////////////////////
+    /// @inheritdoc MasterAMO
     function _mintSellFarm() internal override returns (uint256 liquidity, uint256 newBoostPrice) {
         (, , , , liquidity) = _mintSellFarm(
-            uint256(type(int256).max), // boostAmount
+            uint256(type(int256).max), // maximum BOOST amount
             1, // minBoostSpend
             1 // minUsdSpend
         );
-
         newBoostPrice = boostPrice();
     }
 
-    /**
-     * @dev _unfarmBuyBurn() is the internal function that support the the public unfarmBuyBurn() function
-     * @notice Removes liquidity, stabilizes BOOST price, and calculates the new price post-operation.
-     * @dev Fixes the issue of relying on incorrect liquidity calculations by using `quoteSwap` or Quoter Contract
-     *      to estimate the required USD amount and `_getLiquidityForUsdAmount` to determine the corresponding liquidity.
-     *      Ensures the operation only removes the necessary liquidity to achieve the target price, preventing overshooting.
-     * @return liquidity Amount of liquidity removed from the pool.
-     * @return newBoostPrice The updated BOOST price after the operation.
-     */
+    /// @inheritdoc MasterAMO
     function _unfarmBuyBurn() internal override returns (uint256 liquidity, uint256 newBoostPrice) {
         (uint256 positionLiquidity, , ) = position();
         uint256 amountIn;
         if (poolType == PoolType.SOLIDLY_V3) {
             (int256 amount0, int256 amount1, , , ) = ISolidlyV3Pool(pool).quoteSwap(
-                boost > usd, // zeroForOne
+                boost > usd,
                 type(int256).max,
                 targetSqrtPriceX96()
             );
@@ -490,60 +465,113 @@ contract V3AMO is IV3AMO, MasterAMO {
         liquidity = _getLiquidityForUsdAmount(amountIn);
         if (liquidity > positionLiquidity) liquidity = positionLiquidity;
 
-        _unfarmBuyBurn(
-            liquidity,
-            1, // minBoostRemove
-            1 // minUsdRemove
-        );
-
+        _unfarmBuyBurn(liquidity, 1, 1);
         newBoostPrice = boostPrice();
     }
 
-    function _validateSwap(bool boostForUsd) internal view override {
-        uint256 price = boostPrice();
-        uint256 tp = targetPrice();
-        if (boostForUsd) {
-            // mintSellFarm
-            if (price <= priceUpperBound(tp)) revert PriceAlreadyInRange(price);
-        } else {
-            // unfarmBuyBurn
-            if (price >= priceLowerBound(tp)) revert PriceAlreadyInRange(price);
-        }
-    }
-
-    function _getSqrtPriceX96() internal view returns (uint160 _sqrtPriceX96) {
-        bytes memory data;
-        if (
-            poolType == PoolType.ALGEBRA_V1_0 ||
-            poolType == PoolType.ALGEBRA_V1_9 ||
-            poolType == PoolType.ALGEBRA_INTEGRAL
-        ) {
-            (, data) = pool.staticcall(abi.encodeWithSignature("globalState()"));
-        } else {
-            (, data) = pool.staticcall(abi.encodeWithSignature("slot0()"));
-        }
-        _sqrtPriceX96 = abi.decode(data, (uint160));
-    }
-
-    ////////////////////////// VIEW FUNCTIONS //////////////////////////
+    // -------------------------------------------------------------
+    //                     EXTERNAL FUNCTIONS
+    // -------------------------------------------------------------
+    ////// SWAP-CALLBACK FUNCTIONS //////
 
     /**
-     * @dev Calculates the boost price with precision adjustments to prevent rounding errors.
-     * The function determines the price based on the relation between `boost` and `usd`,
-     * while accounting for potential precision loss in mathematical operations.
-     *
-     * The method uses adjusted decimals and avoids direct division of large integers,
-     * which can lead to significant precision loss. This ensures accurate calculations
-     * and resolves previously identified issues with rounding errors in edge cases.
-     *
-     * @return price The calculated price of BOOST relative to USD.
+     * @notice Callback function invoked by the Solidly V3 pool during swap operations.
+     * @param amount0Delta The change in token0 amount resulting from the swap.
+     * @param amount1Delta The change in token1 amount resulting from the swap.
+     * @param data Encoded data containing swap type information.
+     */
+    function solidlyV3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) external {
+        _swapCallback(amount0Delta, amount1Delta, data);
+    }
+
+    /**
+     * @notice Callback function invoked by the Uniswap V3 pool during swap operations.
+     * @param amount0Delta The change in token0 amount resulting from the swap.
+     * @param amount1Delta The change in token1 amount resulting from the swap.
+     * @param data Encoded data containing swap type information.
+     */
+    function uniswapV3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) external {
+        _swapCallback(amount0Delta, amount1Delta, data);
+    }
+
+    /**
+     * @notice Callback function invoked by the Algebra pool during swap operations.
+     * @param amount0Delta The change in token0 amount resulting from the swap.
+     * @param amount1Delta The change in token1 amount resulting from the swap.
+     * @param data Encoded data containing swap type information.
+     */
+    function algebraSwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) external {
+        _swapCallback(amount0Delta, amount1Delta, data);
+    }
+
+    /**
+     * @notice Callback function invoked by the Ramses V2 pool during swap operations.
+     * @param amount0Delta The change in token0 amount resulting from the swap.
+     * @param amount1Delta The change in token1 amount resulting from the swap.
+     * @param data Encoded data containing swap type information.
+     */
+    function ramsesV2SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) external {
+        _swapCallback(amount0Delta, amount1Delta, data);
+    }
+
+    ////// MINT-CALLBACK FUNCTIONS //////
+
+    /**
+     * @notice Callback function invoked by the Solidly V3 pool during mint operations.
+     * @param amount0Owed The amount of token0 owed to the pool.
+     * @param amount1Owed The amount of token1 owed to the pool.
+     * @param data Encoded data for the mint operation.
+     */
+    function solidlyV3MintCallback(uint256 amount0Owed, uint256 amount1Owed, bytes calldata data) external {
+        _mintCallback(amount0Owed, amount1Owed, data);
+    }
+
+    /**
+     * @notice Callback function invoked by the Uniswap V3 pool during mint operations.
+     * @param amount0Owed The amount of token0 owed to the pool.
+     * @param amount1Owed The amount of token1 owed to the pool.
+     * @param data Encoded data for the mint operation.
+     */
+    function uniswapV3MintCallback(uint256 amount0Owed, uint256 amount1Owed, bytes calldata data) external {
+        _mintCallback(amount0Owed, amount1Owed, data);
+    }
+
+    /**
+     * @notice Callback function invoked by the Algebra pool during mint operations.
+     * @param amount0Owed The amount of token0 owed to the pool.
+     * @param amount1Owed The amount of token1 owed to the pool.
+     * @param data Encoded data for the mint operation.
+     */
+    function algebraMintCallback(uint256 amount0Owed, uint256 amount1Owed, bytes calldata data) external {
+        _mintCallback(amount0Owed, amount1Owed, data);
+    }
+
+    /**
+     * @notice Callback function invoked by the Ramses V2 pool during mint operations.
+     * @param amount0Owed The amount of token0 owed to the pool.
+     * @param amount1Owed The amount of token1 owed to the pool.
+     * @param data Encoded data for the mint operation.
+     */
+    function ramsesV2MintCallback(uint256 amount0Owed, uint256 amount1Owed, bytes calldata data) external {
+        _mintCallback(amount0Owed, amount1Owed, data);
+    }
+
+    // -------------------------------------------------------------
+    //                      VIEW FUNCTIONS
+    // -------------------------------------------------------------
+    /**
+     * @notice Calculates the current BOOST price relative to USD.
+     * @return price The calculated BOOST price.
      */
     function boostPrice() public view override returns (uint256 price) {
         uint256 sqrtPriceX96 = uint256(_getSqrtPriceX96());
         uint8 decimalsDiff = boostDecimals - usdDecimals;
         uint256 sqrtDecimals;
-        if (decimalsDiff % 2 == 0) sqrtDecimals = 10 ** (decimalsDiff / 2) * 10 ** PRICE_DECIMALS;
-        else sqrtDecimals = (10 ** (decimalsDiff / 2) * 10 ** PRICE_DECIMALS * SQRT10) / FACTOR;
+        if (decimalsDiff % 2 == 0) {
+            sqrtDecimals = 10 ** (decimalsDiff / 2) * 10 ** PRICE_DECIMALS;
+        } else {
+            sqrtDecimals = (10 ** (decimalsDiff / 2) * 10 ** PRICE_DECIMALS * SQRT10) / FACTOR;
+        }
 
         if (boost < usd) {
             price = ((sqrtDecimals * sqrtPriceX96) / Q96) ** 2 / 10 ** PRICE_DECIMALS;
@@ -552,20 +580,27 @@ contract V3AMO is IV3AMO, MasterAMO {
         }
     }
 
-    /// @inheritdoc IV3AMO
+    /**
+     * @notice Computes the target sqrt price for swapping operations.
+     * @return The target sqrt price in Q64.96 format.
+     */
     function targetSqrtPriceX96() public view override returns (uint160) {
         uint256 boostTargetPrice = targetPrice();
-        if (usd < boost) boostTargetPrice = FACTOR ** 2 / boostTargetPrice; // Multiplicative inverse of target price
+        if (usd < boost) boostTargetPrice = FACTOR ** 2 / boostTargetPrice;
         uint256 priceX96 = (boostTargetPrice * Q96 ** 2) / 10 ** PRICE_DECIMALS;
         uint8 decimalsDiff = boostDecimals - usdDecimals;
-        // adjusting the price
         if (boost < usd) priceX96 /= 10 ** decimalsDiff;
         else priceX96 *= 10 ** decimalsDiff;
         uint256 sqrtPriceX96 = Math.sqrt(priceX96);
         return sqrtPriceX96.toUint160();
     }
 
-    /// @inheritdoc IV3AMO
+    /**
+     * @notice Retrieves details of the current liquidity position.
+     * @return liquidity Amount of liquidity.
+     * @return boostOwed BOOST tokens owed.
+     * @return usdOwed USD tokens owed.
+     */
     function position() public view override returns (uint256 liquidity, uint256 boostOwed, uint256 usdOwed) {
         bytes32 key;
         if (
@@ -582,7 +617,9 @@ contract V3AMO is IV3AMO, MasterAMO {
         } else if (poolType == PoolType.RAMSES_V2) {
             uint256 index = 0;
             key = keccak256(abi.encodePacked(address(this), index, tickLower, tickUpper));
-        } else key = keccak256(abi.encodePacked(address(this), tickLower, tickUpper));
+        } else {
+            key = keccak256(abi.encodePacked(address(this), tickLower, tickUpper));
+        }
 
         uint128 _liquidity;
         uint128 tokensOwed0;

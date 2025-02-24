@@ -307,6 +307,7 @@ abstract contract MasterAMO is
      * @return boostSpent BOOST tokens spent in liquidity addition.
      * @return usdSpent USD tokens spent in liquidity addition.
      * @return liquidity Liquidity tokens received.
+     * @dev Has been Used for AMO-ROLE functions
      */
     function _mintSellFarm(
         uint256 boostAmount,
@@ -329,6 +330,7 @@ abstract contract MasterAMO is
      * @return liquidity Liquidity tokens received.
      * @return newBoostPrice The new average BOOST price after the operation.
      * @dev Must be implemented by a derived contract.
+     * @dev Has been Used for public functions
      */
     function _mintSellFarm() internal virtual returns (uint256 liquidity, uint256 newBoostPrice);
 
@@ -344,6 +346,7 @@ abstract contract MasterAMO is
      * @return usdAmountIn USD tokens used to buy BOOST.
      * @return boostAmountOut BOOST tokens obtained.
      * @dev Must be implemented by a derived contract.
+     * @dev Has been Used for AMO-ROLE functions
      */
     function _unfarmBuyBurn(
         uint256 liquidity,
@@ -356,6 +359,7 @@ abstract contract MasterAMO is
      * @return liquidity Liquidity tokens affected.
      * @return newBoostPrice The new average BOOST price after the operation.
      * @dev Must be implemented by a derived contract.
+     * @dev Has been Used for public functions
      */
     function _unfarmBuyBurn() internal virtual returns (uint256 liquidity, uint256 newBoostPrice);
 

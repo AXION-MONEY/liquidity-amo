@@ -3,57 +3,150 @@ pragma solidity 0.8.28;
 
 import {IMasterAMO} from "../IMasterAMO.sol";
 
+/**
+ * @title IV3AMO Interface
+ * @notice Interface for the V3AMO contract defining errors, events, enums, state variables (as view functions),
+ *         and function signatures.
+ */
 interface IV3AMO {
-    /* ========== ENUMS ========== */
+    // -------------------------------------------------------------
+    //                          ERRORS
+    // -------------------------------------------------------------
+    /// @notice Thrown when an untrusted caller invokes a callback.
+    error UntrustedCaller(address caller);
+    /// @notice Thrown when swap delta values are invalid.
+    error InvalidDelta();
+    /// @notice Thrown when the owed token amounts are invalid.
+    error InvalidOwed();
+    /// @notice Thrown when the tokens spent are insufficient.
+    error InsufficientTokenSpent();
+
+    // -------------------------------------------------------------
+    //                         EVENTS
+    // -------------------------------------------------------------
+    /**
+     * @notice Emitted when liquidity is added.
+     * @param boostSpent BOOST tokens spent.
+     * @param usdSpent USD tokens spent.
+     * @param liquidity Liquidity tokens received.
+     */
+    event AddLiquidity(uint256 boostSpent, uint256 usdSpent, uint256 liquidity);
+
+    /**
+     * @notice Emitted when an unfarm-buy-burn operation is executed.
+     * @param boostRemoved BOOST tokens removed.
+     * @param usdRemoved USD tokens removed.
+     * @param liquidity Liquidity tokens affected.
+     * @param usdAmountIn USD tokens used for the swap.
+     * @param boostAmountOut BOOST tokens obtained.
+     * @param boostCollectedFee BOOST fee collected.
+     * @param usdCollectedFee USD fee collected.
+     */
+    event UnfarmBuyBurn(
+        uint256 boostRemoved,
+        uint256 usdRemoved,
+        uint256 liquidity,
+        uint256 usdAmountIn,
+        uint256 boostAmountOut,
+        uint256 boostCollectedFee,
+        uint256 usdCollectedFee
+    );
+
+    /**
+     * @notice Emitted when tick boundaries are set.
+     * @param tickLower The lower tick.
+     * @param tickUpper The upper tick.
+     */
+    event TickBoundsSet(int24 tickLower, int24 tickUpper);
+
+    /**
+     * @notice Emitted when parameters are set.
+     * @param quoter The quoter contract address.
+     * @param boostMultiplier The BOOST multiplier.
+     * @param validRangeWidth The valid range width.
+     * @param validRemovingRatio The valid ratio for liquidity removal.
+     * @param boostLowerPriceSell The lower price threshold for selling BOOST.
+     * @param boostUpperPriceBuy The upper price threshold for buying BOOST.
+     */
+    event ParamsSet(
+        address quoter,
+        uint256 boostMultiplier,
+        uint24 validRangeWidth,
+        uint24 validRemovingRatio,
+        uint256 boostLowerPriceSell,
+        uint256 boostUpperPriceBuy
+    );
+
+    // -------------------------------------------------------------
+    //                          ENUMS
+    // -------------------------------------------------------------
+    /**
+     * @notice Enum representing swap types.
+     */
     enum SwapType {
         SELL,
         BUY
     }
+
+    /**
+     * @notice Enum representing supported pool types.
+     */
     enum PoolType {
         SOLIDLY_V3,
-        CL, // Aerodrome, Velodrome
+        CL, // e.g., Aerodrome, Velodrome
         ALGEBRA_V1_0,
         ALGEBRA_V1_9,
         ALGEBRA_INTEGRAL,
         RAMSES_V2
     }
 
-    /* ========== VARIABLES ========== */
-    /// @notice Returns the pool type
+    // -------------------------------------------------------------
+    //                      STATE VARIABLES
+    // -------------------------------------------------------------
+    /**
+     * @notice Returns the pool type.
+     */
     function poolType() external view returns (PoolType);
 
-    /// @notice Returns the deployer address for Algebra integral custom pools and zero address for other pools
+    /**
+     * @notice Returns the deployer address for Algebra integral custom pools;
+     *         returns the zero address for other pools.
+     */
     function poolCustomDeployer() external view returns (address);
 
-    /// @notice Returns the quoter address
+    /**
+     * @notice Returns the quoter contract address.
+     */
     function quoter() external view returns (address);
 
-    /// @notice Returns The lower tick of the position in which to add or remove liquidity
+    /**
+     * @notice Returns the lower tick of the liquidity position.
+     */
     function tickLower() external view returns (int24);
 
-    /// @notice Returns The upper tick of the position in which to add or remove liquidity
+    /**
+     * @notice Returns the upper tick of the liquidity position.
+     */
     function tickUpper() external view returns (int24);
 
-    /* ========== FUNCTIONS ========== */
+    // -------------------------------------------------------------
+    //                        FUNCTIONS
+    // -------------------------------------------------------------
     /**
-     * @notice This function sets the position's tick bounds
-     * @dev Can only be called by an account with the SETTER_ROLE
-     * @param tickLower_ The lower tick of the position in which to add or remove liquidity
-     * @param tickUpper_ The upper tick of the position in which to add or remove liquidity
+     * @notice Sets the tick boundaries for liquidity positions.
+     * @param tickLower_ The lower tick.
+     * @param tickUpper_ The upper tick.
      */
     function setTickBounds(int24 tickLower_, int24 tickUpper_) external;
 
     /**
-     * @notice This function sets various params for the contract
-     * @dev Can only be called by an account with the SETTER_ROLE
-     * @param quoter_ The new quoter contract address
-     * @param boostMultiplier_ The multiplier used to calculate the amount of boost to mint in addLiquidity()
-     * —— this factor makes it possible to mint marginally less than what is needed to revert to peg ( avoids risk of reverting )
-     * @param validRangeWidth_ The valid range width for addLiquidity()
-     * —— we only add liquidity if price has reverted close to 1.
-     * @param validRemovingRatio_ Set the price (<1$) on which the unfarmBuyBurn() is allowed
-     * @param boostLowerPriceSell_ The new lower price bound for selling BOOST
-     * @param boostUpperPriceBuy_ The new upper price bound for buying BOOST
+     * @notice Sets various parameters for the V3AMO contract.
+     * @param quoter_ The new quoter contract address.
+     * @param boostMultiplier_ The BOOST multiplier.
+     * @param validRangeWidth_ The valid range width.
+     * @param validRemovingRatio_ The valid ratio for liquidity removal.
+     * @param boostLowerPriceSell_ The lower price threshold for selling BOOST.
+     * @param boostUpperPriceBuy_ The upper price threshold for buying BOOST.
      */
     function setParams(
         address quoter_,
@@ -65,13 +158,16 @@ interface IV3AMO {
     ) external;
 
     /**
-     * @notice This view function returns the information about the AMO position
-     * @return liquidity The amount of liquidity in the position
-     * @return boostOwed the computed amount of BOOST owed to the position as of the last mint/burn/poke
-     * @return usdOwed the computed amount of USD owed to the position as of the last mint/burn/poke
+     * @notice Returns details of the current liquidity position.
+     * @return liquidity The amount of liquidity.
+     * @return boostOwed BOOST tokens owed.
+     * @return usdOwed USD tokens owed.
      */
     function position() external view returns (uint256 liquidity, uint256 boostOwed, uint256 usdOwed);
 
-    /// @notice Returns The Q64.96 sqrt price limit for swapping on a V3Pool
+    /**
+     * @notice Returns the target sqrt price for swapping operations.
+     * @return The target sqrt price in Q64.96 format.
+     */
     function targetSqrtPriceX96() external view returns (uint160);
 }
