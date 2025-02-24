@@ -45,6 +45,8 @@ describe("Price Manager tests", function () {
   const initAmount = "11000000"; // 11M
   const lpAmount = "1000000"; // 1M
   const delta = ethers.parseUnits("0.00001", 6);
+  const pairedTokenTypesToTest = [PairedTokenType.SUSDE, PairedTokenType.STABLE];
+  const usdDecimalsToTest = [6, 18];
 
   // AMO consts
   const boostMultiplier = ethers.parseUnits("1.01", 6);
@@ -63,7 +65,6 @@ describe("Price Manager tests", function () {
   // V3 consts
   const AERO_POOL_FACTORY = "0x5e7BB104d84c7CB9B682AaC2F3d509f5F406809A";
   const AERO_QUOTER = "0x254cF9E1E6e233aa1AC962CB9B05b2cfeAaE15b0";
-  const AERO_V3_ROUTER = "0xBE6D8f0d05cC4be24d5167a3eF062215bE6D18a5"; // SwapRouter
 
   let admin: SignerWithAddress;
   let user: SignerWithAddress;
@@ -76,9 +77,9 @@ describe("Price Manager tests", function () {
   let v3amo: V3AMO;
   let poolCaller: MockUniswapV3PoolCaller;
 
-  for (const pairedTokenType of [PairedTokenType.SUSDE, PairedTokenType.STABLE]) {
+  for (const pairedTokenType of pairedTokenTypesToTest) {
     describe(`Paired token type: ${pairedTokenTypeName(pairedTokenType)}`, function () {
-      for (const usdDecimals of [6, 18]) {
+      for (const usdDecimals of usdDecimalsToTest) {
         describe(`USD decimals: ${usdDecimals}`, function () {
           describe("V3AMO", function () {
             before(async () => {

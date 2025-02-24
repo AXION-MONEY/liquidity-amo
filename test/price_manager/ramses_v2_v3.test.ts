@@ -41,10 +41,12 @@ describe("Price Manager tests", function () {
   ];
   const swapAmounts = ["900000"];
   let v3Fee = 100; // Valid (fee, tickSpacing) values for Ramses: [(100, 1), (500, 10), (3000, 60), (10000, 200)]
-  const LOG_PRICES = false;
+  const LOG_PRICES = true;
   const initAmount = "11000000"; // 11M
   const lpAmount = "1000000"; // 1M
-  const delta = ethers.parseUnits("0.001", 6);
+  const delta = ethers.parseUnits("0.00001", 6);
+  const pairedTokenTypesToTest = [PairedTokenType.SUSDE, PairedTokenType.STABLE];
+  const usdDecimalsToTest = [6, 18];
 
   // AMO consts
   const boostMultiplier = ethers.parseUnits("1.01", 6);
@@ -63,7 +65,6 @@ describe("Price Manager tests", function () {
   // V3 consts
   const POOL_FACTORY = "0xAA2cd7477c451E703f3B9Ba5663334914763edF8"; // RamsesV2Factory
   const QUOTER = "0xAA20EFF7ad2F523590dE6c04918DaAE0904E3b20"; // QuoterV2
-  const V3_ROUTER = "0xAA23611badAFB62D37E7295A682D21960ac85A90"; // RouterV2 (CL)
 
   let admin: SignerWithAddress;
   let user: SignerWithAddress;
@@ -76,9 +77,9 @@ describe("Price Manager tests", function () {
   let v3amo: V3AMO;
   let poolCaller: MockUniswapV3PoolCaller;
 
-  for (const pairedTokenType of [PairedTokenType.SUSDE]) {
+  for (const pairedTokenType of pairedTokenTypesToTest) {
     describe(`Paired token type: ${pairedTokenTypeName(pairedTokenType)}`, function () {
-      for (const usdDecimals of [6]) {
+      for (const usdDecimals of usdDecimalsToTest) {
         describe(`USD decimals: ${usdDecimals}`, function () {
           describe("V3AMO", function () {
             before(async () => {
