@@ -11,7 +11,8 @@ import {
   V2AMO,
   V3AMO,
   IRamsesV2Pool,
-  MockUniswapV3PoolCaller
+  MockUniswapV3PoolCaller,
+  IAlgebraPool
 } from "../../typechain-types";
 
 const sigs = {
@@ -403,6 +404,21 @@ export async function createRamsesPool(
   await poolFactory.createPool(boostAddress, usdAddress, fee);
   const poolAddress = await poolFactory.getPool(boostAddress, usdAddress, fee);
   const pool = await ethers.getContractAt("IRamsesV2Pool", poolAddress);
+  await pool.initialize(sqrtPriceX96);
+  return pool;
+}
+
+export async function createAlgebraPool(
+  factoryAddress: string,
+  boost: BoostStablecoin,
+  usd: MockERC20,
+  price: bigint
+): Promise<IAlgebraPool> {
+  const [boostAddress, usdAddress, sqrtPriceX96] = await _beforeCreatePool(boost, usd, price);
+  const poolFactory = await ethers.getContractAt("IAlgebraFactory", factoryAddress);
+  await poolFactory.createPool(boostAddress, usdAddress);
+  const poolAddress = await poolFactory.poolByPair(boostAddress, usdAddress);
+  const pool = await ethers.getContractAt("IAlgebraPool", poolAddress);
   await pool.initialize(sqrtPriceX96);
   return pool;
 }

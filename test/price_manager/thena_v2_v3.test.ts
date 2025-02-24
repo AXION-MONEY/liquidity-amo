@@ -12,7 +12,6 @@ import {
 } from "../../typechain-types";
 import {
   addV2Liquidity,
-  createRamsesPool,
   deployBaseContracts,
   deployV2AMO,
   deployV3AMO,
@@ -27,12 +26,13 @@ import {
   V2PoolType,
   V3PoolType,
   v2Swap,
-  v3Swap
+  v3Swap,
+  createAlgebraPool
 } from "./utils";
 
 describe("Price Manager tests", function () {
-  const rpcUrl = "https://arbitrum.rpc.subquery.network/public";
-  const forkingBlock = 308991000;
+  const rpcUrl = "https://bnb.rpc.subquery.network/public";
+  const forkingBlock = 46935750;
   const priceBounds = [
     [undefined, undefined], // full range
     ["0.7", "1.5"],
@@ -40,8 +40,7 @@ describe("Price Manager tests", function () {
     ["0.1", "10.0"]
   ];
   const swapAmounts = ["900000"];
-  let v3Fee = 100; // Valid (fee, tickSpacing) values for Ramses: [(100, 1), (500, 10), (3000, 60), (10000, 200)]
-  let tickSpacing = 1;
+  let tickSpacing = 60;
   const LOG_PRICES = true;
   const initAmount = "11000000"; // 11M
   const lpAmount = "1000000"; // 1M
@@ -58,14 +57,14 @@ describe("Price Manager tests", function () {
   const boostUpperPriceBuy = ethers.parseUnits("1.01", 6);
 
   // V2 consts
-  const V2_ROUTER = "0xAAA87963EFeB6f7E0a2711F397663105Acb1805e"; // Router
+  const V2_ROUTER = "0xd4ae6eCA985340Dd434D38F470aCCce4DC78D109"; // RouterV2
   const poolFee = ethers.parseUnits("0.003", 6);
   const boostSellRatio = ethers.parseUnits("1", 6);
   const usdBuyRatio = ethers.parseUnits("1", 6);
 
   // V3 consts
-  const POOL_FACTORY = "0xAA2cd7477c451E703f3B9Ba5663334914763edF8"; // RamsesV2Factory
-  const QUOTER = "0xAA20EFF7ad2F523590dE6c04918DaAE0904E3b20"; // QuoterV2
+  const POOL_FACTORY = "0x306F06C147f064A010530292A1EB6737c3e378e4"; // AlgebraFactory
+  const QUOTER = "0xeA68020D6A9532EeC42D4dB0f92B83580c39b2cA"; // Quoter
 
   let admin: SignerWithAddress;
   let user: SignerWithAddress;
@@ -90,7 +89,7 @@ describe("Price Manager tests", function () {
             beforeEach(async function () {
               [boost, usd, minter] = await deployBaseContracts(admin, user, usdDecimals, initAmount);
               const initPrice = await getInitPrice(priceManager, pairedTokenType);
-              const pool = await createRamsesPool(POOL_FACTORY, boost, usd, initPrice, v3Fee);
+              const pool = await createAlgebraPool(POOL_FACTORY, boost, usd, initPrice);
               const factory = await ethers.getContractFactory("MockUniswapV3PoolCaller");
               poolCaller = await factory.deploy(await pool.getAddress());
               await poolCaller.waitForDeployment();
@@ -108,7 +107,7 @@ describe("Price Manager tests", function () {
                 await boost.getAddress(),
                 await usd.getAddress(),
                 await pool.getAddress(),
-                V3PoolType.RAMSES_V2,
+                V3PoolType.ALGEBRA_V1_0,
                 QUOTER,
                 await minter.getAddress(),
                 await priceManager.getAddress(),

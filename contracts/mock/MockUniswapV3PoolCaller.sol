@@ -61,6 +61,10 @@ contract MockUniswapV3PoolCaller {
         _swapCallback(amount0Delta, amount1Delta, data);
     }
 
+    function algebraSwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) external {
+        _swapCallback(amount0Delta, amount1Delta, data);
+    }
+
     function _swapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) internal {
         address spender = abi.decode(data, (address));
         if (amount0Delta < 0) IERC20(token1).safeTransferFrom(spender, poolAddress, uint256(amount1Delta));
@@ -76,6 +80,10 @@ contract MockUniswapV3PoolCaller {
     }
 
     function ramsesV2MintCallback(uint256 amount0Owed, uint256 amount1Owed, bytes calldata data) external {
+        _mintCallback(amount0Owed, amount1Owed, data);
+    }
+
+    function algebraMintCallback(uint256 amount0Owed, uint256 amount1Owed, bytes calldata data) external {
         _mintCallback(amount0Owed, amount1Owed, data);
     }
 
