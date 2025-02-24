@@ -1,90 +1,211 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
+/**
+ * @title IV2AMO Interface
+ * @notice Interface for the V2AMO contract, defining errors, events, enums, state variable getters, and function signatures.
+ */
 interface IV2AMO {
+    // -------------------------------------------------------------
+    //                          ERRORS
+    // -------------------------------------------------------------
+    /// @notice Thrown when a token is not whitelisted.
+    error TokenNotWhitelisted(address token);
+    /// @notice Thrown when the USD amount output from a swap does not match the balance change.
+    error UsdAmountOutMismatch(uint256 routerOutput, uint256 balanceChange);
+    /// @notice Thrown when the LP token amount output from adding liquidity does not match the balance change.
+    error LpAmountOutMismatch(uint256 routerOutput, uint256 balanceChange);
+    /// @notice Thrown when the reserve ratio is invalid.
+    error InvalidReserveRatio(uint256 ratio);
+
+    // -------------------------------------------------------------
+    //                         EVENTS
+    // -------------------------------------------------------------
+    /**
+     * @notice Emitted when liquidity is added and deposited into the gauge.
+     * @param boostSpent BOOST tokens spent.
+     * @param usdSpent USD tokens spent.
+     * @param liquidity Liquidity tokens received.
+     * @param tokenId The token ID used (if applicable).
+     */
+    event AddLiquidityAndDeposit(uint256 boostSpent, uint256 usdSpent, uint256 liquidity, uint256 indexed tokenId);
+
+    /**
+     * @notice Emitted when an unfarm-buy-burn operation is executed.
+     * @param boostRemoved BOOST tokens removed.
+     * @param usdRemoved USD tokens removed.
+     * @param liquidity Liquidity tokens affected.
+     * @param boostAmountOut BOOST tokens obtained from the swap.
+     */
+    event UnfarmBuyBurn(uint256 boostRemoved, uint256 usdRemoved, uint256 liquidity, uint256 boostAmountOut);
+
+    /**
+     * @notice Emitted when reward tokens are collected.
+     * @param tokens Array of token addresses collected.
+     * @param amounts Array of amounts for each token.
+     */
+    event GetReward(address[] tokens, uint256[] amounts);
+
+    /**
+     * @notice Emitted when the pool fee is set.
+     * @param poolFee The new pool fee.
+     */
+    event PoolFeeSet(uint256 poolFee);
+
+    /**
+     * @notice Emitted when the reward vault address is set.
+     * @param rewardVault The new reward vault address.
+     */
+    event VaultSet(address rewardVault);
+
+    /**
+     * @notice Emitted when the token ID is set.
+     * @param tokenId The token ID.
+     * @param useTokenId Boolean indicating whether to use the token ID.
+     */
+    event TokenIdSet(uint256 tokenId, bool useTokenId);
+
+    /**
+     * @notice Emitted when various parameters are set.
+     * @param boostMultiplier The BOOST multiplier.
+     * @param validRangeWidth The valid range width.
+     * @param validRemovingRatio The valid ratio for liquidity removal.
+     * @param boostLowerPriceSell The lower price threshold for selling BOOST.
+     * @param boostUpperPriceBuy The upper price threshold for buying BOOST.
+     * @param boostSellRatio The BOOST sell ratio.
+     * @param usdBuyRatio The USD buy ratio.
+     */
+    event ParamsSet(
+        uint256 boostMultiplier,
+        uint24 validRangeWidth,
+        uint24 validRemovingRatio,
+        uint256 boostLowerPriceSell,
+        uint256 boostUpperPriceBuy,
+        uint256 boostSellRatio,
+        uint256 usdBuyRatio
+    );
+
+    /**
+     * @notice Emitted when reward tokens whitelist is updated.
+     * @param tokens Array of token addresses.
+     * @param isWhitelisted Boolean indicating the whitelist status.
+     */
+    event RewardTokensSet(address[] tokens, bool isWhitelisted);
+
+    // -------------------------------------------------------------
+    //                          ENUMS
+    // -------------------------------------------------------------
+    /**
+     * @notice Enum representing the supported pool types.
+     */
     enum PoolType {
         SOLIDLY_V2,
-        VELO_LIKE // Aerodrome, Velodrome
+        VELO_LIKE
     }
 
-    /* ========== ROLES ========== */
-    /// @notice Returns the identifier for the REWARD_COLLECTOR_ROLE
-    /// @dev This role allows calling getReward()
+    // -------------------------------------------------------------
+    //                            ROLES
+    // -------------------------------------------------------------
+    /// @notice Returns the identifier for the REWARD_COLLECTOR_ROLE.
     function REWARD_COLLECTOR_ROLE() external view returns (bytes32);
 
-    /* ========== VARIABLES ========== */
-    /// @notice True if pool is stable, false if volatile
+    // -------------------------------------------------------------
+    //                      STATE VARIABLE
+    // -------------------------------------------------------------
+    /**
+     * @notice Returns true if the pool is stable; false otherwise.
+     */
     function stable() external view returns (bool);
 
-    /// @notice Returns the pool fee
+    /**
+     * @notice Returns the pool fee.
+     */
     function poolFee() external view returns (uint256);
 
-    /// @notice Returns the pool type
+    /**
+     * @notice Returns the pool type.
+     */
     function poolType() external view returns (PoolType);
 
-    /// @notice Returns the address of the Solidly factory
+    /**
+     * @notice Returns the address of the Solidly factory.
+     */
     function factory() external view returns (address);
 
-    /// @notice Returns the address of the Solidly router
+    /**
+     * @notice Returns the address of the router.
+     */
     function router() external view returns (address);
 
-    /// @notice Returns the address of the Solidly gauge
+    /**
+     * @notice Returns the address of the gauge.
+     */
     function gauge() external view returns (address);
 
-    /// @notice Returns the address of the reward vault for collected rewards
+    /**
+     * @notice Returns the reward vault address.
+     */
     function rewardVault() external view returns (address);
 
-    /// @notice Checks if the given token is a whitelisted reward token.
-    /// @param token The address of the token to check.
-    /// @return True if the token is whitelisted, false otherwise.
-
+    /**
+     * @notice Checks if a token is whitelisted as a reward token.
+     * @param token The token address.
+     * @return True if whitelisted; false otherwise.
+     */
     function whitelistedRewardTokens(address token) external view returns (bool);
 
-    /// @notice Returns the BOOST sell ratio (in 6 decimals)
+    /**
+     * @notice Returns the BOOST sell ratio.
+     */
     function boostSellRatio() external view returns (uint256);
 
-    /// @notice Returns the USD buy ratio (in 6 decimals)
+    /**
+     * @notice Returns the USD buy ratio.
+     */
     function usdBuyRatio() external view returns (uint256);
 
-    /// @notice Returns the token ID for gauge
+    /**
+     * @notice Returns the token ID for gauge deposits.
+     */
     function tokenId() external view returns (uint256);
 
-    /// @notice Returns a boolean indicating whether to use the token ID.
+    /**
+     * @notice Returns true if the token ID is used.
+     */
     function useTokenId() external view returns (bool);
 
-    /* ========== FUNCTIONS ========== */
+
+    // -------------------------------------------------------------
+    //                          FUNCTION
+    // -------------------------------------------------------------
     /**
-     * @notice This function sets the pool fee
-     * @dev Can only be called by an account with the SETTER_ROLE.
-     * @param poolFee_ The pool fee
+     * @notice Sets the pool fee.
+     * @param poolFee_ The new pool fee.
      */
     function setPoolFee(uint256 poolFee_) external;
 
     /**
-     * @notice This function sets the reward vault address
-     * @dev Can only be called by an account with the SETTER_ROLE. Reverts if the provided address is zero
-     * @param rewardVault_ The address of the reward vault
+     * @notice Sets the reward vault address.
+     * @param rewardVault_ The new reward vault address.
      */
     function setVault(address rewardVault_) external;
 
     /**
-     * @notice This function sets the token id for depositing in mintSellFarm()
-     * @dev Can only be called by an account with the SETTER_ROLE
-     * @param tokenId_ The token id
-     * @param useTokenId_ A boolean indicating whether to use the token ID
+     * @notice Sets the token ID and its usage flag.
+     * @param tokenId_ The token ID.
+     * @param useTokenId_ Boolean indicating whether to use the token ID.
      */
     function setTokenId(uint256 tokenId_, bool useTokenId_) external;
 
     /**
-     * @notice This function sets various params for the contract
-     * @dev Can only be called by an account with the SETTER_ROLE
-     * @param boostMultiplier_ The multiplier used to calculate the amount of boost to mint in addLiquidity()
-     * @param validRangeWidth_ The valid range width for addLiquidity()
-     * @param validRemovingRatio_ Set the price (<1$) at which the unfarmBuyBurn() is allowed
-     * @param boostLowerPriceSell_ The new lower price bound for selling BOOST
-     * @param boostUpperPriceBuy_ The new upper price bound for buying BOOST
-     * @param boostSellRatio_ The new BOOST sell ratio
-     * @param usdBuyRatio_ The new USD buy ratio
+     * @notice Sets various parameters for AMO operations.
+     * @param boostMultiplier_ The BOOST multiplier.
+     * @param validRangeWidth_ The valid range width for liquidity addition.
+     * @param validRemovingRatio_ The valid ratio for liquidity removal.
+     * @param boostLowerPriceSell_ The lower price threshold for selling BOOST.
+     * @param boostUpperPriceBuy_ The upper price threshold for buying BOOST.
+     * @param boostSellRatio_ The BOOST sell ratio.
+     * @param usdBuyRatio_ The USD buy ratio.
      */
     function setParams(
         uint256 boostMultiplier_,
@@ -97,18 +218,23 @@ interface IV2AMO {
     ) external;
 
     /**
-     * @notice This function sets the whitelisted status for reward tokens
-     * @dev Can only be called by an account with the SETTER_ROLE
-     * @param tokens An array of reward token addresses
-     * @param isWhitelisted A boolean indicating whether to whitelist a token
+     * @notice Sets the whitelist status for an array of reward tokens.
+     * @param tokens An array of token addresses.
+     * @param isWhitelisted Boolean indicating whether to whitelist the tokens.
      */
     function setWhitelistedTokens(address[] memory tokens, bool isWhitelisted) external;
 
     /**
-     * @notice This function collects reward tokens from the gauge and transfers them to the reward vault
-     * @dev Can only be called by an account with the REWARD_COLLECTOR_ROLE when the contract is not paused
-     * @param tokens An array of reward token addresses to be collected
-     * @param passTokens  A boolean indicating whether to pass the token array to the external getReward() function
+     * @notice Collects reward tokens from the gauge and transfers them to the reward vault.
+     * @param tokens An array of reward token addresses to collect.
+     * @param passTokens Boolean indicating whether to pass the token array to the external getReward() function.
      */
     function getReward(address[] memory tokens, bool passTokens) external;
+
+    /**
+     * @notice Retrieves the current reserves for BOOST and USD from the pair contract.
+     * @return boostReserve The reserve amount of BOOST (scaled as needed).
+     * @return usdReserve The reserve amount of USD (scaled as needed).
+     */
+    function getReserves() external view returns (uint256 boostReserve, uint256 usdReserve);
 }

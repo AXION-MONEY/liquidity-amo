@@ -163,6 +163,7 @@ contract V3AMO is IV3AMO, MasterAMO {
     // -------------------------------------------------------------
     //                INTERNAL HELPER VIEW FUNCTIONS
     // -------------------------------------------------------------
+
     /**
      * @notice Internal function to calculate liquidity for a given USD amount.
      * @param usdAmount USD amount.
