@@ -58,7 +58,7 @@ describe("Price Manager tests", function () {
 
   // V2 consts
   const V2_ROUTER = "0xd4ae6eCA985340Dd434D38F470aCCce4DC78D109"; // RouterV2
-  const poolFee = ethers.parseUnits("0.003", 6);
+  const poolFee = ethers.parseUnits("0.002", 6);
   const boostSellRatio = ethers.parseUnits("1", 6);
   const usdBuyRatio = ethers.parseUnits("1", 6);
 
