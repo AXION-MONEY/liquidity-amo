@@ -58,7 +58,6 @@ describe("Price Manager tests", function () {
 
   // V2 consts
   const AERO_V2_ROUTER = "0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43";
-  const poolFee = ethers.parseUnits("0.003", 6);
   const boostSellRatio = ethers.parseUnits("1", 6);
   const usdBuyRatio = ethers.parseUnits("1", 6);
 
@@ -177,7 +176,6 @@ describe("Price Manager tests", function () {
                 admin,
                 await boost.getAddress(),
                 await usd.getAddress(),
-                poolFee,
                 V2PoolType.VELO_LIKE,
                 await minter.getAddress(),
                 await priceManager.getAddress(),

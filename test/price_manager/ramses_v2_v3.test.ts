@@ -59,7 +59,6 @@ describe("Price Manager tests", function () {
 
   // V2 consts
   const V2_ROUTER = "0xAAA87963EFeB6f7E0a2711F397663105Acb1805e"; // Router
-  const poolFee = ethers.parseUnits("0.003", 6);
   const boostSellRatio = ethers.parseUnits("1", 6);
   const usdBuyRatio = ethers.parseUnits("1", 6);
 
@@ -180,7 +179,6 @@ describe("Price Manager tests", function () {
                 admin,
                 await boost.getAddress(),
                 await usd.getAddress(),
-                poolFee,
                 V2PoolType.SOLIDLY_V2,
                 await minter.getAddress(),
                 await priceManager.getAddress(),

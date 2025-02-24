@@ -7,6 +7,8 @@ import {ISolidlyRouter} from "./interfaces/v2/ISolidlyRouter.sol";
 import {IPair} from "./interfaces/v2/IPair.sol";
 import {IV2AMO} from "./interfaces/v2/IV2AMO.sol";
 import {IVRouter} from "./interfaces/v2/IVRouter.sol";
+import {IPoolFactory} from "./interfaces/v2/IPoolFactory.sol";
+import {IPairFactory} from "./interfaces/v2/IPairFactory.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
@@ -81,7 +83,6 @@ contract V2AMO is IV2AMO, MasterAMO {
         address boost_,
         address usd_,
         bool stable_,
-        uint256 poolFee_,
         PoolType poolType_,
         address boostMinter_,
         address priceManager_,
@@ -104,6 +105,7 @@ contract V2AMO is IV2AMO, MasterAMO {
         poolType = poolType_;
         stable = stable_;
         address pool_;
+        uint256 poolFee_;
         if (poolType == PoolType.VELO_LIKE) {
             // If factory is zero address, get default factory from IVRouter
             if (factory_ == address(0)) {
@@ -113,17 +115,20 @@ contract V2AMO is IV2AMO, MasterAMO {
             }
             // Get pool address using the determined factory
             pool_ = IVRouter(router_).poolFor(usd_, boost_, stable_, factory);
+            poolFee_ = IPoolFactory(factory).getFee(pool_, stable_);
         } else {
             pool_ = ISolidlyRouter(router_).pairFor(usd_, boost_, stable_);
+            factory = ISolidlyRouter(router_).factory();
+            poolFee_ = IPairFactory(factory).getFee(stable_);
         }
 
         super.initialize(admin, boost_, usd_, pool_, boostMinter_, priceManager_, pairedTokenType_);
 
         router = router_;
         gauge = gauge_;
-
+        uint256 feeScaledFactor = 10_000;
         _grantRole(SETTER_ROLE, msg.sender);
-        setPoolFee(poolFee_);
+        setPoolFee((poolFee_ * FACTOR) / feeScaledFactor);
         setVault(rewardVault_);
         setTokenId(tokenId_, useTokenId_);
         setParams(

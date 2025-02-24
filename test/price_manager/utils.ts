@@ -252,7 +252,6 @@ export async function deployV2AMO(
   admin: SignerWithAddress,
   boostAddress: string,
   usdAddress: string,
-  poolFee: bigint,
   poolType: V2PoolType,
   minterAddress: string,
   priceManagerAddress: string,
@@ -275,7 +274,7 @@ export async function deployV2AMO(
     const router = await ethers.getContractAt("ISolidlyRouter", routerAddress);
     if ((await router.pairFor(boostAddress, usdAddress, stable)) === ethers.ZeroAddress) {
       const factoryAddress = await router.factory();
-      const factory = await ethers.getContractAt("IFactory", factoryAddress);
+      const factory = await ethers.getContractAt("IPairFactory", factoryAddress);
       await factory.createPair(boostAddress, usdAddress, stable);
     }
   }
@@ -284,7 +283,6 @@ export async function deployV2AMO(
     boostAddress,
     usdAddress,
     stable,
-    poolFee,
     poolType,
     minterAddress,
     priceManagerAddress,
@@ -306,7 +304,7 @@ export async function deployV2AMO(
   const V2AMOFactory = await ethers.getContractFactory("V2AMO");
   const amo = await upgrades.deployProxy(V2AMOFactory, args, {
     initializer:
-      "initialize(address,address,address,bool,uint256,uint8,address,address,uint8,address,address,address,address,uint256,bool,uint256,uint24,uint24,uint256,uint256,uint256,uint256)"
+      "initialize(address,address,address,bool,uint8,address,address,uint8,address,address,address,address,uint256,bool,uint256,uint24,uint24,uint256,uint256,uint256,uint256)"
   });
   await amo.waitForDeployment();
   return amo;
