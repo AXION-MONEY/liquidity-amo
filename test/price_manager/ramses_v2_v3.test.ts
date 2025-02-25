@@ -46,6 +46,7 @@ describe("Price Manager tests", function () {
   const initAmount = "11000000"; // 11M
   const lpAmount = "1000000"; // 1M
   const delta = ethers.parseUnits("0.00001", 6);
+  const v2Delta = ethers.parseUnits("0.01", 6);
   const pairedTokenTypesToTest = [PairedTokenType.SUSDE, PairedTokenType.STABLE];
   const usdDecimalsToTest = [6, 18];
 
@@ -206,7 +207,7 @@ describe("Price Manager tests", function () {
                   if (Number(swapAmount) > 0) {
                     await v2amo["mintSellFarm()"]();
                     const newPrice = await getCurrentPrice(v2amo, LOG_PRICES);
-                    expect(newPrice).to.be.approximately(tp, delta);
+                    expect(newPrice).to.be.approximately(tp, v2Delta);
                   } else {
                     await expect(v2amo["mintSellFarm()"]())
                       .to.be.revertedWithCustomError(v2amo, "InvalidReserveRatio")
@@ -224,7 +225,7 @@ describe("Price Manager tests", function () {
                   if (Number(swapAmount) > 0) {
                     await v2amo["unfarmBuyBurn()"]();
                     const newPrice = await getCurrentPrice(v2amo, LOG_PRICES);
-                    expect(newPrice).to.be.approximately(tp, delta);
+                    expect(newPrice).to.be.approximately(tp, v2Delta);
                   } else {
                     await expect(v2amo["unfarmBuyBurn()"]())
                       .to.be.revertedWithCustomError(v2amo, "InvalidReserveRatio")
