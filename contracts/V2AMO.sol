@@ -126,7 +126,7 @@ contract V2AMO is IV2AMO, MasterAMO {
 
         router = router_;
         gauge = gauge_;
-        uint256 feeScaledFactor = 10_000;
+        uint256 feeScaledFactor = poolType == PoolType.EQUAL_LIKE ? 1e18 : 1e4;
         _grantRole(SETTER_ROLE, msg.sender);
         setPoolFee((poolFee_ * FACTOR) / feeScaledFactor);
         setVault(rewardVault_);

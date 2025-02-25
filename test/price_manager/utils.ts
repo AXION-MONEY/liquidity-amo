@@ -97,7 +97,8 @@ export enum V3PoolType {
 
 export enum V2PoolType {
   SOLIDLY_V2,
-  VELO_LIKE // Aerodrome, Velodrome
+  VELO_LIKE, // Aerodrome, Velodrome
+  EQUAL_LIKE // Equalizer (EQUAL on Sonic, SCALE on Base)
 }
 
 export async function initNetwork(
@@ -270,7 +271,7 @@ export async function deployV2AMO(
   await gauge.waitForDeployment();
   const gaugeAddress = await gauge.getAddress();
   const stable = false;
-  if (poolType === V2PoolType.SOLIDLY_V2) {
+  if ([V2PoolType.SOLIDLY_V2, V2PoolType.EQUAL_LIKE].includes(poolType)) {
     const router = await ethers.getContractAt("ISolidlyRouter", routerAddress);
     if ((await router.pairFor(boostAddress, usdAddress, stable)) === ethers.ZeroAddress) {
       const factoryAddress = await router.factory();
