@@ -1,10 +1,35 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
+/**
+ * @title IBoostStablecoin Interface
+ * @notice Interface for the BoostStablecoin contract, defining roles and functions for minting and burning tokens.
+ */
 interface IBoostStablecoin is IERC20 {
+    // -------------------------------------------------------------
+    //                            ROLES
+    // -------------------------------------------------------------
+    /**
+     * @notice Returns the identifier for the MINTER_ROLE.
+     * @dev MINTER_ROLE allows designated accounts to mint new tokens.
+     */
+    function MINTER_ROLE() external view returns (bytes32);
+    /**
+     * @notice Returns the identifier for the PAUSER_ROLE.
+     * @dev PAUSER_ROLE allows designated accounts to pause the contract.
+     */
+    function PAUSER_ROLE() external view returns (bytes32);
+    /**
+     * @notice Returns the identifier for the UNPAUSER_ROLE.
+     * @dev UNPAUSER_ROLE allows designated accounts to unpause the contract.
+     */
+    function UNPAUSER_ROLE() external view returns (bytes32);
+
+    // -------------------------------------------------------------
+    //                     FUNCTION SIGNATURES
+    // -------------------------------------------------------------
     /**
      * @dev Destroys a `value` amount of tokens from the caller.
      *
@@ -26,11 +51,10 @@ interface IBoostStablecoin is IERC20 {
     function burnFrom(address account, uint256 value) external;
 
     /**
-     * @dev Mints a `amount` amount of tokens for `to`.
-     *
-     * Requirements:
-     *
-     * - Can only be called by an account with the MINTER_ROLE.
+     * @notice Mints a specified amount of tokens to a given address.
+     * @dev Can only be called by an account with the MINTER_ROLE.
+     * @param to The address to receive the minted tokens.
+     * @param amount The amount to mint.
      */
     function mint(address to, uint256 amount) external;
 }
