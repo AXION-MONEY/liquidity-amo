@@ -25,20 +25,21 @@ interface IAlgebraPool {
      * Returned value cannot exceed type(uint128).max
      */
     function liquidity() external view returns (uint128);
-
-    /// @notice Adds liquidity for the given recipient/bottomTick/topTick position
-    /// @dev The caller of this method receives a callback in the form of IAlgebraMintCallback#algebraMintCallback
-    /// in which they must pay any token0 or token1 owed for the liquidity. The amount of token0/token1 due depends
-    /// on bottomTick, topTick, the amount of liquidity, and the current price.
-    /// @param leftoversRecipient The address which will receive potential surplus of paid tokens
-    /// @param recipient The address for which the liquidity will be created
-    /// @param bottomTick The lower tick of the position in which to add liquidity
-    /// @param topTick The upper tick of the position in which to add liquidity
-    /// @param liquidityDesired The desired amount of liquidity to mint
-    /// @param data Any data that should be passed through to the callback
-    /// @return amount0 The amount of token0 that was paid to mint the given amount of liquidity. Matches the value in the callback
-    /// @return amount1 The amount of token1 that was paid to mint the given amount of liquidity. Matches the value in the callback
-    /// @return liquidityActual The actual minted amount of liquidity
+    /**
+     * @notice Adds liquidity for the given recipient/bottomTick/topTick position
+     * @dev The caller of this method receives a callback in the form of IAlgebraMintCallback#algebraMintCallback
+     * in which they must pay any token0 or token1 owed for the liquidity. The amount of token0/token1 due depends
+     * on bottomTick, topTick, the amount of liquidity, and the current price.
+     * @param leftoversRecipient The address which will receive potential surplus of paid tokens
+     * @param recipient The address for which the liquidity will be created
+     * @param bottomTick The lower tick of the position in which to add liquidity
+     * @param topTick The upper tick of the position in which to add liquidity
+     * @param liquidityDesired The desired amount of liquidity to mint
+     * @param data Any data that should be passed through to the callback
+     * @return amount0 The amount of token0 that was paid to mint the given amount of liquidity. Matches the value in the callback
+     * @return amount1 The amount of token1 that was paid to mint the given amount of liquidity. Matches the value in the callback
+     * @return liquidityActual The actual minted amount of liquidity
+     */
     function mint(
         address leftoversRecipient,
         address recipient,

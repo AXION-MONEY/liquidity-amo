@@ -98,7 +98,7 @@ contract BoostStablecoin is
         super.burn(value);
     }
 
-     /// @inheritdoc IBoostStablecoin
+    /// @inheritdoc IBoostStablecoin
     function burnFrom(address account, uint256 value) public override(ERC20BurnableUpgradeable, IBoostStablecoin) {
         super.burnFrom(account, value);
     }
