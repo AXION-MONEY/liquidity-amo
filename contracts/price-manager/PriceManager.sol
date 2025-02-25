@@ -11,35 +11,24 @@ import "./muon/interfaces/IMuonClient.sol";
 /**
  * @title PriceManager
  * @notice Manages price state updates for staked assets using off-chain (MUON) signature verification.
- * @notice The contract Also provides RoleBased Function to update price for risk management if MUON can't provide sigs
- * @dev Uses upgradeable pattern with role-based access control.
+ * @dev Uses an upgradeable pattern with role-based access control.
  */
 contract PriceManager is IPriceManager, Initializable, AccessControlEnumerableUpgradeable {
     using StakedUSDeLib for StakedUSDeLib.StakedUSDe;
     using StakedFraxLib for StakedFraxLib.StakedFrax;
     using SavingsDaiLib for SavingsDaiLib.Pot;
 
-    /// @notice Structure representing a block reference.
-    struct Block {
-        uint256 number;
-        uint256 timestamp;
-    }
-
-    /// @notice Structure representing a Muon signature payload.
-    struct MuonSig {
-        Block srcBlock;
-        bytes reqId;
-        IMuonClient.SchnorrSign signature;
-        bytes gatewaySignature;
-        string token;
-    }
-
-    // Roles for updating asset states.
+    // -------------------------------------------------------------
+    //                        ROLES & CONSTANTS
+    // -------------------------------------------------------------
+    /// @inheritdoc IPriceManager
     bytes32 public constant TOKEN_UPDATER_ROLE = keccak256("TOKEN_UPDATER_ROLE");
-
-    // Roles to set Configs
+    /// @inheritdoc IPriceManager
     bytes32 public constant SETTER_ROLE = keccak256("SETTER_ROLE");
 
+    // -------------------------------------------------------------
+    //                       STATE VARIABLES
+    // -------------------------------------------------------------
     /// @notice Instance of the Muon Client for signature verification.
     IMuonClient public muonClient;
 
@@ -58,28 +47,14 @@ contract PriceManager is IPriceManager, Initializable, AccessControlEnumerableUp
     /// @notice The block data corresponding to the last update of the Savings DAI pot.
     Block public sDaiLastBlock;
 
-    // =============================================================
-    //                           EVENTS
-    // =============================================================
-    event SetMuonClient(address muonClientAddress);
-    event SUsdeSet(StakedUSDeLib.StakedUSDe newStates, Block srcBlock);
-    event SFraxSet(StakedFraxLib.StakedFrax newStates, Block srcBlock);
-    event PotSet(SavingsDaiLib.Pot newStates, Block srcBlock);
-
-    // =============================================================
-    //                           CUSTOM ERRORS
-    // =============================================================
-    error ZeroAddress();
-    error InvalidLastDistribution();
-    error OldBlock(uint256 srcBlockTimestamp, uint256 lastBlockTimestamp);
-    error InvalidBlock(uint256 srcBlockTimestamp, uint256 currentBlockTimestamp);
-    error SigTokenMismatch();
-
+    // -------------------------------------------------------------
+    //                      INITIALIZATION
+    // -------------------------------------------------------------
     /**
-     * @notice Initializes the contract with an admin, a setter, and the Muon client address.
-     * @param admin The address to be granted DEFAULT_ADMIN_ROLE.
-     * @param tokenUpdater The address to be granted TOKEN_UPDATER_ROLE.
-     * @param setter The address to be granted asset setter roles.
+     * @notice Initializes the PriceManager contract.
+     * @param admin The address to be granted the DEFAULT_ADMIN_ROLE.
+     * @param tokenUpdater The address to be granted the TOKEN_UPDATER_ROLE.
+     * @param setter The address to be granted the SETTER_ROLE.
      * @param muonClientAddress The address of the Muon client contract.
      */
     function initialize(
@@ -94,6 +69,7 @@ contract PriceManager is IPriceManager, Initializable, AccessControlEnumerableUp
             admin == address(0) || muonClientAddress == address(0) || setter == address(0) || tokenUpdater == address(0)
         ) revert ZeroAddress();
 
+        // Temporarily grant SETTER_ROLE to msg.sender for initialization
         _grantRole(SETTER_ROLE, msg.sender);
         setMuonClient(muonClientAddress);
         _revokeRole(SETTER_ROLE, msg.sender);
@@ -103,39 +79,23 @@ contract PriceManager is IPriceManager, Initializable, AccessControlEnumerableUp
         _grantRole(SETTER_ROLE, setter);
     }
 
-    // =============================================================
-    //                           HELPER FUNCTIONS
-    // =============================================================
-
+    // -------------------------------------------------------------
+    //                      INTERNAL FUNCTIONS
+    // -------------------------------------------------------------
     /**
-     * @notice setMuonClient initiate (re-initiate) muonClient.
-     * @dev Can be called Only by SETTER ROLE.
-     * @param _muonClientAddress the address of the muonClient.
-     */
-    function setMuonClient(address _muonClientAddress) public onlyRole(SETTER_ROLE) {
-        muonClient = IMuonClient(_muonClientAddress);
-        emit SetMuonClient(_muonClientAddress);
-    }
-
-    /**
-     * @notice Helper function to validate the source block's timestamp.
-     * @param srcTimestamp The timestamp of the provided source block.
+     * @notice Validates that the source block timestamp is acceptable.
+     * @dev Ensures the source block timestamp is not in the future and is newer than the last update.
+     * @param srcTimestamp The timestamp from the signed source block.
      * @param lastTimestamp The timestamp of the last processed block.
      */
     function _validateSrcBlock(uint256 srcTimestamp, uint256 lastTimestamp) internal view {
-        // check that the signed srcBlock.timestamp is not in the future
         if (srcTimestamp > block.timestamp) {
             revert InvalidBlock(srcTimestamp, block.timestamp);
         }
-        // check if that the signed srcBlock.timestamp is newer than the previous signed/stored timestamp
         if (srcTimestamp <= lastTimestamp) {
             revert OldBlock(srcTimestamp, lastTimestamp);
         }
     }
-
-    // =============================================================
-    //                           SUSDE FUNCTIONS
-    // =============================================================
 
     /**
      * @notice Internal function to update the state of sUSDe.
@@ -144,21 +104,54 @@ contract PriceManager is IPriceManager, Initializable, AccessControlEnumerableUp
      */
     function _setSUsde(StakedUSDeLib.StakedUSDe calldata _sUSDe, Block calldata srcBlock) internal {
         _validateSrcBlock(srcBlock.timestamp, sUsdeLastBlock.timestamp);
-        // lastDistributionTimestamp is not in the future
         if (_sUSDe.lastDistributionTimestamp > block.timestamp) revert InvalidLastDistribution();
 
-        // update corresponding asset values
         sUSDe = _sUSDe;
         sUsdeLastBlock = srcBlock;
-
         emit SUsdeSet(_sUSDe, srcBlock);
     }
 
     /**
-     * @notice Updates sUSDe state. Callable only by addresses with the TOKEN_UPDATER_ROLE role.
-     * @param _sUSDe The new sUSDe state.
+     * @notice Internal function to update the state of sFRAX.
+     * @param _sFRAX The new sFRAX state.
      * @param srcBlock The block reference associated with the update.
      */
+    function _setSFrax(StakedFraxLib.StakedFrax calldata _sFRAX, Block calldata srcBlock) internal {
+        _validateSrcBlock(srcBlock.timestamp, sFraxLastBlock.timestamp);
+        if (_sFRAX.lastRewardsDistribution > block.timestamp) revert InvalidLastDistribution();
+
+        sFRAX = _sFRAX;
+        sFraxLastBlock = srcBlock;
+        emit SFraxSet(_sFRAX, srcBlock);
+    }
+
+    /**
+     * @notice Internal function to update the state of the Savings DAI pot.
+     * @param _pot The new Savings DAI pot state.
+     * @param srcBlock The block reference associated with the update.
+     */
+    function _setPot(SavingsDaiLib.Pot calldata _pot, Block calldata srcBlock) internal {
+        _validateSrcBlock(srcBlock.timestamp, sDaiLastBlock.timestamp);
+        if (_pot.rho > block.timestamp) revert InvalidLastDistribution();
+
+        pot = _pot;
+        sDaiLastBlock = srcBlock;
+        emit PotSet(_pot, srcBlock);
+    }
+
+    // -------------------------------------------------------------
+    //                     EXTERNAL FUNCTIONS
+    // -------------------------------------------------------------
+
+    /// @inheritdoc IPriceManager
+    function setMuonClient(address _muonClientAddress) public onlyRole(SETTER_ROLE) {
+        muonClient = IMuonClient(_muonClientAddress);
+        emit SetMuonClient(_muonClientAddress);
+    }
+
+    ////// SUsde SET Price Values FUNCTIONS //////
+
+    /// @inheritdoc IPriceManager
     function setSUsde(
         StakedUSDeLib.StakedUSDe calldata _sUSDe,
         Block calldata srcBlock
@@ -166,15 +159,9 @@ contract PriceManager is IPriceManager, Initializable, AccessControlEnumerableUp
         _setSUsde(_sUSDe, srcBlock);
     }
 
-    /**
-     * @notice Updates sUSDe state using off-chain signature verification.
-     * @param _sUSDe The new sUSDe state.
-     * @param sig The Muon signature payload.
-     */
+    /// @inheritdoc IPriceManager
     function setSUsdeWithSig(StakedUSDeLib.StakedUSDe calldata _sUSDe, MuonSig calldata sig) external {
-        // Verify that the token in the signature is exactly "susde"
         if (keccak256(bytes(sig.token)) != keccak256("susde")) revert SigTokenMismatch();
-
         bytes memory data = abi.encodePacked(
             sig.srcBlock.number,
             sig.srcBlock.timestamp,
@@ -184,38 +171,13 @@ contract PriceManager is IPriceManager, Initializable, AccessControlEnumerableUp
             _sUSDe.vestingAmount,
             sig.token
         );
-
-        // Verify MUON sig
         muonClient.verifyTSSAndGW(data, sig.reqId, sig.signature, sig.gatewaySignature);
-
         _setSUsde(_sUSDe, sig.srcBlock);
     }
 
-    // =============================================================
-    //                           SFRAX FUNCTIONS
-    // =============================================================
+    ////// SFRAX SET Price Values FUNCTIONS //////
 
-    /**
-     * @notice Internal function to update the state of sFRAX.
-     * @param _sFRAX The new sFRAX state.
-     * @param srcBlock The block reference associated with the update.
-     */
-    function _setSFrax(StakedFraxLib.StakedFrax calldata _sFRAX, Block calldata srcBlock) internal {
-        _validateSrcBlock(srcBlock.timestamp, sFraxLastBlock.timestamp);
-        // lastDistributionTimestamp is not in the future
-        if (_sFRAX.lastRewardsDistribution > block.timestamp) revert InvalidLastDistribution();
-
-        sFRAX = _sFRAX;
-        sFraxLastBlock = srcBlock;
-
-        emit SFraxSet(_sFRAX, srcBlock);
-    }
-
-    /**
-     * @notice Updates sFRAX state. Callable only by addresses with the TOKEN_UPDATER_ROLE role.
-     * @param _sFRAX The new sFRAX state.
-     * @param srcBlock The block reference associated with the update.
-     */
+    /// @inheritdoc IPriceManager
     function setSFrax(
         StakedFraxLib.StakedFrax calldata _sFRAX,
         Block calldata srcBlock
@@ -223,11 +185,7 @@ contract PriceManager is IPriceManager, Initializable, AccessControlEnumerableUp
         _setSFrax(_sFRAX, srcBlock);
     }
 
-    /**
-     * @notice Updates sFRAX state using off-chain signature verification.
-     * @param _sFRAX The new sFRAX state.
-     * @param sig The Muon signature payload.
-     */
+    /// @inheritdoc IPriceManager
     function setSFraxWithSig(StakedFraxLib.StakedFrax calldata _sFRAX, MuonSig calldata sig) external {
         if (keccak256(bytes(sig.token)) != keccak256("sfrax")) revert SigTokenMismatch();
         bytes memory data = abi.encodePacked(
@@ -243,43 +201,17 @@ contract PriceManager is IPriceManager, Initializable, AccessControlEnumerableUp
             sig.token
         );
         muonClient.verifyTSSAndGW(data, sig.reqId, sig.signature, sig.gatewaySignature);
-
         _setSFrax(_sFRAX, sig.srcBlock);
     }
 
-    // =============================================================
-    //                           SDAI FUNCTIONS
-    // =============================================================
+    ////// SDAI SET Price Values FUNCTIONS //////
 
-    /**
-     * @notice Internal function to update the Savings DAI pot state.
-     * @param _pot The new Savings DAI pot state.
-     * @param srcBlock The block reference associated with the update.
-     */
-    function _setPot(SavingsDaiLib.Pot calldata _pot, Block calldata srcBlock) internal {
-        _validateSrcBlock(srcBlock.timestamp, sDaiLastBlock.timestamp);
-        if (_pot.rho > block.timestamp) revert InvalidLastDistribution();
-
-        pot = _pot;
-        sDaiLastBlock = srcBlock;
-
-        emit PotSet(_pot, srcBlock);
-    }
-
-    /**
-     * @notice Updates the Savings DAI pot state. Callable only by addresses with the TOKEN_UPDATER_ROLE role.
-     * @param _pot The new Savings DAI pot state.
-     * @param srcBlock The block reference associated with the update.
-     */
+    /// @inheritdoc IPriceManager
     function setPot(SavingsDaiLib.Pot calldata _pot, Block calldata srcBlock) external onlyRole(TOKEN_UPDATER_ROLE) {
         _setPot(_pot, srcBlock);
     }
 
-    /**
-     * @notice Updates the Savings DAI pot state using off-chain signature verification.
-     * @param _pot The new Savings DAI pot state.
-     * @param sig The Muon signature payload.
-     */
+    /// @inheritdoc IPriceManager
     function setPotWithSig(SavingsDaiLib.Pot calldata _pot, MuonSig calldata sig) external {
         if (keccak256(bytes(sig.token)) != keccak256("sdai")) revert SigTokenMismatch();
         bytes memory data = abi.encodePacked(
@@ -294,60 +226,36 @@ contract PriceManager is IPriceManager, Initializable, AccessControlEnumerableUp
         _setPot(_pot, sig.srcBlock);
     }
 
-    // =============================================================
-    //                           VIEW FUNCTIONS
-    // =============================================================
+    // -------------------------------------------------------------
+    //                      VIEW FUNCTIONS
+    // -------------------------------------------------------------
 
-    /**
-     * @notice Returns the underlying assets that would be redeemed for a given amount of sUSDe shares.
-     * @param shares The number of sUSDe shares.
-     * @return The amount of underlying assets.
-     */
+    /// @inheritdoc IPriceManager
     function sUsdePreviewRedeem(uint256 shares) external view returns (uint256) {
         return sUSDe.previewRedeem(shares);
     }
 
-    /**
-     * @notice Returns the number of sUSDe shares that would be minted for a given asset deposit.
-     * @param assets The amount of assets to deposit.
-     * @return The amount of sUSDe shares.
-     */
+    /// @inheritdoc IPriceManager
     function sUsdePreviewDeposit(uint256 assets) external view returns (uint256) {
         return sUSDe.previewDeposit(assets);
     }
 
-    /**
-     * @notice Returns the underlying assets that would be redeemed for a given amount of sFRAX shares.
-     * @param shares The number of sFRAX shares.
-     * @return The amount of underlying assets.
-     */
+    /// @inheritdoc IPriceManager
     function sFraxPreviewRedeem(uint256 shares) external view returns (uint256) {
         return sFRAX.previewRedeem(shares);
     }
 
-    /**
-     * @notice Returns the number of sFRAX shares that would be minted for a given asset deposit.
-     * @param assets The amount of assets to deposit.
-     * @return The amount of sFRAX shares.
-     */
+    /// @inheritdoc IPriceManager
     function sFraxPreviewDeposit(uint256 assets) external view returns (uint256) {
         return sFRAX.previewDeposit(assets);
     }
 
-    /**
-     * @notice Returns the underlying assets that would be redeemed for a given amount of Savings DAI shares.
-     * @param shares The number of Savings DAI shares.
-     * @return The amount of underlying assets.
-     */
+    /// @inheritdoc IPriceManager
     function sDaiPreviewRedeem(uint256 shares) external view returns (uint256) {
         return pot.previewRedeem(shares);
     }
 
-    /**
-     * @notice Returns the number of Savings DAI shares that would be minted for a given asset deposit.
-     * @param assets The amount of assets to deposit.
-     * @return The amount of Savings DAI shares.
-     */
+    /// @inheritdoc IPriceManager
     function sDaiPreviewDeposit(uint256 assets) external view returns (uint256) {
         return pot.previewDeposit(assets);
     }
