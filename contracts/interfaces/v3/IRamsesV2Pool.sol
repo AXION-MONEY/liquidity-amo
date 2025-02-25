@@ -27,14 +27,14 @@ interface IRamsesV2Pool {
     function positions(
         bytes32 key
     )
-    external
-    view
-    returns (
-        uint128 _liquidity,
-        uint256 feeGrowthInside0LastX128,
-        uint256 feeGrowthInside1LastX128,
-        uint128 tokensOwed0,
-        uint128 tokensOwed1,
-        uint256 attachedVeRamId
-    );
+        external
+        view
+        returns (
+            uint128 _liquidity,
+            uint256 feeGrowthInside0LastX128,
+            uint256 feeGrowthInside1LastX128,
+            uint128 tokensOwed0,
+            uint128 tokensOwed1,
+            uint256 attachedVeRamId
+        );
 }

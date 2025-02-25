@@ -176,10 +176,7 @@ interface IVRouter {
      * @return token0 The lower-valued token address.
      * @return token1 The higher-valued token address.
      */
-    function sortTokens(address tokenA, address tokenB)
-    external
-    pure
-    returns (address token0, address token1);
+    function sortTokens(address tokenA, address tokenB) external pure returns (address token0, address token1);
 
     /**
      * @notice Calculates the pool address for two tokens given a factory.
@@ -219,10 +216,7 @@ interface IVRouter {
      * @param routes An array of Route structures defining the swap path.
      * @return amounts An array of output amounts for each step in the route.
      */
-    function getAmountsOut(uint256 amountIn, Route[] memory routes)
-    external
-    view
-    returns (uint256[] memory amounts);
+    function getAmountsOut(uint256 amountIn, Route[] memory routes) external view returns (uint256[] memory amounts);
 
     // **** ADD LIQUIDITY ****
 
@@ -245,14 +239,7 @@ interface IVRouter {
         address _factory,
         uint256 amountADesired,
         uint256 amountBDesired
-    )
-    external
-    view
-    returns (
-        uint256 amountA,
-        uint256 amountB,
-        uint256 liquidity
-    );
+    ) external view returns (uint256 amountA, uint256 amountB, uint256 liquidity);
 
     /**
      * @notice Quotes the amounts received when removing liquidity from a pool.
@@ -297,13 +284,7 @@ interface IVRouter {
         uint256 amountBMin,
         address to,
         uint256 deadline
-    )
-    external
-    returns (
-        uint256 amountA,
-        uint256 amountB,
-        uint256 liquidity
-    );
+    ) external returns (uint256 amountA, uint256 amountB, uint256 liquidity);
 
     /**
      * @notice Adds liquidity to a pool using ETH and a token.
@@ -326,14 +307,7 @@ interface IVRouter {
         uint256 amountETHMin,
         address to,
         uint256 deadline
-    )
-    external
-    payable
-    returns (
-        uint256 amountToken,
-        uint256 amountETH,
-        uint256 liquidity
-    );
+    ) external payable returns (uint256 amountToken, uint256 amountETH, uint256 liquidity);
 
     // **** REMOVE LIQUIDITY ****
 
@@ -359,9 +333,7 @@ interface IVRouter {
         uint256 amountBMin,
         address to,
         uint256 deadline
-    )
-    external
-    returns (uint256 amountA, uint256 amountB);
+    ) external returns (uint256 amountA, uint256 amountB);
 
     /**
      * @notice Removes liquidity from a pool consisting of a token and ETH.
@@ -383,9 +355,7 @@ interface IVRouter {
         uint256 amountETHMin,
         address to,
         uint256 deadline
-    )
-    external
-    returns (uint256 amountToken, uint256 amountETH);
+    ) external returns (uint256 amountToken, uint256 amountETH);
 
     /**
      * @notice Removes liquidity from a pool with fee-on-transfer tokens and ETH.

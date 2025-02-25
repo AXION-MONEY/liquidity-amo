@@ -41,7 +41,7 @@ interface ISolidlyV3Pool {
         int256 amountSpecified,
         uint160 sqrtPriceLimitX96
     )
-    external
-    view
-    returns (int256 amount0, int256 amount1, uint160 sqrtPriceX96After, int24 tickAfter, uint128 liquidityAfter);
+        external
+        view
+        returns (int256 amount0, int256 amount1, uint160 sqrtPriceX96After, int24 tickAfter, uint128 liquidityAfter);
 }

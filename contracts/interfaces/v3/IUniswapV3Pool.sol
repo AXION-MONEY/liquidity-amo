@@ -62,11 +62,7 @@ interface IUniswapV3Pool {
      * @return amount0 The amount of token0 sent to the recipient
      * @return amount1 The amount of token1 sent to the recipient
      */
-    function burn(
-        int24 tickLower,
-        int24 tickUpper,
-        uint128 amount
-    ) external returns (uint256 amount0, uint256 amount1);
+    function burn(int24 tickLower, int24 tickUpper, uint128 amount) external returns (uint256 amount0, uint256 amount1);
 
     /**
      * @notice Swap token0 for token1, or token1 for token0
@@ -100,15 +96,15 @@ interface IUniswapV3Pool {
     function positions(
         bytes32 key
     )
-    external
-    view
-    returns (
-        uint128 _liquidity,
-        uint256 feeGrowthInside0LastX128,
-        uint256 feeGrowthInside1LastX128,
-        uint128 tokensOwed0,
-        uint128 tokensOwed1
-    );
+        external
+        view
+        returns (
+            uint128 _liquidity,
+            uint256 feeGrowthInside0LastX128,
+            uint256 feeGrowthInside1LastX128,
+            uint128 tokensOwed0,
+            uint128 tokensOwed1
+        );
 
     /**
      * @notice The pool tick spacing
