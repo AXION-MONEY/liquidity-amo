@@ -47,8 +47,6 @@ abstract contract MasterAMO is
     /// @inheritdoc IMasterAMO
     bytes32 public constant override SETTER_ROLE = keccak256("SETTER_ROLE");
     /// @inheritdoc IMasterAMO
-    bytes32 public constant override AMO_ROLE = keccak256("AMO_ROLE");
-    /// @inheritdoc IMasterAMO
     bytes32 public constant override PAUSER_ROLE = keccak256("PAUSER_ROLE");
     /// @inheritdoc IMasterAMO
     bytes32 public constant override UNPAUSER_ROLE = keccak256("UNPAUSER_ROLE");
@@ -366,80 +364,6 @@ abstract contract MasterAMO is
     // -------------------------------------------------------------
     //                      EXTERNAL FUNCTIONS
     // -------------------------------------------------------------
-
-    ////// AMO ROLE FUNCTIONS //////
-
-    /// @inheritdoc IMasterAMO
-    function mintAndSellBoost(
-        uint256 boostAmount
-    )
-        external
-        override
-        onlyRole(AMO_ROLE)
-        whenNotPaused
-        nonReentrant
-        returns (uint256 boostAmountIn, uint256 usdAmountOut)
-    {
-        (boostAmountIn, usdAmountOut) = _mintAndSellBoost(boostAmount);
-    }
-
-    /// @inheritdoc IMasterAMO
-    function addLiquidity(
-        uint256 usdAmount,
-        uint256 minBoostSpend,
-        uint256 minUsdSpend
-    )
-        external
-        override
-        onlyRole(AMO_ROLE)
-        whenNotPaused
-        nonReentrant
-        returns (uint256 boostSpent, uint256 usdSpent, uint256 liquidity)
-    {
-        (boostSpent, usdSpent, liquidity) = _addLiquidity(usdAmount, minBoostSpend, minUsdSpend);
-    }
-
-    /// @inheritdoc IMasterAMO
-    function mintSellFarm(
-        uint256 boostAmount,
-        uint256 minBoostSpend,
-        uint256 minUsdSpend
-    )
-        external
-        override
-        onlyRole(AMO_ROLE)
-        whenNotPaused
-        nonReentrant
-        returns (uint256 boostAmountIn, uint256 usdAmountOut, uint256 boostSpent, uint256 usdSpent, uint256 liquidity)
-    {
-        (boostAmountIn, usdAmountOut, boostSpent, usdSpent, liquidity) = _mintSellFarm(
-            boostAmount,
-            minBoostSpend,
-            minUsdSpend
-        );
-    }
-
-    /// @inheritdoc IMasterAMO
-    function unfarmBuyBurn(
-        uint256 liquidity,
-        uint256 minBoostRemove,
-        uint256 minUsdRemove
-    )
-        external
-        override
-        onlyRole(AMO_ROLE)
-        whenNotPaused
-        nonReentrant
-        returns (uint256 boostRemoved, uint256 usdRemoved, uint256 usdAmountIn, uint256 boostAmountOut)
-    {
-        (boostRemoved, usdRemoved, usdAmountIn, boostAmountOut) = _unfarmBuyBurn(
-            liquidity,
-            minBoostRemove,
-            minUsdRemove
-        );
-    }
-
-    ////// PUBLIC FUNCTIONS //////
 
     /// @inheritdoc IMasterAMO
     function mintSellFarm()

@@ -81,9 +81,6 @@ interface IMasterAMO {
     /// @notice Returns the identifier for the SETTER_ROLE.
     function SETTER_ROLE() external view returns (bytes32);
 
-    /// @notice Returns the identifier for the AMO_ROLE.
-    function AMO_ROLE() external view returns (bytes32);
-
     /// @notice Returns the identifier for the PAUSER_ROLE.
     function PAUSER_ROLE() external view returns (bytes32);
 
@@ -159,68 +156,6 @@ interface IMasterAMO {
      * @dev Only accounts with UNPAUSER_ROLE can invoke this.
      */
     function unpause() external;
-
-    /**
-     * @notice Mints BOOST tokens and sells them for USD.
-     * @dev Can only be called by an account with the AMO_ROLE when the contract is not paused
-     * @param boostAmount The amount of BOOST to mint and sell.
-     * @return boostAmountIn The BOOST tokens sent to the pool.
-     * @return usdAmountOut The USD tokens received from the sale.
-     */
-    function mintAndSellBoost(uint256 boostAmount) external returns (uint256 boostAmountIn, uint256 usdAmountOut);
-
-    /**
-     * @notice Adds liquidity to the BOOST-USD pool.
-     * @dev Can only be called by an account with the AMO_ROLE when the contract is not paused
-     * @param usdAmount The USD amount to add.
-     * @param minBoostSpend The minimum BOOST tokens to spend.
-     * @param minUsdSpend The minimum USD tokens to spend.
-     * @return boostSpent The BOOST tokens spent.
-     * @return usdSpent The USD tokens spent.
-     * @return liquidity The liquidity tokens received.
-     */
-    function addLiquidity(
-        uint256 usdAmount,
-        uint256 minBoostSpend,
-        uint256 minUsdSpend
-    ) external returns (uint256 boostSpent, uint256 usdSpent, uint256 liquidity);
-
-    /**
-     * @notice Rebalances the pool by minting, selling, and adding liquidity.
-     * @dev Can only be called by an account with the AMO_ROLE when the contract is not paused
-     * @param boostAmount The BOOST amount to mint and sell.
-     * @param minBoostSpend The minimum BOOST tokens to spend for liquidity.
-     * @param minUsdSpend The minimum USD tokens to spend for liquidity.
-     * @return boostAmountIn The BOOST tokens used in the swap.
-     * @return usdAmountOut The USD tokens received from the swap.
-     * @return boostSpent The BOOST tokens spent in liquidity addition.
-     * @return usdSpent The USD tokens spent in liquidity addition.
-     * @return liquidity The liquidity tokens received.
-     */
-    function mintSellFarm(
-        uint256 boostAmount,
-        uint256 minBoostSpend,
-        uint256 minUsdSpend
-    )
-        external
-        returns (uint256 boostAmountIn, uint256 usdAmountOut, uint256 boostSpent, uint256 usdSpent, uint256 liquidity);
-
-    /**
-     * @notice Rebalances the pool by removing liquidity, buying, and burning BOOST tokens.
-     * @dev Can only be called by an account with the AMO_ROLE when the contract is not paused
-     * @param liquidity The liquidity tokens to remove.
-     * @param minBoostRemove The minimum BOOST tokens to remove.
-     * @param minUsdRemove The minimum USD tokens to remove.
-     * @return boostRemoved The BOOST tokens removed.
-     * @return usdRemoved The USD tokens removed.
-     * @return usdAmountIn The USD tokens used to buy BOOST.
-     * @return boostAmountOut The BOOST tokens obtained after the purchase.
-     */
-    function unfarmBuyBurn(
-        uint256 liquidity,
-        uint256 minBoostRemove,
-        uint256 minUsdRemove
-    ) external returns (uint256 boostRemoved, uint256 usdRemoved, uint256 usdAmountIn, uint256 boostAmountOut);
 
     /**
      * @notice Mints, sells, and farms BOOST tokens when BOOST is over peg.
