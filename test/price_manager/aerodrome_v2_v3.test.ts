@@ -30,7 +30,7 @@ import {
   v3Swap
 } from "./utils";
 
-describe("Price Manager tests", function () {
+describe("AERODROME", function () {
   const rpcUrl = "https://developer-access-mainnet.base.org";
   const forkingBlock = 26235850;
   const priceBounds = [

@@ -30,7 +30,7 @@ import {
   createAlgebraPool
 } from "./utils";
 
-describe("Price Manager tests", function () {
+describe("THENA", function () {
   const rpcUrl = "https://bnb.rpc.subquery.network/public";
   const forkingBlock = 46935750;
   const priceBounds = [
@@ -41,7 +41,7 @@ describe("Price Manager tests", function () {
   ];
   const swapAmounts = ["900000"];
   let tickSpacing = 60;
-  const LOG_PRICES = true;
+  const LOG_PRICES = false;
   const initAmount = "11000000"; // 11M
   const lpAmount = "1000000"; // 1M
   const delta = ethers.parseUnits("0.00001", 6);

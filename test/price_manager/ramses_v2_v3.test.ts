@@ -30,7 +30,7 @@ import {
   v3Swap
 } from "./utils";
 
-describe("Price Manager tests", function () {
+describe("RAMSES", function () {
   const rpcUrl = "https://arbitrum.rpc.subquery.network/public";
   const forkingBlock = 308991000;
   const priceBounds = [
@@ -42,7 +42,7 @@ describe("Price Manager tests", function () {
   const swapAmounts = ["900000"];
   let v3Fee = 100; // Valid (fee, tickSpacing) values for Ramses: [(100, 1), (500, 10), (3000, 60), (10000, 200)]
   let tickSpacing = 1;
-  const LOG_PRICES = true;
+  const LOG_PRICES = false;
   const initAmount = "11000000"; // 11M
   const lpAmount = "1000000"; // 1M
   const delta = ethers.parseUnits("0.00001", 6);

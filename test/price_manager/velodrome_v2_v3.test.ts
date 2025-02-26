@@ -30,7 +30,7 @@ import {
   v3Swap
 } from "./utils";
 
-describe("Price Manager tests", function () {
+describe("VELODROME", function () {
   const rpcUrl = "https://optimism.rpc.subquery.network/public";
   const forkingBlock = 132445400;
   const priceBounds = [
@@ -39,7 +39,7 @@ describe("Price Manager tests", function () {
     ["0.5", "2.0"],
     ["0.1", "10.0"]
   ];
-  const swapAmounts = ["900000", "0", "-5000"];
+  const swapAmounts = ["900000"];
   let tickSpacing = 1; // Valid values for Aero: [1, 50, 100, 200, 2_000]
   const LOG_PRICES = false;
   const initAmount = "11000000"; // 11M

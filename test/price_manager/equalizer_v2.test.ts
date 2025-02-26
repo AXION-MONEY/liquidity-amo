@@ -17,11 +17,11 @@ import {
   v2Swap
 } from "./utils";
 
-describe("Price Manager tests", function () {
+describe("EQUALIZER", function () {
   const rpcUrl = "https://rpc.soniclabs.com";
   const forkingBlock = 10025000;
   const swapAmounts = ["900000"];
-  const LOG_PRICES = true;
+  const LOG_PRICES = false;
   const initAmount = "11000000"; // 11M
   const lpAmount = "1000000"; // 1M
   const delta = ethers.parseUnits("0.00001", 6);

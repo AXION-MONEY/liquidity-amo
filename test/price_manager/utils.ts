@@ -169,10 +169,10 @@ export async function getTickBounds(
       Number(ethers.parseUnits("1", boostToken.decimals)),
       Number(ethers.parseUnits(lowerPriceValue, usdToken.decimals))
     );
-    console.log("Lower Price:", lowerPrice.toFixed());
+    // console.log("Lower Price:", lowerPrice.toFixed());
     lowerTick = priceToClosestTick(lowerPrice);
   } else {
-    console.log("Lower Price: -inf");
+    // console.log("Lower Price: -inf");
     lowerTick = TickMath.MIN_TICK;
   }
   if (upperPriceValue !== undefined) {
@@ -182,10 +182,10 @@ export async function getTickBounds(
       Number(ethers.parseUnits("1", boostToken.decimals)),
       Number(ethers.parseUnits(upperPriceValue, usdToken.decimals))
     );
-    console.log("Upper Price:", upperPrice.toFixed());
+    // console.log("Upper Price:", upperPrice.toFixed());
     upperTick = priceToClosestTick(upperPrice);
   } else {
-    console.log("Upper Price: +inf");
+    // console.log("Upper Price: +inf");
     upperTick = TickMath.MAX_TICK;
   }
   let tickLower = nearestUsableTick(lowerTick, tickSpacing);
