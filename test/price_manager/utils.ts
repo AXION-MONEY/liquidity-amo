@@ -1,14 +1,127 @@
-import { ethers, upgrades } from "hardhat";
+import { ethers, network, upgrades } from "hardhat";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { nearestUsableTick, TickMath, priceToClosestTick } from "@uniswap/v3-sdk";
 import { Price, Token } from "@uniswap/sdk-core";
-import { BoostStablecoin, ICLPool, Minter, MockERC20, PriceManager, V2AMO, V3AMO } from "../../typechain-types";
+import {
+  BoostStablecoin,
+  ICLPool,
+  Minter,
+  MockERC20,
+  PriceManager,
+  V2AMO,
+  V3AMO,
+  IRamsesV2Pool,
+  MockUniswapV3PoolCaller,
+  IAlgebraPool
+} from "../../typechain-types";
+
+const sigs = {
+  susde: {
+    muonSig: {
+      srcBlock: { number: 21736000, timestamp: 1738223759 },
+      reqId: ethers.ZeroHash,
+      signature: {
+        signature: 0,
+        owner: ethers.ZeroAddress,
+        nonce: ethers.ZeroAddress
+      },
+      gatewaySignature: ethers.ZeroHash,
+      token: "susde"
+    },
+    states: {
+      totalSupply: "3734814116804093597606146132",
+      balance: "4304104583370657539163990168",
+      lastDistributionTimestamp: "1738207835",
+      vestingAmount: "460055794761904761904761"
+    }
+  },
+  sfrax: {
+    muonSig: {
+      srcBlock: { number: 21736000, timestamp: 1738223759 },
+      reqId: ethers.ZeroHash,
+      signature: {
+        signature: 0,
+        owner: ethers.ZeroAddress,
+        nonce: ethers.ZeroAddress
+      },
+      gatewaySignature: ethers.ZeroHash,
+      token: "sfrax"
+    },
+    states: {
+      totalSupply: "71228619772829715106592883",
+      storedTotalAssets: "79039466004482887067661211",
+      rewardsCycleData: {
+        cycleEnd: "1738800000",
+        lastSync: "1738195271",
+        rewardCycleAmount: "578157898242524520561322"
+      },
+      lastRewardsDistribution: "1738219139",
+      maxDistributionPerSecondPerAsset: "3329556719"
+    }
+  },
+  sdai: {
+    muonSig: {
+      srcBlock: { number: 21736000, timestamp: 1738223759 },
+      reqId: ethers.ZeroHash,
+      signature: {
+        signature: 0,
+        owner: ethers.ZeroAddress,
+        nonce: ethers.ZeroAddress
+      },
+      gatewaySignature: ethers.ZeroHash,
+      token: "sdai"
+    },
+    states: {
+      dsr: "1000000003380572527855758393",
+      chi: "1141443554266986624494275064",
+      rho: "1738222919"
+    }
+  }
+};
 
 export enum PairedTokenType {
   STABLE,
   SUSDE,
   SFRAX,
   SDAI
+}
+
+export enum V3PoolType {
+  SOLIDLY_V3,
+  CL, // Aerodrome, Velodrome
+  ALGEBRA_V1_0,
+  ALGEBRA_V1_9,
+  ALGEBRA_INTEGRAL,
+  RAMSES_V2
+}
+
+export enum V2PoolType {
+  SOLIDLY_V2,
+  VELO_LIKE, // Aerodrome, Velodrome
+  EQUAL_LIKE // Equalizer (EQUAL on Sonic, SCALE on Base)
+}
+
+export async function initNetwork(
+  jsonRpcUrl: string,
+  blockNumber?: number
+): Promise<[SignerWithAddress, SignerWithAddress, PriceManager]> {
+  const [admin, user] = await ethers.getSigners();
+  await network.provider.request({
+    method: "hardhat_reset",
+    params: [
+      {
+        forking: {
+          jsonRpcUrl: jsonRpcUrl,
+          blockNumber: blockNumber
+        }
+      }
+    ]
+  });
+  const priceManager = await deployPriceManager(admin);
+  await priceManager.connect(user).setSUsdeWithSig(sigs.susde.states, sigs.susde.muonSig);
+  await priceManager.connect(user).setSFraxWithSig(sigs.sfrax.states, sigs.sfrax.muonSig);
+  await priceManager.connect(user).setPotWithSig(sigs.sdai.states, sigs.sdai.muonSig);
+  return [admin, user, priceManager];
 }
 
 export function pairedTokenTypeName(pairedTokenType: PairedTokenType): string {
@@ -140,7 +253,7 @@ export async function deployV2AMO(
   admin: SignerWithAddress,
   boostAddress: string,
   usdAddress: string,
-  poolFee: bigint,
+  poolType: V2PoolType,
   minterAddress: string,
   priceManagerAddress: string,
   pairedTokenType: number,
@@ -157,13 +270,21 @@ export async function deployV2AMO(
   const gauge = await GaugeFactory.deploy();
   await gauge.waitForDeployment();
   const gaugeAddress = await gauge.getAddress();
+  const stable = false;
+  if ([V2PoolType.SOLIDLY_V2, V2PoolType.EQUAL_LIKE].includes(poolType)) {
+    const router = await ethers.getContractAt("ISolidlyRouter", routerAddress);
+    if ((await router.pairFor(boostAddress, usdAddress, stable)) === ethers.ZeroAddress) {
+      const factoryAddress = await router.factory();
+      const factory = await ethers.getContractAt("IPairFactory", factoryAddress);
+      await factory.createPair(boostAddress, usdAddress, stable);
+    }
+  }
   const args = [
     admin.address,
     boostAddress,
     usdAddress,
-    false, // stable
-    poolFee,
-    1, // VELO_LIKE
+    stable,
+    poolType,
     minterAddress,
     priceManagerAddress,
     pairedTokenType,
@@ -184,7 +305,7 @@ export async function deployV2AMO(
   const V2AMOFactory = await ethers.getContractFactory("V2AMO");
   const amo = await upgrades.deployProxy(V2AMOFactory, args, {
     initializer:
-      "initialize(address,address,address,bool,uint256,uint8,address,address,uint8,address,address,address,address,uint256,bool,uint256,uint24,uint24,uint256,uint256,uint256,uint256)"
+      "initialize(address,address,address,bool,uint8,address,address,uint8,address,address,address,address,uint256,bool,uint256,uint24,uint24,uint256,uint256,uint256,uint256)"
   });
   await amo.waitForDeployment();
   return amo;
@@ -195,6 +316,7 @@ export async function deployV3AMO(
   boostAddress: string,
   usdAddress: string,
   poolAddress: string,
+  poolType: V3PoolType,
   quoterAddress: string,
   minterAddress: string,
   priceManagerAddress: string,
@@ -212,7 +334,7 @@ export async function deployV3AMO(
     boostAddress,
     usdAddress,
     poolAddress,
-    1, // PoolType.CL
+    poolType,
     quoterAddress,
     ethers.ZeroAddress, // poolCustomDeployer
     minterAddress,
@@ -237,13 +359,11 @@ export async function deployV3AMO(
   return amo;
 }
 
-export async function createCLPool(
-  factoryAddress: string,
+async function _beforeCreatePool(
   boost: BoostStablecoin,
   usd: MockERC20,
-  price: bigint = ethers.parseUnits("1", 6),
-  tickSpacing: number
-): Promise<ICLPool> {
+  price: bigint
+): Promise<[string, string, bigint]> {
   const boostAddress = await boost.getAddress();
   const boostDecimals = await boost.decimals();
   const usdAddress = await usd.getAddress();
@@ -254,10 +374,57 @@ export async function createCLPool(
   if (boostAddress.toLowerCase() < usdAddress.toLowerCase()) priceX96 /= 10 ** decimalsDiff;
   else priceX96 *= 10 ** decimalsDiff;
   let sqrtPriceX96 = BigInt(Math.floor(Math.sqrt(priceX96)));
+  return [boostAddress, usdAddress, sqrtPriceX96];
+}
+
+export async function createCLPool(
+  factoryAddress: string,
+  boost: BoostStablecoin,
+  usd: MockERC20,
+  price: bigint,
+  tickSpacing: number
+): Promise<ICLPool> {
+  const [boostAddress, usdAddress, sqrtPriceX96] = await _beforeCreatePool(boost, usd, price);
   const poolFactory = await ethers.getContractAt("ICLFactory", factoryAddress);
   await poolFactory.createPool(boostAddress, usdAddress, tickSpacing, sqrtPriceX96);
   const poolAddress = await poolFactory.getPool(boostAddress, usdAddress, tickSpacing);
   return await ethers.getContractAt("ICLPool", poolAddress);
+}
+
+export async function createRamsesPool(
+  factoryAddress: string,
+  boost: BoostStablecoin,
+  usd: MockERC20,
+  price: bigint,
+  fee: number
+): Promise<IRamsesV2Pool> {
+  const [boostAddress, usdAddress, sqrtPriceX96] = await _beforeCreatePool(boost, usd, price);
+  const poolFactory = await ethers.getContractAt("IRamsesV2Factory", factoryAddress);
+  await poolFactory.createPool(boostAddress, usdAddress, fee);
+  const poolAddress = await poolFactory.getPool(boostAddress, usdAddress, fee);
+  const pool = await ethers.getContractAt("IRamsesV2Pool", poolAddress);
+  await pool.initialize(sqrtPriceX96);
+  return pool;
+}
+
+export async function createAlgebraPool(
+  factoryAddress: string,
+  boost: BoostStablecoin,
+  usd: MockERC20,
+  price: bigint,
+  poolCreator?: SignerWithAddress
+): Promise<IAlgebraPool> {
+  const [boostAddress, usdAddress, sqrtPriceX96] = await _beforeCreatePool(boost, usd, price);
+  const poolFactory = await ethers.getContractAt("IAlgebraFactory", factoryAddress);
+  if (poolCreator === undefined) {
+    await poolFactory.createPool(boostAddress, usdAddress);
+  } else {
+    await poolFactory.connect(poolCreator).createPool(boostAddress, usdAddress);
+  }
+  const poolAddress = await poolFactory.poolByPair(boostAddress, usdAddress);
+  const pool = await ethers.getContractAt("IAlgebraPool", poolAddress);
+  await pool.initialize(sqrtPriceX96);
+  return pool;
 }
 
 export async function addV2Liquidity(
@@ -290,10 +457,9 @@ export async function addV2Liquidity(
 
 export async function v3Swap(
   user: SignerWithAddress,
+  poolCaller: MockUniswapV3PoolCaller,
   token0: MockERC20 | BoostStablecoin,
   token1: MockERC20 | BoostStablecoin,
-  tickSpacing: number,
-  routerAddress: string,
   swapAmount: string
 ) {
   let _swapAmount = Number(swapAmount);
@@ -303,29 +469,17 @@ export async function v3Swap(
     [token0, token1] = [token1, token0];
   }
   const amount = ethers.parseUnits(_swapAmount.toString(), await token0.decimals());
-  const deadline = Math.floor(Date.now() / 1000) + 60 * 100;
-  const router = await ethers.getContractAt("ISwapRouter", routerAddress);
   const MIN_SQRT_RATIO = BigInt("4295128739") + BigInt(1);
   const MAX_SQRT_RATIO = BigInt("1461446703485210103287273052203988822378723970342") - BigInt(1);
-  await token0.connect(user).approve(routerAddress, amount);
-  await token1.connect(user).approve(routerAddress, amount);
+  await token0.connect(user).approve(await poolCaller.getAddress(), amount);
   const tokenIn = await token0.getAddress();
   const tokenOut = await token1.getAddress();
-  const sqrtPriceLimitX96 = tokenIn.toLowerCase() < tokenOut.toLowerCase() ? MIN_SQRT_RATIO : MAX_SQRT_RATIO;
-  const params = {
-    tokenIn: tokenIn,
-    tokenOut: tokenOut,
-    tickSpacing: tickSpacing,
-    recipient: user.address,
-    deadline: deadline,
-    amountIn: amount,
-    amountOutMinimum: 0,
-    sqrtPriceLimitX96: sqrtPriceLimitX96
-  };
-  await router.connect(user).exactInputSingle(params);
+  const zeroForOne = tokenIn.toLowerCase() < tokenOut.toLowerCase();
+  const sqrtPriceLimitX96 = zeroForOne ? MIN_SQRT_RATIO : MAX_SQRT_RATIO;
+  await poolCaller.connect(user).swap(user.address, zeroForOne, amount, sqrtPriceLimitX96);
 }
 
-export async function v2Swap(
+export async function v2VeloSwap(
   user: SignerWithAddress,
   token0: MockERC20 | BoostStablecoin,
   token1: MockERC20 | BoostStablecoin,
@@ -347,6 +501,34 @@ export async function v2Swap(
       to: await token1.getAddress(),
       stable: false,
       factory: ethers.ZeroAddress
+    }
+  ];
+  await token0.connect(user).approve(routerAddress, amount);
+  await token1.connect(user).approve(routerAddress, amount);
+  await router.connect(user).swapExactTokensForTokens(amount, 0, route, user.address, deadline);
+}
+
+export async function v2Swap(
+  user: SignerWithAddress,
+  token0: MockERC20 | BoostStablecoin,
+  token1: MockERC20 | BoostStablecoin,
+  routerAddress: string,
+  swapAmount: string
+) {
+  let _swapAmount = Number(swapAmount);
+  if (_swapAmount == 0) return;
+  if (_swapAmount < 0) {
+    _swapAmount = -_swapAmount;
+    [token0, token1] = [token1, token0];
+  }
+  const amount = ethers.parseUnits(_swapAmount.toString(), await token0.decimals());
+  const deadline = Math.floor(Date.now() / 1000) + 60 * 100;
+  const router = await ethers.getContractAt("ISolidlyRouter", routerAddress);
+  const route = [
+    {
+      from: await token0.getAddress(),
+      to: await token1.getAddress(),
+      stable: false
     }
   ];
   await token0.connect(user).approve(routerAddress, amount);

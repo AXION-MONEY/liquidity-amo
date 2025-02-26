@@ -4,7 +4,8 @@ pragma solidity 0.8.28;
 interface IV2AMO {
     enum PoolType {
         SOLIDLY_V2,
-        VELO_LIKE // Aerodrome, Velodrome
+        VELO_LIKE, // Aerodrome, Velodrome
+        EQUAL_LIKE // Equalizer (EQUAL on Sonic, SCALE on Base)
     }
 
     /* ========== ROLES ========== */
