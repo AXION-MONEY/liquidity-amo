@@ -132,7 +132,7 @@ contract V2AMO is IV2AMO, MasterAMO {
             pool_ = IVRouter(router_).poolFor(usd_, boost_, stable_, factory);
             poolFee_ = IPoolFactory(factory).getFee(pool_, stable_);
         } else {
-            // For SOLIDLY_V2 style pools
+            // For SOLIDLY_V2 and EQUAL_LIKE pools
             pool_ = ISolidlyRouter(router_).pairFor(usd_, boost_, stable_);
             factory = ISolidlyRouter(router_).factory();
             poolFee_ = IPairFactory(factory).getFee(stable_);
@@ -386,29 +386,17 @@ contract V2AMO is IV2AMO, MasterAMO {
         IERC20(pool).approve(router, liquidity);
 
         uint256 usdBalanceBefore = balanceOfToken(usd);
-        if (poolType == PoolType.VELO_LIKE) {
-            (boostRemoved, usdRemoved) = IVRouter(router).removeLiquidity(
-                boost,
-                usd,
-                stable,
-                liquidity,
-                minBoostRemove,
-                minUsdRemove,
-                address(this),
-                block.timestamp + 300
-            );
-        } else {
-            (boostRemoved, usdRemoved) = ISolidlyRouter(router).removeLiquidity(
-                boost,
-                usd,
-                stable,
-                liquidity,
-                minBoostRemove,
-                minUsdRemove,
-                address(this),
-                block.timestamp + 300
-            );
-        }
+
+        (boostRemoved, usdRemoved) = ISolidlyRouter(router).removeLiquidity(
+            boost,
+            usd,
+            stable,
+            liquidity,
+            minBoostRemove,
+            minUsdRemove,
+            address(this),
+            block.timestamp + 300
+        );
         uint256 boostTargetPrice = targetPrice();
         uint256 usdBalanceAfter = balanceOfToken(usd);
         if (usdRemoved != usdBalanceAfter - usdBalanceBefore)

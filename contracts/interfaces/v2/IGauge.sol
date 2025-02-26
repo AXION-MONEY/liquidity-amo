@@ -15,6 +15,4 @@ interface IGauge {
     function getReward(uint256 tokenId) external;
 
     function getReward() external;
-
-    function balanceOf(address account) external view returns (uint256);
 }

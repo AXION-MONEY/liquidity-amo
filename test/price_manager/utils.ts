@@ -4,15 +4,12 @@ import { nearestUsableTick, TickMath, priceToClosestTick } from "@uniswap/v3-sdk
 import { Price, Token } from "@uniswap/sdk-core";
 import {
   BoostStablecoin,
-  ICLPool,
   Minter,
   MockERC20,
   PriceManager,
   V2AMO,
   V3AMO,
-  IRamsesV2Pool,
-  MockUniswapV3PoolCaller,
-  IAlgebraPool
+  MockUniswapV3PoolCaller
 } from "../../typechain-types";
 
 const sigs = {
@@ -383,12 +380,11 @@ export async function createCLPool(
   usd: MockERC20,
   price: bigint,
   tickSpacing: number
-): Promise<ICLPool> {
+): Promise<string> {
   const [boostAddress, usdAddress, sqrtPriceX96] = await _beforeCreatePool(boost, usd, price);
   const poolFactory = await ethers.getContractAt("ICLFactory", factoryAddress);
   await poolFactory.createPool(boostAddress, usdAddress, tickSpacing, sqrtPriceX96);
-  const poolAddress = await poolFactory.getPool(boostAddress, usdAddress, tickSpacing);
-  return await ethers.getContractAt("ICLPool", poolAddress);
+  return await poolFactory.getPool(boostAddress, usdAddress, tickSpacing);
 }
 
 export async function createRamsesPool(
@@ -397,14 +393,14 @@ export async function createRamsesPool(
   usd: MockERC20,
   price: bigint,
   fee: number
-): Promise<IRamsesV2Pool> {
+): Promise<string> {
   const [boostAddress, usdAddress, sqrtPriceX96] = await _beforeCreatePool(boost, usd, price);
   const poolFactory = await ethers.getContractAt("IRamsesV2Factory", factoryAddress);
   await poolFactory.createPool(boostAddress, usdAddress, fee);
   const poolAddress = await poolFactory.getPool(boostAddress, usdAddress, fee);
-  const pool = await ethers.getContractAt("IRamsesV2Pool", poolAddress);
+  const pool = await ethers.getContractAt("IUniswapV3Pool", poolAddress);
   await pool.initialize(sqrtPriceX96);
-  return pool;
+  return poolAddress;
 }
 
 export async function createAlgebraPool(
@@ -413,7 +409,7 @@ export async function createAlgebraPool(
   usd: MockERC20,
   price: bigint,
   poolCreator?: SignerWithAddress
-): Promise<IAlgebraPool> {
+): Promise<string> {
   const [boostAddress, usdAddress, sqrtPriceX96] = await _beforeCreatePool(boost, usd, price);
   const poolFactory = await ethers.getContractAt("IAlgebraFactory", factoryAddress);
   if (poolCreator === undefined) {
@@ -422,9 +418,9 @@ export async function createAlgebraPool(
     await poolFactory.connect(poolCreator).createPool(boostAddress, usdAddress);
   }
   const poolAddress = await poolFactory.poolByPair(boostAddress, usdAddress);
-  const pool = await ethers.getContractAt("IAlgebraPool", poolAddress);
+  const pool = await ethers.getContractAt("IUniswapV3Pool", poolAddress);
   await pool.initialize(sqrtPriceX96);
-  return pool;
+  return poolAddress;
 }
 
 export async function addV2Liquidity(
@@ -436,7 +432,7 @@ export async function addV2Liquidity(
   amount: string,
   price: bigint = ethers.parseUnits("1", 6)
 ) {
-  const router = await ethers.getContractAt("IVRouter", routerAddress);
+  const router = await ethers.getContractAt("ISolidlyRouter", routerAddress);
   const boostAmount = ethers.parseUnits(amount, 18);
   let usdAmount = ethers.parseUnits(amount, await usd.decimals());
   usdAmount = (usdAmount * price) / BigInt(10 ** 6);

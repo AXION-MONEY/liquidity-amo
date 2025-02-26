@@ -87,9 +87,9 @@ describe("Price Manager tests", function () {
             beforeEach(async function () {
               [boost, usd, minter] = await deployBaseContracts(admin, user, usdDecimals, initAmount);
               const initPrice = await getInitPrice(priceManager, pairedTokenType);
-              const pool = await createAlgebraPool(POOL_FACTORY, boost, usd, initPrice, poolCreator);
+              const poolAddress = await createAlgebraPool(POOL_FACTORY, boost, usd, initPrice, poolCreator);
               const factory = await ethers.getContractFactory("MockUniswapV3PoolCaller");
-              poolCaller = await factory.deploy(await pool.getAddress());
+              poolCaller = await factory.deploy(poolAddress);
               await poolCaller.waitForDeployment();
 
               const [lowerPriceValue, upperPriceValue] = priceBounds[0];
@@ -104,7 +104,7 @@ describe("Price Manager tests", function () {
                 admin,
                 await boost.getAddress(),
                 await usd.getAddress(),
-                await pool.getAddress(),
+                poolAddress,
                 V3PoolType.ALGEBRA_INTEGRAL,
                 QUOTER,
                 await minter.getAddress(),

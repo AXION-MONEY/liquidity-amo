@@ -8,13 +8,6 @@ pragma solidity >=0.5.0;
  */
 interface IRamsesV2Pool {
     /**
-     * @notice Sets the initial price for the pool
-     * @dev Price is represented as a sqrt(amountToken1/amountToken0) Q64.96 value.
-     * @param sqrtPriceX96 the initial sqrt price of the pool as a Q64.96.
-     */
-    function initialize(uint160 sqrtPriceX96) external;
-
-    /**
      * @notice Returns the information about a position by the position's key
      * @param key The position's key is a hash of a preimage composed by the owner, tickLower, and tickUpper.
      * @return _liquidity The amount of liquidity in the position,

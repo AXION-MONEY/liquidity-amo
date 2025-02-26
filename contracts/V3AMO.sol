@@ -12,7 +12,6 @@ import {IUniswapV3Pool} from "./interfaces/v3/IUniswapV3Pool.sol";
 import {ISolidlyV3Pool} from "./interfaces/v3/ISolidlyV3Pool.sol";
 import {ISolidlyV3Factory} from "./interfaces/v3/ISolidlyV3Factory.sol";
 import {IRewardsDistributor} from "./interfaces/v3/IRewardsDistributor.sol";
-import {ICLPool} from "./interfaces/v3/ICLPool.sol";
 import {IAlgebraPool} from "./interfaces/v3/IAlgebraPool.sol";
 import {IAlgebraV10Pool} from "./interfaces/v3/IAlgebraV10Pool.sol";
 import {IAlgebraV19Pool} from "./interfaces/v3/IAlgebraV19Pool.sol";
