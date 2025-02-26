@@ -44,4 +44,12 @@ interface IAlgebraIntegralPool is IAlgebraPool {
             uint128 fees0,
             uint128 fees1
         );
+
+    /// @dev updates default community fee for new pools
+    /// @param newDefaultCommunityFee The new community fee, _must_ be <= MAX_COMMUNITY_FEE
+    function setDefaultCommunityFee(uint16 newDefaultCommunityFee) external;
+
+    /// @dev updates vaultFactory address
+    /// @param newVaultFactory address of new vault factory
+    function setVaultFactory(address newVaultFactory) external;
 }
