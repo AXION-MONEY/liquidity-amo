@@ -411,11 +411,16 @@ export async function createAlgebraPool(
   factoryAddress: string,
   boost: BoostStablecoin,
   usd: MockERC20,
-  price: bigint
+  price: bigint,
+  poolCreator?: SignerWithAddress
 ): Promise<IAlgebraPool> {
   const [boostAddress, usdAddress, sqrtPriceX96] = await _beforeCreatePool(boost, usd, price);
   const poolFactory = await ethers.getContractAt("IAlgebraFactory", factoryAddress);
-  await poolFactory.createPool(boostAddress, usdAddress);
+  if (poolCreator === undefined) {
+    await poolFactory.createPool(boostAddress, usdAddress);
+  } else {
+    await poolFactory.connect(poolCreator).createPool(boostAddress, usdAddress);
+  }
   const poolAddress = await poolFactory.poolByPair(boostAddress, usdAddress);
   const pool = await ethers.getContractAt("IAlgebraPool", poolAddress);
   await pool.initialize(sqrtPriceX96);
