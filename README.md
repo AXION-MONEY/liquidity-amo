@@ -2,10 +2,11 @@
 
 ## Organization
 
-The AMO manages a significant portion of the USDC ( or staked stable ) backing for the stablecoin (referred to as BOOST
-in this version). There are two functions:
+The AMO manages a significant portion of backing for the stablecoin (referred to as BOOST in this version). There are
+two functions:
 
-* v3AMO.sol For ve33 Dexes/pools based on CLAMM (Uniswap v3 and algebra contracts).
+* v3AMO.sol For ve33 Dexes/pools based on CLAMM (Concentrated Liquidity Automated Market Maker) (e.g. UniSwap v3 and
+  Algebra contracts).
 * v2AMO.sol For ve33 Dexes based on Uniswap v2 contracts.
 
 *Note 1:* These two functions have identical logic, they just interact with two different AMM contracts => similarity
@@ -20,8 +21,8 @@ project from either community actions or flash loans.
 * Both the v2AMO and v3AMO logic.
 * The utils contract (which manages veNFT, our voting power in Dexes) on the other branch.
 * Interfaces: note that some interfaces are external and do not need to be audited, typically:
-    + v2AMO: IGauge.sol, IPair.sol, [Dexname]_Router.sol
-    + v3AMO: [Dexname]_Factory.sol, [Dexname]_Pool.sol
+    + v2AMO: IGauge.sol, IPair.sol, [DexName]_Router.sol
+    + v3AMO: [DexName]_Factory.sol, [DexName]_Pool.sol
 
 *Note*: Each ve33 Dex has slightly different contract versions, meaning adaptations for each chain or Dex may be
 required. This could lead to later ad-hoc reviews by an auditor.
@@ -43,7 +44,7 @@ npx hardhat run scripts/deploy.ts
 
 # Description of contracts and components
 
-## I) Booststablecoin:
+## I) BoostStablecoin:
 
 The BoostStablecoin contract implements an ERC-20 token called "BOOST," which serves as the foundation of the BOOST
 stablecoin project. This token is upgradable and includes several key features for managing and securing its
@@ -56,8 +57,8 @@ functionality:
   The pause function can be delegated to a security monitoring firms for automatic responses.
 * **Minting**: This function allows addresses with the MINTER_ROLE to mint new tokens (using the Minter.Sol contract)
   and send them to a specified address (to_).
-  Token Transfer Guard: This ensures that token transfers are only allowed when the contract is not paused, adding an
-  additional layer of security.
+  Token Transfer Guard: This ensures that token transfers are only allowed when the contract is not paused, adding
+  another layer of security.
 
 ## II) LiquidityAMO:
 
@@ -74,23 +75,23 @@ This joint operation involves
 
 Sub-cases:
 
-* the AMO contracts deal with two cases: a reference stable coin with value one ( eg USDC or DAI ), and a
-  stakedstablecoin (eg sUSDe or sDAI) which value drifts ups progressively
+* the AMO contracts deal with two cases: a reference stable coin with value one (e.g. USDC or DAI), and a
+  staked stablecoin (e.g. sUSDe or sDAI) which value drifts ups progressively
 * this is reflected in the variable: `pairedTokenType_`
 
 Staked stable case: when BOOST is paired with a staked stablecoin, the logic is as follows
 
 * the `pricemanager.sol` contracts updates the staked price state variable
 * the equilibrium univ2 "xyz" pool balances are updated in the `AMOv2.sol` contract
-* the bot ( a simple logic bot will be shared !FIXME!) also monitors prices and pool balances to trigger rebalancing
+* the bot (a simple logic bot will be shared !FIXME!) also monitors prices and pool balances to trigger rebalancing
 * rebalancing can also be done permissionlessly
 
 **Note on vocabulary:**
 
 * Free-minted BOOST is called protocol-owned BOOST in the Frax vocabulary; it has no backing and is created when the
   protocol receives USD — and burned when the USDC is redeemed.
-* USD is a generic name for a reference stable coin paired with BOOST in the AMO ( USDC and USDT are the first natural
-  candidates )
+* USD is a generic name for a reference stable coin paired with BOOST in the AMO (USDC and USDT are the first natural
+  candidates)
 
 Below are the key functions that define the core logic of the contract:
 **Main Functions:**
@@ -101,7 +102,7 @@ Purpose: The initialize function sets up the Liquidity AMO contract, defining th
 Pool and Treasury. Typically called when the contract is first deployed, this replaces a constructor in upgradeable
 contracts.
 
-### 2. setVault Function
+### 2. setVault
 
 This function sets or changes the treasury vault address. Only an account with the SETTER_ROLE can call it.
 
@@ -115,7 +116,7 @@ liquidity.
 
 			Purpose: Mints a specified amount of BOOST and sells it for USD in the pool. 
 
-Triggered: When the BOOST-USD price diverges from peg (e.g., BOOST is trading above $1), this function is triggered to
+Triggered: When the BOOST-USD price diverges from peg (e.g. BOOST is trading above $1), this function is triggered to
 mint additional BOOST and sell it for USD to bring the price back down to peg.
 
 **Parameters:**
@@ -130,12 +131,12 @@ usdAmountOut: The USD amount that received from the swap
 Logic and economic security: the function reverts if Boost is not sold above par, so this function can never induce a
 loss for the protocol.
 
-### 5. addLiquidity ( v3AMO.sol ) and addLiquidityAndDeposit  v2AMO.sol )
+### 5. addLiquidity
 
-**Purpose (brief):** These addLiquidity functions add protocol-owned liquidity to the BOOST-USD pool, with minor
+**Purpose (brief):** This addLiquidity function adds protocol-owned liquidity to the BOOST-USD pool, with minor
 implementation changes between the v3AMO (which “mints” positions) and v2AMO (which adds liquidity and stakes it).
 It involves free-minting BOOST tokens, pairing it with USDC backing, and after approving both BOOST and USD tokens for
-transfer to the pool, ading them as liquidity.
+transfer to the pool, adding them as liquidity.
 
 **Purpose (detailed)**:
 
@@ -233,17 +234,17 @@ This folder comprises two files:
 * PriceManager.sol, a contract that serves both to update the price of the staked stables AND to store the last value
 * PriceManagerQuoter.sol, a view function to the price of the staked stables
 
-## Logic of pricemanager.sol
+## Logic of PriceManager.sol
 
 * The contracts call a Muon oracle to update the price of the staked stables
-* for instance, the staked price of sUSDe ( staked eThena USD(e)) is updated calling the internal function
+* for instance, the staked price of sUSDe (Ethena Staked USDe) is updated calling the internal function
   `function _setSUsde(StakedUSDeLib.StakedUSDe calldata _sUSDe, Block calldata srcBlock)`
-* this function reads the Muon signature (that includes the data such as timestamp and blocknumber) and extracts the
+* this function reads the Muon signature (that includes the data such as timestamp and block number) and extracts the
   data
-* then `muonClient.verifyTSSAndGW()` verifies that the signature has the correct data ( eg gateway etc...)
+* then `muonClient.verifyTSSAndGW()` verifies that the signature has the correct data (e.g. gateway, etc...)
 * the function `function _validateSrcBlock` of the `pricemanager.sol` contract checks if the signature has been issued
-  in more recent timeblocks than that of the current price state variable
-  _ (we also verify that the price has not been signed at a future tmestamp)_ !FIXME! do we need that? a next block
+  in more recent block timestamp than that of the current price state variable
+  _ (we also verify that the price has not been signed at a future timestamp)_ !FIXME! do we need that? a next block
   price is better than a last hours price!!!
 
 ## Logic of PriceManagerQuoter.sol
@@ -255,5 +256,5 @@ The `PriceManagerQuoter.sol` contract contains value-adding view functions that 
 * The price state variables can be implemented permissionless.
 * In addition, msig has the ability to update state variables (which can be useful in case of any unknown issue) — for
   instance the `function setSUsde()` is trusted
-* Axion team will run a bot that will probably be the most frequent updater ( a simple bot logic will be shared in the
+* Axion team will run a bot that will probably be the most frequent updater (a simple bot logic will be shared in the
   price manager folder later !FIXME!)
