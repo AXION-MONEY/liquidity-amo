@@ -74,8 +74,7 @@ contract V2AMO is IV2AMO, MasterAMO {
      * @param boost_ Address of the BOOST token.
      * @param usd_ Address of the USD token.
      * @param stable_ True if the pool is stable; false if volatile.
-     * @param poolFee_ The fee applied on the pool (scaled to FACTOR).
-     * @param poolType_ The pool type (SOLIDLY_V2 or VELO_LIKE).
+     * @param poolType_ The pool type (SOLIDLY_V2, VELO_LIKE or EQUAL_LIKE).
      * @param boostMinter_ Address of the BOOST minter contract.
      * @param priceManager_ Address of the price manager contract.
      * @param pairedTokenType_ The paired token type.
