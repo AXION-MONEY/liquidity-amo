@@ -113,7 +113,7 @@ describe("CAMELOT", function () {
               await minter.connect(admin).grantRole(AMO_ROLE, amoAddress);
               const usdAmount = (ethers.parseUnits(lpAmount, usdDecimals) * initPrice) / BigInt(10 ** 6);
               await usd.connect(admin).mint(amoAddress, usdAmount);
-              await v3amo.connect(admin).addLiquidity(usdAmount, 0, 0);
+              await v3amo.addLiquidity();
             });
 
             describe("V3 Public mintSellFarm", () => {
@@ -122,11 +122,11 @@ describe("CAMELOT", function () {
                   await v3Swap(user, poolCaller, usd, boost, swapAmount);
                   const { tp, cp } = await logPriceDiff(v3amo);
                   if (Number(swapAmount) > 0) {
-                    await v3amo["mintSellFarm()"]();
+                    await v3amo.mintSellFarm();
                     const newPrice = await getCurrentPrice(v3amo, LOG_PRICES);
                     expect(newPrice).to.be.approximately(tp, delta);
                   } else {
-                    await expect(v3amo["mintSellFarm()"]())
+                    await expect(v3amo.mintSellFarm())
                       .to.be.revertedWithCustomError(v3amo, "PriceAlreadyInRange")
                       .withArgs(cp);
                   }
@@ -140,11 +140,11 @@ describe("CAMELOT", function () {
                   await v3Swap(user, poolCaller, boost, usd, swapAmount);
                   const { tp, cp } = await logPriceDiff(v3amo);
                   if (Number(swapAmount) > 0) {
-                    await v3amo["unfarmBuyBurn()"]();
+                    await v3amo.unfarmBuyBurn();
                     const newPrice = await getCurrentPrice(v3amo, LOG_PRICES);
                     expect(newPrice).to.be.approximately(tp, delta);
                   } else {
-                    await expect(v3amo["unfarmBuyBurn()"]())
+                    await expect(v3amo.unfarmBuyBurn())
                       .to.be.revertedWithCustomError(v3amo, "PriceAlreadyInRange")
                       .withArgs(cp);
                   }

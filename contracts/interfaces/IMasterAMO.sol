@@ -158,6 +158,14 @@ interface IMasterAMO {
     function unpause() external;
 
     /**
+     * @notice Adds liquidity to the BOOST-USD pool, based on the contract's USD balance.
+     * @return boostSpent The BOOST tokens spent.
+     * @return usdSpent The USD tokens spent.
+     * @return liquidity The liquidity tokens received.
+     */
+    function addLiquidity() external returns (uint256 boostSpent, uint256 usdSpent, uint256 liquidity);
+
+    /**
      * @notice Mints, sells, and farms BOOST tokens when BOOST is over peg.
      * @return liquidity The liquidity tokens received.
      * @return newBoostPrice The new average BOOST price after the operation.

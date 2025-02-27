@@ -307,12 +307,6 @@ contract V2AMO is IV2AMO, MasterAMO {
         uint256 minBoostSpend,
         uint256 minUsdSpend
     ) internal override returns (uint256 boostSpent, uint256 usdSpent, uint256 liquidity) {
-        // Only add liquidity when current BOOST price is within the valid range.
-        uint256 price = boostPrice();
-        uint256 boostTargetPrice = targetPrice();
-        if (price <= priceLowerBound(boostTargetPrice) || price >= priceUpperBound(boostTargetPrice))
-            revert InvalidRatioToAddLiquidity();
-
         // Calculate BOOST amount to mint based on the USD amount and multiplier.
         uint256 boostAmount = (toBoostAmount(usdAmount) * boostMultiplier) / FACTOR;
         IMinter(boostMinter).protocolMint(address(this), boostAmount);

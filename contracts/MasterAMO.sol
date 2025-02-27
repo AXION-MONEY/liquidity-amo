@@ -366,6 +366,24 @@ abstract contract MasterAMO is
     // -------------------------------------------------------------
 
     /// @inheritdoc IMasterAMO
+    function addLiquidity()
+        external
+        override
+        whenNotPaused
+        nonReentrant
+        returns (uint256 boostSpent, uint256 usdSpent, uint256 liquidity)
+    {
+        // Only add liquidity when current BOOST price is within the valid range.
+        uint256 price = boostPrice();
+        uint256 boostTargetPrice = targetPrice();
+        if (price <= priceLowerBound(boostTargetPrice) || price >= priceUpperBound(boostTargetPrice))
+            revert InvalidRatioToAddLiquidity();
+
+        uint256 usdBalance = IERC20(usd).balanceOf(address(this));
+        (boostSpent, usdSpent, liquidity) = _addLiquidity(usdBalance, 1, 1);
+    }
+
+    /// @inheritdoc IMasterAMO
     function mintSellFarm()
         external
         override

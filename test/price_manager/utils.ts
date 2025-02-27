@@ -351,8 +351,6 @@ export async function deployV3AMO(
       "initialize(address,address,address,address,uint8,address,address,address,address,uint8,int24,int24,uint256,uint24,uint24,uint256,uint256)"
   });
   await amo.waitForDeployment();
-  const AMO_ROLE = await amo.AMO_ROLE();
-  await amo.connect(admin).grantRole(AMO_ROLE, admin.address);
   return amo;
 }
 

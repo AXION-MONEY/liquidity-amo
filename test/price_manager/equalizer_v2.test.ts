@@ -92,11 +92,11 @@ describe("EQUALIZER", function () {
                   await v2Swap(user, usd, boost, V2_ROUTER, swapAmount);
                   const { tp, cp } = await logPriceDiff(v2amo);
                   if (Number(swapAmount) > 0) {
-                    await v2amo["mintSellFarm()"]();
+                    await v2amo.mintSellFarm();
                     const newPrice = await getCurrentPrice(v2amo, LOG_PRICES);
                     expect(newPrice).to.be.approximately(tp, delta);
                   } else {
-                    await expect(v2amo["mintSellFarm()"]())
+                    await expect(v2amo.mintSellFarm())
                       .to.be.revertedWithCustomError(v2amo, "InvalidReserveRatio")
                       .withArgs(cp);
                   }
@@ -110,11 +110,11 @@ describe("EQUALIZER", function () {
                   await v2Swap(user, boost, usd, V2_ROUTER, swapAmount);
                   const { tp, cp } = await logPriceDiff(v2amo);
                   if (Number(swapAmount) > 0) {
-                    await v2amo["unfarmBuyBurn()"]();
+                    await v2amo.unfarmBuyBurn();
                     const newPrice = await getCurrentPrice(v2amo, LOG_PRICES);
                     expect(newPrice).to.be.approximately(tp, delta);
                   } else {
-                    await expect(v2amo["unfarmBuyBurn()"]())
+                    await expect(v2amo.unfarmBuyBurn())
                       .to.be.revertedWithCustomError(v2amo, "InvalidReserveRatio")
                       .withArgs(cp);
                   }
