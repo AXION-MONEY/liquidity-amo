@@ -72,6 +72,30 @@ describe("BOOSTStablecoin Tests", function () {
     });
   });
 
+  describe("Burning", function () {
+    beforeEach(async function () {
+      await boostStablecoin.connect(minter).mint(user1.address, 1000);
+    });
+
+    it("Should burn tokens from own address", async function () {
+      await boostStablecoin.connect(user1).burn(200);
+      expect(await boostStablecoin.balanceOf(user1.address)).equal(800);
+    });
+
+    it("Should burn tokens from other address when allowance is sufficient", async function () {
+      await boostStablecoin.connect(user1).approve(user2.address, 300);
+      await boostStablecoin.connect(user2).burnFrom(user1.address, 300);
+      expect(await boostStablecoin.balanceOf(user1.address)).equal(700);
+    });
+
+    it("Should NOT burn tokens from other address when allowance is insufficient", async function () {
+      await boostStablecoin.connect(user1).approve(user2.address, 300);
+      await expect(boostStablecoin.connect(user2).burnFrom(user1.address, 301))
+        .to.be.revertedWithCustomError(boostStablecoin, "ERC20InsufficientAllowance")
+        .withArgs(user2.address, 300, 301);
+    });
+  });
+
   describe("Pausing and Unpausing", function () {
     it("Should pause and unpause the contract", async function () {
       await boostStablecoin.connect(pauser).pause();
