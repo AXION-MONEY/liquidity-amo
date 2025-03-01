@@ -4,7 +4,7 @@ async function main() {
   const MuonClient = await ethers.getContractFactory("MuonClient");
   const validGateway = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8";
   const appId = "93307625660435442793252976666474786944683615644156490137714125190800568256860"; // "axion"
-  const pubKey = ["0x4d116e81a9a511fb5fe12175050cdb4fab872afc2e291ba4ad9373468c9829be", "0"];
+  const pubKey = { x: "0x4d116e81a9a511fb5fe12175050cdb4fab872afc2e291ba4ad9373468c9829be", parity: "0" };
   const checkGatewaySignature = true;
   const muonClientContract = await MuonClient.deploy(validGateway, appId, pubKey, checkGatewaySignature);
   await muonClientContract.waitForDeployment();
