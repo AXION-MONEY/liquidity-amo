@@ -5,30 +5,24 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20Burnable
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {AccessControlEnumerableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlEnumerableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {IIONStableCoin} from "./interfaces/IIONStableCoin.sol";
+import {IIon} from "./interfaces/IIon.sol";
 
 /**
- * @title IONStableCoin.sol
+ * @title Ion.sol
  * @notice The Boost stableCoin is upgradable and pausable. It is designed with role-based control
  *         to allow security features such as pausing in emergencies and controlled minting.
  * @dev Inherits from Initializable, ERC20BurnableUpgradeable, PausableUpgradeable, and AccessControlEnumerableUpgradeable;
- *      implements IIONStableCoin.sol.
+ *      implements IIon.sol.
  */
-contract IONStableCoin is
-    Initializable,
-    ERC20BurnableUpgradeable,
-    PausableUpgradeable,
-    AccessControlEnumerableUpgradeable,
-    IIONStableCoin
-{
+contract Ion is Initializable, ERC20BurnableUpgradeable, PausableUpgradeable, AccessControlEnumerableUpgradeable, IIon {
     // -------------------------------------------------------------
     //                             ROLES
     // -------------------------------------------------------------
-    /// @inheritdoc IIONStableCoin
+    /// @inheritdoc IIon
     bytes32 public constant override MINTER_ROLE = keccak256("MINTER_ROLE");
-    /// @inheritdoc IIONStableCoin
+    /// @inheritdoc IIon
     bytes32 public constant override PAUSER_ROLE = keccak256("PAUSER_ROLE");
-    /// @inheritdoc IIONStableCoin
+    /// @inheritdoc IIon
     bytes32 public constant override UNPAUSER_ROLE = keccak256("UNPAUSER_ROLE");
 
     // -------------------------------------------------------------
@@ -44,7 +38,7 @@ contract IONStableCoin is
     }
 
     /**
-     * @notice Initializes the IONStableCoin.sol contract.
+     * @notice Initializes the Ion contract.
      * @param _name name of the token most cases ION.
      * @param _symbol symbol of the token most cases ION.
      * @param _admin The address to be granted the DEFAULT_ADMIN_ROLE.
@@ -81,7 +75,7 @@ contract IONStableCoin is
     //                      MINTER FUNCTIONS
     // -------------------------------------------------------------
 
-    /// @inheritdoc IIONStableCoin
+    /// @inheritdoc IIon
     function mint(address to, uint256 amount) public override onlyRole(MINTER_ROLE) {
         _mint(to, amount);
     }
@@ -90,13 +84,13 @@ contract IONStableCoin is
     //               OVERRIDES FOR ERC20BurnableUpgradeable
     // -------------------------------------------------------------
 
-    /// @inheritdoc IIONStableCoin
-    function burn(uint256 value) public override(ERC20BurnableUpgradeable, IIONStableCoin) {
+    /// @inheritdoc IIon
+    function burn(uint256 value) public override(ERC20BurnableUpgradeable, IIon) {
         super.burn(value);
     }
 
-    /// @inheritdoc IIONStableCoin
-    function burnFrom(address account, uint256 value) public override(ERC20BurnableUpgradeable, IIONStableCoin) {
+    /// @inheritdoc IIon
+    function burnFrom(address account, uint256 value) public override(ERC20BurnableUpgradeable, IIon) {
         super.burnFrom(account, value);
     }
 

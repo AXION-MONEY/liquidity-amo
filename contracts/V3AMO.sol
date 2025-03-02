@@ -20,7 +20,7 @@ import {IRamsesV2Pool} from "./interfaces/v3/IRamsesV2Pool.sol";
 import {IV3AMO} from "./interfaces/v3/IV3AMO.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
-import {IIONStableCoin} from "./interfaces/IIONStableCoin.sol";
+import {IIon} from "./interfaces/IIon.sol";
 
 /**
  * @title V3AMO Contract
@@ -426,7 +426,7 @@ contract V3AMO is IV3AMO, MasterAMO {
         uint256 remainedPairTokenAfterOperation = pairTokenRemoved - pairTokenAmountIn;
         if (remainedPairTokenAfterOperation > 0) _addLiquidity(remainedPairTokenAfterOperation, 1, 1);
 
-        IIONStableCoin(ionAddress).burn(ionCollected + ionAmountOut);
+        IIon(ionAddress).burn(ionCollected + ionAmountOut);
 
         emit UnfarmBuyBurn(
             ionRemoved,

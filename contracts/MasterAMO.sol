@@ -326,7 +326,7 @@ abstract contract MasterAMO is
         )
     {
         // Explicitly initialize output variables to zero.
-        ( ionSpent,  pairTokenSpent,  liquidity) = (0, 0, 0);
+        (ionSpent, pairTokenSpent, liquidity) = (0, 0, 0);
         (ionAmountIn, pairTokenAmountOut) = _mintAndSellIon(ionAmount);
         uint256 ionCurrentPrice = ionPrice();
         uint256 targetIonPrice = ionTargetPrice();

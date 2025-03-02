@@ -11,7 +11,7 @@ import {IPoolFactory} from "./interfaces/v2/IPoolFactory.sol";
 import {IPairFactory} from "./interfaces/v2/IPairFactory.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
-import {IIONStableCoin} from "./interfaces/IIONStableCoin.sol";
+import {IIon} from "./interfaces/IIon.sol";
 
 /**
 * @title V2AMO Contract
@@ -363,7 +363,7 @@ contract V2AMO is IV2AMO, MasterAMO {
         }
 
         // Burn any excessive minted BOOST.
-        if (ionMintAmount > ionSpent) IIONStableCoin(ionAddress).burn(ionMintAmount - ionSpent);
+        if (ionMintAmount > ionSpent) IIon(ionAddress).burn(ionMintAmount - ionSpent);
         emit AddLiquidityAndDeposit(ionSpent, pairTokenSpent, liquidity, tokenId);
     }
 
@@ -457,7 +457,7 @@ contract V2AMO is IV2AMO, MasterAMO {
         if (price >= ionPriceUpperBound(ionTargetPrice)) revert PriceNotInRange(price);
         pairTokenAmountIn = amounts[0];
         ionAmountOut = amounts[1];
-        IIONStableCoin(ionAddress).burn(ionRemoved + ionAmountOut);
+        IIon(ionAddress).burn(ionRemoved + ionAmountOut);
         emit UnfarmBuyBurn(ionRemoved, pairTokenRemoved, liquidity, ionAmountOut);
     }
 
