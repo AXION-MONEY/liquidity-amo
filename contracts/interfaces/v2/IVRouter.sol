@@ -58,4 +58,25 @@ interface IVRouter {
         address to,
         uint256 deadline
     ) external returns (uint256[] memory amounts);
+
+    /**
+     * @notice Quote the amount deposited into a Pool
+     * @param tokenA .
+     * @param tokenB .
+     * @param stable True if pool is stable, false if volatile
+     * @param _factory Address of PoolFactory for tokenA and tokenB
+     * @param amountADesired Amount of tokenA desired to deposit
+     * @param amountBDesired Amount of tokenB desired to deposit
+     * @return amountA Amount of tokenA to actually deposit
+     * @return amountB Amount of tokenB to actually deposit
+     * @return liquidity Amount of liquidity token returned from deposit
+     */
+    function quoteAddLiquidity(
+        address tokenA,
+        address tokenB,
+        bool stable,
+        address _factory,
+        uint256 amountADesired,
+        uint256 amountBDesired
+    ) external view returns (uint256 amountA, uint256 amountB, uint256 liquidity);
 }

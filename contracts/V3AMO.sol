@@ -81,7 +81,6 @@ contract V3AMO is IV3AMO, MasterAMO {
      * @param pairTokenType_ The type of the token paired with ION.
      * @param tickLower_ Lower tick boundary.
      * @param tickUpper_ Upper tick boundary.
-     * @param ionMultiplayer_ Multiplier for ION minting.
      * @param validRangeWidth_ Valid range width for liquidity addition.
      */
     function initialize(
@@ -97,7 +96,6 @@ contract V3AMO is IV3AMO, MasterAMO {
         PairTokenType pairTokenType_,
         int24 tickLower_,
         int24 tickUpper_,
-        uint256 ionMultiplayer_,
         uint24 validRangeWidth_
     ) public initializer {
         super.initialize(
@@ -114,7 +112,7 @@ contract V3AMO is IV3AMO, MasterAMO {
 
         _grantRole(SETTER_ROLE, msg.sender);
         setTickBounds(tickLower_, tickUpper_);
-        setParams(quoterAddress_, ionMultiplayer_, validRangeWidth_);
+        setParams(quoterAddress_, validRangeWidth_);
         _revokeRole(SETTER_ROLE, msg.sender);
     }
 
@@ -130,16 +128,11 @@ contract V3AMO is IV3AMO, MasterAMO {
     }
 
     /// @inheritdoc IV3AMO
-    function setParams(
-        address quoterAddress_,
-        uint256 ionMultiplayer_,
-        uint24 validRangeWidth_
-    ) public override onlyRole(SETTER_ROLE) {
+    function setParams(address quoterAddress_, uint24 validRangeWidth_) public override onlyRole(SETTER_ROLE) {
         if (validRangeWidth_ > FACTOR) revert InvalidRatioValue();
         quoterAddress = quoterAddress_;
-        ionMultiplayer = ionMultiplayer_;
         validRangeWidth = validRangeWidth_;
-        emit ParamsSet(quoterAddress, ionMultiplayer, validRangeWidth);
+        emit ParamsSet(quoterAddress, validRangeWidth);
     }
 
     // -------------------------------------------------------------

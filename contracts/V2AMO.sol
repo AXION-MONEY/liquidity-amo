@@ -85,7 +85,6 @@ contract V2AMO is IV2AMO, MasterAMO {
      * @param rewardVault_ Address of the reward vault.
      * @param tokenId_ The token ID to be used when depositing liquidity.
      * @param useTokenId_ Boolean indicating whether to use the token ID.
-     * @param ionMultiplier_ Multiplier used to calculate ION amount to mint in addLiquidity().
      * @param validRangeWidth_ Valid range width for liquidity addition.
      * @param ionSellRatio_ ION sell ratio.
      * @param pairTokenBuyRatio_ PairToken buy ratio.
@@ -105,7 +104,6 @@ contract V2AMO is IV2AMO, MasterAMO {
         address rewardVault_,
         uint256 tokenId_,
         bool useTokenId_,
-        uint256 ionMultiplier_,
         uint24 validRangeWidth_,
         uint256 ionSellRatio_,
         uint256 pairTokenBuyRatio_
@@ -151,7 +149,7 @@ contract V2AMO is IV2AMO, MasterAMO {
         setPoolFee((poolFee_ * FACTOR) / feeScaledFactor);
         setVault(rewardVault_);
         setTokenId(tokenId_, useTokenId_);
-        setParams(ionMultiplier_, validRangeWidth_, ionSellRatio_, pairTokenBuyRatio_);
+        setParams(validRangeWidth_, ionSellRatio_, pairTokenBuyRatio_);
         _revokeRole(SETTER_ROLE, msg.sender);
     }
 
@@ -181,17 +179,15 @@ contract V2AMO is IV2AMO, MasterAMO {
 
     /// @inheritdoc IV2AMO
     function setParams(
-        uint256 ionMultiplier_,
         uint24 validRangeWidth_,
         uint256 ionSellRatio_,
         uint256 pairTokenBuyRatio_
     ) public override onlyRole(SETTER_ROLE) {
         if (validRangeWidth_ > FACTOR) revert InvalidRatioValue();
-        ionMultiplayer = ionMultiplier_;
         validRangeWidth = validRangeWidth_;
         ionSellRatio = ionSellRatio_;
         pairTokenBuyRatio = pairTokenBuyRatio_;
-        emit ParamsSet(ionMultiplayer, validRangeWidth, ionSellRatio, pairTokenBuyRatio);
+        emit ParamsSet(validRangeWidth, ionSellRatio, pairTokenBuyRatio);
     }
 
     /// @inheritdoc IV2AMO
@@ -295,8 +291,25 @@ contract V2AMO is IV2AMO, MasterAMO {
 
     /// @inheritdoc MasterAMO
     function _addLiquidity(uint256 pairTokenAmount) internal override returns (uint256 liquidity) {
-        // Calculate ION amount to mint based on the PairToken amount and multiplier.
-        uint256 ionMintAmount = (scalePairTokenToIonDecimals(pairTokenAmount) * ionMultiplayer) / FACTOR;
+        uint256 ionMintAmount;
+        if (poolType == PoolType.VELO_LIKE) {
+            (ionMintAmount, , ) = IVRouter(routerAddress).quoteAddLiquidity(
+                ionAddress,
+                pairTokenAddress,
+                isStablePool,
+                factoryAddress,
+                pairTokenAmount << 16,
+                pairTokenAmount
+            );
+        } else {
+            (ionMintAmount, , ) = ISolidlyRouter(routerAddress).quoteAddLiquidity(
+                ionAddress,
+                pairTokenAddress,
+                isStablePool,
+                pairTokenAmount << 16,
+                pairTokenAmount
+            );
+        }
         IMinter(ionMinterAddress).protocolMint(address(this), ionMintAmount);
 
         // Approve router for ION and PairToken transfers.

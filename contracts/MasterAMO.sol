@@ -75,8 +75,6 @@ abstract contract MasterAMO is
 
     ////// MUTABLE //////
     /// @inheritdoc IMasterAMO
-    uint256 public override ionMultiplayer;
-    /// @inheritdoc IMasterAMO
     uint24 public override validRangeWidth;
     /// @inheritdoc IMasterAMO
     uint256 public override ionTargetPricePremium;

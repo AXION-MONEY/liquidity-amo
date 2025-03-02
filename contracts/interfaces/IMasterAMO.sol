@@ -100,9 +100,6 @@ interface IMasterAMO {
     /// @notice Type of the PairToken either USD or other Staked Stable types.
     function pairTokenType() external view returns (PairTokenType);
 
-    /// @notice ION multiplier (scaled to 6 decimals).
-    function ionMultiplayer() external view returns (uint256);
-
     /// @notice Valid range ratio for adding liquidity (6 decimals).
     function validRangeWidth() external view returns (uint24);
 

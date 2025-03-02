@@ -58,10 +58,9 @@ interface IV3AMO {
     /**
      * @notice Emitted when parameters are set.
      * @param quoterAddress The quoter contract address.
-     * @param ionMultiplayer The ION multiplier.
      * @param validRangeWidth The valid range width.
      */
-    event ParamsSet(address quoterAddress, uint256 ionMultiplayer, uint24 validRangeWidth);
+    event ParamsSet(address quoterAddress, uint24 validRangeWidth);
 
     // -------------------------------------------------------------
     //                          ENUMS
@@ -128,10 +127,9 @@ interface IV3AMO {
     /**
      * @notice Sets various parameters for the V3AMO contract.
      * @param quoterAddress_ The new quoter contract address.
-     * @param ionMultiplayer_ The ION multiplier.
      * @param validRangeWidth_ The valid range width.
      */
-    function setParams(address quoterAddress_, uint256 ionMultiplayer_, uint24 validRangeWidth_) external;
+    function setParams(address quoterAddress_, uint24 validRangeWidth_) external;
 
     /**
      * @notice Returns details of the current liquidity position.
