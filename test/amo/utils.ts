@@ -2,15 +2,7 @@ import { ethers, network, upgrades } from "hardhat";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { nearestUsableTick, TickMath, priceToClosestTick } from "@uniswap/v3-sdk";
 import { Price, Token } from "@uniswap/sdk-core";
-import {
-  BoostStablecoin,
-  Minter,
-  MockERC20,
-  PriceManager,
-  V2AMO,
-  V3AMO,
-  MockUniswapV3PoolCaller
-} from "../../typechain-types";
+import { Minter, MockERC20, PriceManager, V2AMO, V3AMO, MockUniswapV3PoolCaller, Ion } from "../../typechain-types";
 
 const sigs = {
   susde: {
@@ -76,7 +68,7 @@ const sigs = {
   }
 };
 
-export enum PairedTokenType {
+export enum PairTokenType {
   STABLE,
   SUSDE,
   SFRAX,
@@ -121,31 +113,31 @@ export async function initNetwork(
   return [admin, user, priceManager];
 }
 
-export function pairedTokenTypeName(pairedTokenType: PairedTokenType): string {
+export function pairedTokenTypeName(pairedTokenType: PairTokenType): string {
   switch (pairedTokenType) {
-    case PairedTokenType.STABLE:
+    case PairTokenType.STABLE:
       return "STABLE";
-    case PairedTokenType.SUSDE:
+    case PairTokenType.SUSDE:
       return "SUSDE";
-    case PairedTokenType.SFRAX:
+    case PairTokenType.SFRAX:
       return "SFRAX";
-    case PairedTokenType.SDAI:
+    case PairTokenType.SDAI:
       return "SDAI";
     default:
       throw new Error("Invalid pairedTokenType");
   }
 }
 
-export async function getInitPrice(priceManager: PriceManager, pairedTokenType: PairedTokenType): Promise<bigint> {
+export async function getInitPrice(priceManager: PriceManager, pairedTokenType: PairTokenType): Promise<bigint> {
   const ONE = BigInt(10 ** 6);
   switch (pairedTokenType) {
-    case PairedTokenType.STABLE:
+    case PairTokenType.STABLE:
       return ONE;
-    case PairedTokenType.SUSDE:
+    case PairTokenType.SUSDE:
       return await priceManager.sUsdePreviewDeposit(ONE);
-    case PairedTokenType.SFRAX:
+    case PairTokenType.SFRAX:
       return await priceManager.sFraxPreviewDeposit(ONE);
-    case PairedTokenType.SDAI:
+    case PairTokenType.SDAI:
       return await priceManager.sDaiPreviewDeposit(ONE);
     default:
       throw new Error("Invalid pairedTokenType");
@@ -153,21 +145,21 @@ export async function getInitPrice(priceManager: PriceManager, pairedTokenType: 
 }
 
 export async function getTickBounds(
-  boost: BoostStablecoin,
-  usd: MockERC20,
+  ion: Ion,
+  pairToken: MockERC20,
   tickSpacing: number,
   lowerPriceValue?: string,
   upperPriceValue?: string
 ): Promise<{ tickLower: number; tickUpper: number }> {
-  let boostToken = new Token(0, await boost.getAddress(), Number(await boost.decimals()));
-  let usdToken = new Token(0, await usd.getAddress(), Number(await usd.decimals()));
+  let ionToken = new Token(0, await ion.getAddress(), Number(await ion.decimals()));
+  let pairTokenToken = new Token(0, await pairToken.getAddress(), Number(await pairToken.decimals()));
   let lowerTick, upperTick;
   if (lowerPriceValue !== undefined) {
     const lowerPrice = new Price(
-      boostToken,
-      usdToken,
-      Number(ethers.parseUnits("1", boostToken.decimals)),
-      Number(ethers.parseUnits(lowerPriceValue, usdToken.decimals))
+      ionToken,
+      pairTokenToken,
+      Number(ethers.parseUnits("1", ionToken.decimals)),
+      Number(ethers.parseUnits(lowerPriceValue, pairTokenToken.decimals))
     );
     // console.log("Lower Price:", lowerPrice.toFixed());
     lowerTick = priceToClosestTick(lowerPrice);
@@ -177,10 +169,10 @@ export async function getTickBounds(
   }
   if (upperPriceValue !== undefined) {
     const upperPrice = new Price(
-      boostToken,
-      usdToken,
-      Number(ethers.parseUnits("1", boostToken.decimals)),
-      Number(ethers.parseUnits(upperPriceValue, usdToken.decimals))
+      ionToken,
+      pairTokenToken,
+      Number(ethers.parseUnits("1", ionToken.decimals)),
+      Number(ethers.parseUnits(upperPriceValue, pairTokenToken.decimals))
     );
     // console.log("Upper Price:", upperPrice.toFixed());
     upperTick = priceToClosestTick(upperPrice);
@@ -197,34 +189,34 @@ export async function getTickBounds(
 export async function deployBaseContracts(
   admin: SignerWithAddress,
   user: SignerWithAddress,
-  usdDecimals: number,
+  pairTokenDecimals: number,
   initAmount: string
-): Promise<[BoostStablecoin, MockERC20, Minter]> {
-  const BoostFactory = await ethers.getContractFactory("BoostStablecoin");
-  const boost = await upgrades.deployProxy(BoostFactory, [admin.address]);
-  await boost.waitForDeployment();
-  const boostAddress = await boost.getAddress();
+): Promise<[Ion, MockERC20, Minter]> {
+  const IonFactory = await ethers.getContractFactory("Ion");
+  const ion = await upgrades.deployProxy(IonFactory, ["Ion Stablecoin", "ION", admin.address]);
+  await ion.waitForDeployment();
+  const ionAddress = await ion.getAddress();
 
   const MockErc20Factory = await ethers.getContractFactory("MockERC20");
-  const usd = await MockErc20Factory.deploy("USD", "USD", usdDecimals);
-  await usd.waitForDeployment();
-  const usdAddress = await usd.getAddress();
+  const pairToken = await MockErc20Factory.deploy("USD", "USD", pairTokenDecimals);
+  await pairToken.waitForDeployment();
+  const pairTokenAddress = await pairToken.getAddress();
 
   const MinterFactory = await ethers.getContractFactory("Minter");
-  const minter = await upgrades.deployProxy(MinterFactory, [boostAddress, usdAddress, admin.address]);
+  const minter = await upgrades.deployProxy(MinterFactory, [ionAddress, pairTokenAddress, admin.address]);
   await minter.waitForDeployment();
   const minterAddress = await minter.getAddress();
 
-  const MINTER_ROLE = await boost.MINTER_ROLE();
+  const MINTER_ROLE = await ion.MINTER_ROLE();
 
-  await boost.grantRole(MINTER_ROLE, minterAddress);
-  await boost.grantRole(MINTER_ROLE, admin.address);
-  await boost.connect(admin).mint(admin.address, ethers.parseUnits(initAmount, 18));
-  await boost.connect(admin).mint(user.address, ethers.parseUnits(initAmount, 18));
-  await usd.connect(admin).mint(admin.address, ethers.parseUnits(initAmount, usdDecimals));
-  await usd.connect(admin).mint(user.address, ethers.parseUnits(initAmount, usdDecimals));
+  await ion.grantRole(MINTER_ROLE, minterAddress);
+  await ion.grantRole(MINTER_ROLE, admin.address);
+  await ion.connect(admin).mint(admin.address, ethers.parseUnits(initAmount, 18));
+  await ion.connect(admin).mint(user.address, ethers.parseUnits(initAmount, 18));
+  await pairToken.connect(admin).mint(admin.address, ethers.parseUnits(initAmount, pairTokenDecimals));
+  await pairToken.connect(admin).mint(user.address, ethers.parseUnits(initAmount, pairTokenDecimals));
 
-  return [boost, usd, minter];
+  return [ion, pairToken, minter];
 }
 
 export async function deployPriceManager(admin: SignerWithAddress): Promise<PriceManager> {
@@ -248,20 +240,17 @@ export async function deployPriceManager(admin: SignerWithAddress): Promise<Pric
 
 export async function deployV2AMO(
   admin: SignerWithAddress,
-  boostAddress: string,
-  usdAddress: string,
+  ionAddress: string,
+  pairTokenAddress: string,
   poolType: V2PoolType,
   minterAddress: string,
   priceManagerAddress: string,
   pairedTokenType: number,
   routerAddress: string,
-  boostMultiplier: bigint,
+  ionMultiplier: bigint,
   validRangeWidth: bigint,
-  validRemovingRatio: bigint,
-  boostLowerPriceSell: bigint,
-  boostUpperPriceBuy: bigint,
-  boostSellRatio: bigint,
-  usdBuyRatio: bigint
+  ionSellRatio: bigint,
+  pairTokenBuyRatio: bigint
 ): Promise<V2AMO> {
   const GaugeFactory = await ethers.getContractFactory("MockGauge");
   const gauge = await GaugeFactory.deploy();
@@ -270,16 +259,16 @@ export async function deployV2AMO(
   const stable = false;
   if ([V2PoolType.SOLIDLY_V2, V2PoolType.EQUAL_LIKE].includes(poolType)) {
     const router = await ethers.getContractAt("ISolidlyRouter", routerAddress);
-    if ((await router.pairFor(boostAddress, usdAddress, stable)) === ethers.ZeroAddress) {
+    if ((await router.pairFor(ionAddress, pairTokenAddress, stable)) === ethers.ZeroAddress) {
       const factoryAddress = await router.factory();
       const factory = await ethers.getContractAt("IPairFactory", factoryAddress);
-      await factory.createPair(boostAddress, usdAddress, stable);
+      await factory.createPair(ionAddress, pairTokenAddress, stable);
     }
   }
   const args = [
     admin.address,
-    boostAddress,
-    usdAddress,
+    ionAddress,
+    pairTokenAddress,
     stable,
     poolType,
     minterAddress,
@@ -291,18 +280,15 @@ export async function deployV2AMO(
     admin.address, // rewardVault
     0, // tokenId
     false, // useTokenId
-    boostMultiplier,
+    ionMultiplier,
     validRangeWidth,
-    validRemovingRatio,
-    boostLowerPriceSell,
-    boostUpperPriceBuy,
-    boostSellRatio,
-    usdBuyRatio
+    ionSellRatio,
+    pairTokenBuyRatio
   ];
   const V2AMOFactory = await ethers.getContractFactory("V2AMO");
   const amo = await upgrades.deployProxy(V2AMOFactory, args, {
     initializer:
-      "initialize(address,address,address,bool,uint8,address,address,uint8,address,address,address,address,uint256,bool,uint256,uint24,uint24,uint256,uint256,uint256,uint256)"
+      "initialize(address,address,address,bool,uint8,address,address,uint8,address,address,address,address,uint256,bool,uint256,uint24,uint256,uint256)"
   });
   await amo.waitForDeployment();
   return amo;
@@ -310,8 +296,8 @@ export async function deployV2AMO(
 
 export async function deployV3AMO(
   admin: SignerWithAddress,
-  boostAddress: string,
-  usdAddress: string,
+  ionAddress: string,
+  pairTokenAddress: string,
   poolAddress: string,
   poolType: V3PoolType,
   quoterAddress: string,
@@ -320,16 +306,13 @@ export async function deployV3AMO(
   pairedTokenType: number,
   tickLower: number,
   tickUpper: number,
-  boostMultiplier: bigint,
-  validRangeWidth: bigint,
-  validRemovingRatio: bigint,
-  boostLowerPriceSell: bigint,
-  boostUpperPriceBuy: bigint
+  ionMultiplier: bigint,
+  validRangeWidth: bigint
 ): Promise<V3AMO> {
   const args = [
     admin.address,
-    boostAddress,
-    usdAddress,
+    ionAddress,
+    pairTokenAddress,
     poolAddress,
     poolType,
     quoterAddress,
@@ -339,63 +322,56 @@ export async function deployV3AMO(
     pairedTokenType,
     tickLower,
     tickUpper,
-    boostMultiplier,
-    validRangeWidth,
-    validRemovingRatio,
-    boostLowerPriceSell,
-    boostUpperPriceBuy
+    ionMultiplier,
+    validRangeWidth
   ];
   const V3AMOFactory = await ethers.getContractFactory("V3AMO");
   const amo = await upgrades.deployProxy(V3AMOFactory, args, {
     initializer:
-      "initialize(address,address,address,address,uint8,address,address,address,address,uint8,int24,int24,uint256,uint24,uint24,uint256,uint256)"
+      "initialize(address,address,address,address,uint8,address,address,address,address,uint8,int24,int24,uint256,uint24)"
   });
   await amo.waitForDeployment();
   return amo;
 }
 
-async function _beforeCreatePool(
-  boost: BoostStablecoin,
-  usd: MockERC20,
-  price: bigint
-): Promise<[string, string, bigint]> {
-  const boostAddress = await boost.getAddress();
-  const boostDecimals = await boost.decimals();
-  const usdAddress = await usd.getAddress();
-  const usdDecimals = await usd.decimals();
-  if (usdAddress.toLowerCase() < boostAddress.toLowerCase()) price = BigInt(10 ** 12) / price;
+async function _beforeCreatePool(ion: Ion, pairToken: MockERC20, price: bigint): Promise<[string, string, bigint]> {
+  const ionAddress = await ion.getAddress();
+  const ionDecimals = await ion.decimals();
+  const pairTokenAddress = await pairToken.getAddress();
+  const pairTokenDecimals = await pairToken.decimals();
+  if (pairTokenAddress.toLowerCase() < ionAddress.toLowerCase()) price = BigInt(10 ** 12) / price;
   let priceX96 = Number((price * BigInt(2 ** 192)) / BigInt(10 ** 6));
-  const decimalsDiff = Number(boostDecimals - usdDecimals);
-  if (boostAddress.toLowerCase() < usdAddress.toLowerCase()) priceX96 /= 10 ** decimalsDiff;
+  const decimalsDiff = Number(ionDecimals - pairTokenDecimals);
+  if (ionAddress.toLowerCase() < pairTokenAddress.toLowerCase()) priceX96 /= 10 ** decimalsDiff;
   else priceX96 *= 10 ** decimalsDiff;
   let sqrtPriceX96 = BigInt(Math.floor(Math.sqrt(priceX96)));
-  return [boostAddress, usdAddress, sqrtPriceX96];
+  return [ionAddress, pairTokenAddress, sqrtPriceX96];
 }
 
 export async function createCLPool(
   factoryAddress: string,
-  boost: BoostStablecoin,
-  usd: MockERC20,
+  ion: Ion,
+  pairToken: MockERC20,
   price: bigint,
   tickSpacing: number
 ): Promise<string> {
-  const [boostAddress, usdAddress, sqrtPriceX96] = await _beforeCreatePool(boost, usd, price);
+  const [ionAddress, pairTokenAddress, sqrtPriceX96] = await _beforeCreatePool(ion, pairToken, price);
   const poolFactory = await ethers.getContractAt("ICLFactory", factoryAddress);
-  await poolFactory.createPool(boostAddress, usdAddress, tickSpacing, sqrtPriceX96);
-  return await poolFactory.getPool(boostAddress, usdAddress, tickSpacing);
+  await poolFactory.createPool(ionAddress, pairTokenAddress, tickSpacing, sqrtPriceX96);
+  return await poolFactory.getPool(ionAddress, pairTokenAddress, tickSpacing);
 }
 
 export async function createRamsesPool(
   factoryAddress: string,
-  boost: BoostStablecoin,
-  usd: MockERC20,
+  ion: Ion,
+  pairToken: MockERC20,
   price: bigint,
   fee: number
 ): Promise<string> {
-  const [boostAddress, usdAddress, sqrtPriceX96] = await _beforeCreatePool(boost, usd, price);
+  const [ionAddress, pairTokenAddress, sqrtPriceX96] = await _beforeCreatePool(ion, pairToken, price);
   const poolFactory = await ethers.getContractAt("IRamsesV2Factory", factoryAddress);
-  await poolFactory.createPool(boostAddress, usdAddress, fee);
-  const poolAddress = await poolFactory.getPool(boostAddress, usdAddress, fee);
+  await poolFactory.createPool(ionAddress, pairTokenAddress, fee);
+  const poolAddress = await poolFactory.getPool(ionAddress, pairTokenAddress, fee);
   const pool = await ethers.getContractAt("IUniswapV3Pool", poolAddress);
   await pool.initialize(sqrtPriceX96);
   return poolAddress;
@@ -403,19 +379,19 @@ export async function createRamsesPool(
 
 export async function createSolidlyPool(
   factoryAddress: string,
-  boost: BoostStablecoin,
-  usd: MockERC20,
+  ion: Ion,
+  pairToken: MockERC20,
   price: bigint,
   fee: number,
   tickSpacing: number
 ): Promise<string> {
-  const [boostAddress, usdAddress, sqrtPriceX96] = await _beforeCreatePool(boost, usd, price);
+  const [ionAddress, pairTokenAddress, sqrtPriceX96] = await _beforeCreatePool(ion, pairToken, price);
 
   const poolFactory1 = await ethers.getContractAt("IRamsesV2Factory", factoryAddress);
-  await poolFactory1.createPool(boostAddress, usdAddress, fee);
+  await poolFactory1.createPool(ionAddress, pairTokenAddress, fee);
 
   const poolFactory2 = await ethers.getContractAt("ICLFactory", factoryAddress);
-  const poolAddress = await poolFactory2.getPool(boostAddress, usdAddress, tickSpacing);
+  const poolAddress = await poolFactory2.getPool(ionAddress, pairTokenAddress, tickSpacing);
 
   const pool = await ethers.getContractAt("IUniswapV3Pool", poolAddress);
   await pool.initialize(sqrtPriceX96);
@@ -425,19 +401,19 @@ export async function createSolidlyPool(
 
 export async function createAlgebraPool(
   factoryAddress: string,
-  boost: BoostStablecoin,
-  usd: MockERC20,
+  ion: Ion,
+  pairToken: MockERC20,
   price: bigint,
   poolCreator?: SignerWithAddress
 ): Promise<string> {
-  const [boostAddress, usdAddress, sqrtPriceX96] = await _beforeCreatePool(boost, usd, price);
+  const [ionAddress, pairTokenAddress, sqrtPriceX96] = await _beforeCreatePool(ion, pairToken, price);
   const poolFactory = await ethers.getContractAt("IAlgebraFactory", factoryAddress);
   if (poolCreator === undefined) {
-    await poolFactory.createPool(boostAddress, usdAddress);
+    await poolFactory.createPool(ionAddress, pairTokenAddress);
   } else {
-    await poolFactory.connect(poolCreator).createPool(boostAddress, usdAddress);
+    await poolFactory.connect(poolCreator).createPool(ionAddress, pairTokenAddress);
   }
-  const poolAddress = await poolFactory.poolByPair(boostAddress, usdAddress);
+  const poolAddress = await poolFactory.poolByPair(ionAddress, pairTokenAddress);
   const pool = await ethers.getContractAt("IUniswapV3Pool", poolAddress);
   await pool.initialize(sqrtPriceX96);
   return poolAddress;
@@ -446,24 +422,24 @@ export async function createAlgebraPool(
 export async function addV2Liquidity(
   admin: SignerWithAddress,
   routerAddress: string,
-  boost: BoostStablecoin,
-  usd: MockERC20,
+  ion: Ion,
+  pairToken: MockERC20,
   amoAddress: string,
   amount: string,
   price: bigint = ethers.parseUnits("1", 6)
 ) {
   const router = await ethers.getContractAt("ISolidlyRouter", routerAddress);
-  const boostAmount = ethers.parseUnits(amount, 18);
-  let usdAmount = ethers.parseUnits(amount, await usd.decimals());
-  usdAmount = (usdAmount * price) / BigInt(10 ** 6);
-  await boost.connect(admin).approve(routerAddress, boostAmount);
-  await usd.connect(admin).approve(routerAddress, usdAmount);
+  const ionAmount = ethers.parseUnits(amount, 18);
+  let pairTokenAmount = ethers.parseUnits(amount, await pairToken.decimals());
+  pairTokenAmount = (pairTokenAmount * price) / BigInt(10 ** 6);
+  await ion.connect(admin).approve(routerAddress, ionAmount);
+  await pairToken.connect(admin).approve(routerAddress, pairTokenAmount);
   await router.connect(admin).addLiquidity(
-    await boost.getAddress(),
-    await usd.getAddress(),
+    await ion.getAddress(),
+    await pairToken.getAddress(),
     false, // stable
-    boostAmount,
-    usdAmount,
+    ionAmount,
+    pairTokenAmount,
     0, // min amounts = 0 for testing
     0,
     amoAddress,
@@ -474,8 +450,8 @@ export async function addV2Liquidity(
 export async function v3Swap(
   user: SignerWithAddress,
   poolCaller: MockUniswapV3PoolCaller,
-  token0: MockERC20 | BoostStablecoin,
-  token1: MockERC20 | BoostStablecoin,
+  token0: MockERC20 | Ion,
+  token1: MockERC20 | Ion,
   swapAmount: string
 ) {
   let _swapAmount = Number(swapAmount);
@@ -497,8 +473,8 @@ export async function v3Swap(
 
 export async function v2VeloSwap(
   user: SignerWithAddress,
-  token0: MockERC20 | BoostStablecoin,
-  token1: MockERC20 | BoostStablecoin,
+  token0: MockERC20 | Ion,
+  token1: MockERC20 | Ion,
   routerAddress: string,
   swapAmount: string
 ) {
@@ -526,8 +502,8 @@ export async function v2VeloSwap(
 
 export async function v2Swap(
   user: SignerWithAddress,
-  token0: MockERC20 | BoostStablecoin,
-  token1: MockERC20 | BoostStablecoin,
+  token0: MockERC20 | Ion,
+  token1: MockERC20 | Ion,
   routerAddress: string,
   swapAmount: string
 ) {
@@ -553,20 +529,20 @@ export async function v2Swap(
 }
 
 export async function getTargetPrice(amo: V2AMO | V3AMO, log: boolean = false): Promise<bigint> {
-  const tp = await amo.targetPrice();
+  const tp = await amo.ionTargetPrice();
   if (log) console.log("Target Price: ", Number(tp) / 1e6);
   return tp;
 }
 
 export async function getCurrentPrice(amo: V2AMO | V3AMO, log: boolean = false): Promise<bigint> {
-  const cp = await amo.boostPrice();
+  const cp = await amo.ionPrice();
   if (log) console.log("Current Price:", Number(cp) / 1e6);
   return cp;
 }
 
 export async function logPriceDiff(amo: V2AMO | V3AMO, indents: number = 2): Promise<{ tp: bigint; cp: bigint }> {
-  const tp = await amo.targetPrice();
-  const cp = await amo.boostPrice();
+  const tp = await amo.ionTargetPrice();
+  const cp = await amo.ionPrice();
   let diff;
   let word;
   if (cp > tp) {
