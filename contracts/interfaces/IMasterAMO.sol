@@ -31,8 +31,8 @@ interface IMasterAMO {
     /// @notice Reverts when an operation is attempted but the price is already within the expected range.
     error PriceAlreadyInRange(uint256 price);
 
-    /// @notice Reverts when an unsupported paired token type is used.
-    error InvalidPairedTokenType();
+    /// @notice Reverts when an unsupported pair token type is used.
+    error InvalidPairTokenType();
 
     // -------------------------------------------------------------
     //                           EVENTS
@@ -196,7 +196,7 @@ interface IMasterAMO {
     /**
      * @notice Retrieves the target price for ION based on the paired token type.
      * @dev The target price is determined as follows:
-     *      - For a STABLE paired token, the target price is set to a fixed base unit (1 × 10^PRICE_DECIMALS).
+     *      - For a STABLE pair token, the target price is set to a fixed base unit (1 × 10^PRICE_DECIMALS).
      *      - For staked pairs (SUSDE, SFRAX, SDAI), the target price is calculated by querying the corresponding
      *        preview deposit function from the PriceManager using the base unit, and then adding a price offset
      *        (targetPricePremium). This premium represents a slippage adjustment and must be set lower than the pull fee.

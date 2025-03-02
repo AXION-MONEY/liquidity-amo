@@ -78,7 +78,7 @@ contract V3AMO is IV3AMO, MasterAMO {
      * @param poolCustomDeployer_ Address of the custom deployer for Algebra integral pools.
      * @param ionMinterAddress_ Address of the ION minter contract.
      * @param priceManagerAddress_ Address of the price manager contract.
-     * @param pairedTokenType_ The paired token type.
+     * @param pairTokenType_ The type of the token paired with ION.
      * @param tickLower_ Lower tick boundary.
      * @param tickUpper_ Upper tick boundary.
      * @param ionMultiplayer_ Multiplier for ION minting.
@@ -97,7 +97,7 @@ contract V3AMO is IV3AMO, MasterAMO {
         address poolCustomDeployer_,
         address ionMinterAddress_,
         address priceManagerAddress_,
-        PairTokenType pairedTokenType_,
+        PairTokenType pairTokenType_,
         int24 tickLower_,
         int24 tickUpper_,
         uint256 ionMultiplayer_,
@@ -113,7 +113,7 @@ contract V3AMO is IV3AMO, MasterAMO {
             poolAddress_,
             ionMinterAddress_,
             priceManagerAddress_,
-            pairedTokenType_
+            pairTokenType_
         );
         poolType = poolType_;
         poolCustomDeployer = poolCustomDeployer_;
@@ -221,12 +221,12 @@ contract V3AMO is IV3AMO, MasterAMO {
 
     /// @inheritdoc MasterAMO
     function _validateSwap(bool ionForPairToken) internal view override {
-        uint256 currentIonPrice = ionPrice();
-        uint256 ionTargetPrice = ionTargetPrice();
+        uint256 currentPrice = ionPrice();
+        uint256 targetPrice = ionTargetPrice();
         if (ionForPairToken) {
-            if (currentIonPrice <= ionPriceUpperBound(ionTargetPrice)) revert PriceAlreadyInRange(currentIonPrice);
+            if (currentPrice <= ionPriceUpperBound(targetPrice)) revert PriceAlreadyInRange(currentPrice);
         } else {
-            if (currentIonPrice >= ionPriceLowerBound(ionTargetPrice)) revert PriceAlreadyInRange(currentIonPrice);
+            if (currentPrice >= ionPriceLowerBound(targetPrice)) revert PriceAlreadyInRange(currentPrice);
         }
     }
 
@@ -249,7 +249,7 @@ contract V3AMO is IV3AMO, MasterAMO {
         }
 
         // Retrieve the current target price for ION.
-        uint256 targetIonPrice = ionTargetPrice();
+        uint256 targetPrice = ionTargetPrice();
 
         // Order the amounts so that ionDelta corresponds to ION token and pairTokenDelta to the pair token.
         (int256 ionDelta, int256 pairTokenDelta) = orderAmountsByTokenAddress(amount0Delta, amount1Delta);
@@ -264,7 +264,7 @@ contract V3AMO is IV3AMO, MasterAMO {
 
             // Validate that the pool has enough pair tokens and that price slippage is within allowed bounds.
             bool insufficientPairTokenBalance = balanceOfToken(pairTokenAddress) < pairTokenOutputAmount;
-            bool priceSlippageExceeded = (ionInputAmount * targetIonPrice) / FACTOR >
+            bool priceSlippageExceeded = (ionInputAmount * targetPrice) / FACTOR >
                 scalePairTokenToIonDecimals(pairTokenOutputAmount);
             if (insufficientPairTokenBalance || priceSlippageExceeded) {
                 revert InvalidDelta();
@@ -279,7 +279,7 @@ contract V3AMO is IV3AMO, MasterAMO {
             // Validate that the pool has enough ION tokens and that the input amount is within allowed price bounds.
             bool insufficientIonBalance = balanceOfToken(ionAddress) < pairTokenOutputAmount;
             bool priceExceeded = ionInputAmount >
-                (scaleIonToPairTokenDecimals(pairTokenOutputAmount) * targetIonPrice) / FACTOR;
+                (scaleIonToPairTokenDecimals(pairTokenOutputAmount) * targetPrice) / FACTOR;
             if (insufficientIonBalance || priceExceeded) {
                 revert InvalidDelta();
             }
@@ -304,7 +304,7 @@ contract V3AMO is IV3AMO, MasterAMO {
     ////// MINT-SELL-FARM FUNCTIONS //////
 
     /// @inheritdoc MasterAMO
-    function _mintAndSellIon(
+    function _mintAndSell(
         uint256 ionAmount
     ) internal override returns (uint256 ionAmountIn, uint256 pairTokenAmountOut) {
         (int256 amount0, int256 amount1) = IUniswapV3Pool(poolAddress).swap(
@@ -632,9 +632,9 @@ contract V3AMO is IV3AMO, MasterAMO {
      * @return The target sqrt price in Q64.96 format.
      */
     function targetSqrtPriceX96() public view override returns (uint160) {
-        uint256 targetIonPrice = ionTargetPrice();
-        if (pairTokenAddress < ionAddress) targetIonPrice = FACTOR ** 2 / targetIonPrice;
-        uint256 priceX96 = (targetIonPrice * Q96 ** 2) / 10 ** PRICE_DECIMALS;
+        uint256 targetPrice = ionTargetPrice();
+        if (pairTokenAddress < ionAddress) targetPrice = FACTOR ** 2 / targetPrice;
+        uint256 priceX96 = (targetPrice * Q96 ** 2) / 10 ** PRICE_DECIMALS;
         uint8 decimalsDiff = ionDecimals - pairTokenDecimals;
         if (ionAddress < pairTokenAddress) priceX96 /= 10 ** decimalsDiff;
         else priceX96 *= 10 ** decimalsDiff;

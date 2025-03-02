@@ -125,7 +125,7 @@ abstract contract MasterAMO is
      * @param pool_ Address of the liquidity pool for the ION-PairToken pair.
      * @param ionMinterAddress_ Address of the Ion minter contract.
      * @param priceManager_ Address of the price manager contract.
-     * @param pairTokenType_ The type of token paired with ION.
+     * @param pairTokenType_ The type of the token paired with ION.
      */
     function initialize(
         address admin,
@@ -282,7 +282,7 @@ abstract contract MasterAMO is
      * @return pairTokenAmount pairToken received.
      * @dev Must be implemented by a derived contract.
      */
-    function _mintAndSellIon(uint256 ionAmount) internal virtual returns (uint256 ionAmountIn, uint256 pairTokenAmount);
+    function _mintAndSell(uint256 ionAmount) internal virtual returns (uint256 ionAmountIn, uint256 pairTokenAmount);
 
     /**
      * @notice Internal function to add liquidity to the pool.
@@ -327,12 +327,10 @@ abstract contract MasterAMO is
     {
         // Explicitly initialize output variables to zero.
         (ionSpent, pairTokenSpent, liquidity) = (0, 0, 0);
-        (ionAmountIn, pairTokenAmountOut) = _mintAndSellIon(ionAmount);
-        uint256 ionCurrentPrice = ionPrice();
-        uint256 targetIonPrice = ionTargetPrice();
-        if (
-            ionCurrentPrice > ionPriceLowerBound(targetIonPrice) && ionCurrentPrice < ionPriceUpperBound(targetIonPrice)
-        ) {
+        (ionAmountIn, pairTokenAmountOut) = _mintAndSell(ionAmount);
+        uint256 currentPrice = ionPrice();
+        uint256 targetPrice = ionTargetPrice();
+        if (currentPrice > ionPriceLowerBound(targetPrice) && currentPrice < ionPriceUpperBound(targetPrice)) {
             uint256 pairTokenBalance = IERC20(pairTokenAddress).balanceOf(address(this));
             (ionSpent, pairTokenSpent, liquidity) = _addLiquidity(pairTokenBalance, minIONSpend, minPairTokenSpend);
         }
@@ -390,12 +388,10 @@ abstract contract MasterAMO is
         returns (uint256 ionSpent, uint256 pairTokenSpent, uint256 liquidity)
     {
         // Only add liquidity when current Ion price is within the valid range.
-        uint256 ionCurrentPrice = ionPrice();
-        uint256 targetIonPrice = ionTargetPrice();
-        if (
-            ionCurrentPrice <= ionPriceLowerBound(targetIonPrice) ||
-            ionCurrentPrice >= ionPriceUpperBound(targetIonPrice)
-        ) revert InvalidRatioToAddLiquidity();
+        uint256 currentPrice = ionPrice();
+        uint256 targetPrice = ionTargetPrice();
+        if (currentPrice <= ionPriceLowerBound(targetPrice) || currentPrice >= ionPriceUpperBound(targetPrice))
+            revert InvalidRatioToAddLiquidity();
 
         uint256 pairTokenBalance = IERC20(pairTokenAddress).balanceOf(address(this));
         (ionSpent, pairTokenSpent, liquidity) = _addLiquidity(pairTokenBalance, 1, 1);
@@ -459,6 +455,6 @@ abstract contract MasterAMO is
             return IPriceManager(priceManagerContractAddress).sFraxPreviewDeposit(baseUnit) + ionTargetPricePremium;
         else if (pairTokenType == PairTokenType.SDAI)
             return IPriceManager(priceManagerContractAddress).sDaiPreviewDeposit(baseUnit) + ionTargetPricePremium;
-        else revert InvalidPairedTokenType();
+        else revert InvalidPairTokenType();
     }
 }
