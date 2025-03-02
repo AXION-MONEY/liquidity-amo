@@ -401,6 +401,28 @@ export async function createRamsesPool(
   return poolAddress;
 }
 
+export async function createSolidlyPool(
+  factoryAddress: string,
+  boost: BoostStablecoin,
+  usd: MockERC20,
+  price: bigint,
+  fee: number,
+  tickSpacing: number
+): Promise<string> {
+  const [boostAddress, usdAddress, sqrtPriceX96] = await _beforeCreatePool(boost, usd, price);
+
+  const poolFactory1 = await ethers.getContractAt("IRamsesV2Factory", factoryAddress);
+  await poolFactory1.createPool(boostAddress, usdAddress, fee);
+
+  const poolFactory2 = await ethers.getContractAt("ICLFactory", factoryAddress);
+  const poolAddress = await poolFactory2.getPool(boostAddress, usdAddress, tickSpacing);
+
+  const pool = await ethers.getContractAt("IUniswapV3Pool", poolAddress);
+  await pool.initialize(sqrtPriceX96);
+
+  return poolAddress;
+}
+
 export async function createAlgebraPool(
   factoryAddress: string,
   boost: BoostStablecoin,
