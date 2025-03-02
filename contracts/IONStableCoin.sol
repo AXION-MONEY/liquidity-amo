@@ -5,35 +5,30 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20Burnable
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {AccessControlEnumerableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlEnumerableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {IBoostStablecoin} from "./interfaces/IBoostStablecoin.sol";
+import {IIONStableCoin} from "./interfaces/IIONStableCoin.sol";
 
 /**
- * @title BoostStablecoin
- * @notice The Boost stablecoin is upgradable and pausable. It is designed with role-based control
+ * @title IONStableCoin.sol
+ * @notice The Boost stableCoin is upgradable and pausable. It is designed with role-based control
  *         to allow security features such as pausing in emergencies and controlled minting.
  * @dev Inherits from Initializable, ERC20BurnableUpgradeable, PausableUpgradeable, and AccessControlEnumerableUpgradeable;
- *      implements IBoostStablecoin.
+ *      implements IIONStableCoin.sol.
  */
-contract BoostStablecoin is
+contract IONStableCoin is
     Initializable,
     ERC20BurnableUpgradeable,
     PausableUpgradeable,
     AccessControlEnumerableUpgradeable,
-    IBoostStablecoin
+    IIONStableCoin
 {
-    // -------------------------------------------------------------
-    //                         STATE VARIABLES
-    // -------------------------------------------------------------
-    // (No additional state variables; token data is inherited from ERC20)
-
     // -------------------------------------------------------------
     //                             ROLES
     // -------------------------------------------------------------
-    /// @inheritdoc IBoostStablecoin
+    /// @inheritdoc IIONStableCoin
     bytes32 public constant override MINTER_ROLE = keccak256("MINTER_ROLE");
-    /// @inheritdoc IBoostStablecoin
+    /// @inheritdoc IIONStableCoin
     bytes32 public constant override PAUSER_ROLE = keccak256("PAUSER_ROLE");
-    /// @inheritdoc IBoostStablecoin
+    /// @inheritdoc IIONStableCoin
     bytes32 public constant override UNPAUSER_ROLE = keccak256("UNPAUSER_ROLE");
 
     // -------------------------------------------------------------
@@ -49,16 +44,18 @@ contract BoostStablecoin is
     }
 
     /**
-     * @notice Initializes the BoostStablecoin contract.
-     * @param admin The address to be granted the DEFAULT_ADMIN_ROLE.
+     * @notice Initializes the IONStableCoin.sol contract.
+     * @param _name name of the token most cases ION.
+     * @param _symbol symbol of the token most cases ION.
+     * @param _admin The address to be granted the DEFAULT_ADMIN_ROLE.
      */
-    function initialize(address admin) external initializer {
-        __ERC20_init("Boost", "BOOST");
+    function initialize(string memory _name, string memory _symbol, address _admin) external initializer {
+        __ERC20_init(_name, _symbol);
         __ERC20Burnable_init();
         __Pausable_init();
         __AccessControl_init();
 
-        _grantRole(DEFAULT_ADMIN_ROLE, admin);
+        _grantRole(DEFAULT_ADMIN_ROLE, _admin);
     }
 
     // -------------------------------------------------------------
@@ -84,7 +81,7 @@ contract BoostStablecoin is
     //                      MINTER FUNCTIONS
     // -------------------------------------------------------------
 
-    /// @inheritdoc IBoostStablecoin
+    /// @inheritdoc IIONStableCoin
     function mint(address to, uint256 amount) public override onlyRole(MINTER_ROLE) {
         _mint(to, amount);
     }
@@ -93,13 +90,13 @@ contract BoostStablecoin is
     //               OVERRIDES FOR ERC20BurnableUpgradeable
     // -------------------------------------------------------------
 
-    /// @inheritdoc IBoostStablecoin
-    function burn(uint256 value) public override(ERC20BurnableUpgradeable, IBoostStablecoin) {
+    /// @inheritdoc IIONStableCoin
+    function burn(uint256 value) public override(ERC20BurnableUpgradeable, IIONStableCoin) {
         super.burn(value);
     }
 
-    /// @inheritdoc IBoostStablecoin
-    function burnFrom(address account, uint256 value) public override(ERC20BurnableUpgradeable, IBoostStablecoin) {
+    /// @inheritdoc IIONStableCoin
+    function burnFrom(address account, uint256 value) public override(ERC20BurnableUpgradeable, IIONStableCoin) {
         super.burnFrom(account, value);
     }
 

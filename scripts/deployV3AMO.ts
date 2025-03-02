@@ -22,13 +22,13 @@ async function deployMinter(boostAddress: String, collateralAddress: String, tre
 
 async function deployBoostToken(adminAddress: String): Promise<String> {
   const BoostStablecoin = await ethers.getContractFactory("BoostStablecoin");
-  console.log("Deploying BoostStablecoin...");
+  console.log("Deploying IONStableCoin.sol...");
   const contract = await upgrades.deployProxy(BoostStablecoin, [adminAddress], {
     initializer: "initialize"
   });
   await contract.waitForDeployment();
   const boostAddress = await contract.getAddress();
-  console.log("BoostStablecoin deployed to:", boostAddress);
+  console.log("IONStableCoin.sol deployed to:", boostAddress);
   return boostAddress;
 }
 

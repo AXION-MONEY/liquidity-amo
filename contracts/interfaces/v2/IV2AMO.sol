@@ -11,8 +11,8 @@ interface IV2AMO {
     // -------------------------------------------------------------
     /// @notice Thrown when a token is not whitelisted.
     error TokenNotWhitelisted(address token);
-    /// @notice Thrown when the USD amount output from a swap does not match the balance change.
-    error UsdAmountOutMismatch(uint256 routerOutput, uint256 balanceChange);
+    /// @notice Thrown when the pairToken amount output from a swap does not match the balance change.
+    error SwapPairTokenAmountOutMismatch(uint256 routerOutput, uint256 balanceChange);
     /// @notice Thrown when the LP token amount output from adding liquidity does not match the balance change.
     error LpAmountOutMismatch(uint256 routerOutput, uint256 balanceChange);
     /// @notice Thrown when the reserve ratio is invalid.
@@ -23,21 +23,21 @@ interface IV2AMO {
     // -------------------------------------------------------------
     /**
      * @notice Emitted when liquidity is added and deposited into the gauge.
-     * @param boostSpent BOOST tokens spent.
-     * @param usdSpent USD tokens spent.
+     * @param ionSpent ION tokens spent.
+     * @param pairTokenSpent pair tokens spent.
      * @param liquidity Liquidity tokens received.
      * @param tokenId The token ID used (if applicable).
      */
-    event AddLiquidityAndDeposit(uint256 boostSpent, uint256 usdSpent, uint256 liquidity, uint256 indexed tokenId);
+    event AddLiquidityAndDeposit(uint256 ionSpent, uint256 pairTokenSpent, uint256 liquidity, uint256 indexed tokenId);
 
     /**
      * @notice Emitted when an unfarm-buy-burn operation is executed.
-     * @param boostRemoved BOOST tokens removed.
-     * @param usdRemoved USD tokens removed.
+     * @param ionRemoved ION tokens removed.
+     * @param pairTokenRemoved pair tokens removed.
      * @param liquidity Liquidity tokens affected.
-     * @param boostAmountOut BOOST tokens obtained from the swap.
+     * @param ionAmountOut ION tokens obtained from the swap.
      */
-    event UnfarmBuyBurn(uint256 boostRemoved, uint256 usdRemoved, uint256 liquidity, uint256 boostAmountOut);
+    event UnfarmBuyBurn(uint256 ionRemoved, uint256 pairTokenRemoved, uint256 liquidity, uint256 ionAmountOut);
 
     /**
      * @notice Emitted when reward tokens are collected.
@@ -67,22 +67,22 @@ interface IV2AMO {
 
     /**
      * @notice Emitted when various parameters are set.
-     * @param boostMultiplier The BOOST multiplier.
+     * @param ionMultiplayer The ION multiplier.
      * @param validRangeWidth The valid range width.
      * @param validRemovingRatio The valid ratio for liquidity removal.
-     * @param boostLowerPriceSell The lower price threshold for selling BOOST.
-     * @param boostUpperPriceBuy The upper price threshold for buying BOOST.
-     * @param boostSellRatio The BOOST sell ratio.
-     * @param usdBuyRatio The USD buy ratio.
+     * @param ionLowerPriceSell The lower price threshold for selling ION.
+     * @param ionUpperPriceBuy The upper price threshold for buying ION.
+     * @param ionSellRatio The ION sell ratio.
+     * @param pairTokenBuyRatio The pairToken buy ratio.
      */
     event ParamsSet(
-        uint256 boostMultiplier,
+        uint256 ionMultiplayer,
         uint24 validRangeWidth,
         uint24 validRemovingRatio,
-        uint256 boostLowerPriceSell,
-        uint256 boostUpperPriceBuy,
-        uint256 boostSellRatio,
-        uint256 usdBuyRatio
+        uint256 ionLowerPriceSell,
+        uint256 ionUpperPriceBuy,
+        uint256 ionSellRatio,
+        uint256 pairTokenBuyRatio
     );
 
     /**
@@ -116,12 +116,7 @@ interface IV2AMO {
     /**
      * @notice Returns true if the pool is stable; false otherwise.
      */
-    function stable() external view returns (bool);
-
-    /**
-     * @notice Returns the pool fee.
-     */
-    function poolFee() external view returns (uint256);
+    function isStablePool() external view returns (bool);
 
     /**
      * @notice Returns the pool type.
@@ -131,17 +126,22 @@ interface IV2AMO {
     /**
      * @notice Returns the address of the Solidly factory.
      */
-    function factory() external view returns (address);
+    function factoryAddress() external view returns (address);
 
     /**
      * @notice Returns the address of the router.
      */
-    function router() external view returns (address);
+    function routerAddress() external view returns (address);
 
     /**
      * @notice Returns the address of the gauge.
      */
-    function gauge() external view returns (address);
+    function gaugeAddress() external view returns (address);
+
+    /**
+     * @notice Returns the pool fee.
+     */
+    function poolFee() external view returns (uint256);
 
     /**
      * @notice Returns the reward vault address.
@@ -156,14 +156,14 @@ interface IV2AMO {
     function whitelistedRewardTokens(address token) external view returns (bool);
 
     /**
-     * @notice Returns the BOOST sell ratio.
+     * @notice Returns the ION sell ratio.
      */
-    function boostSellRatio() external view returns (uint256);
+    function ionSellRatio() external view returns (uint256);
 
     /**
-     * @notice Returns the USD buy ratio.
+     * @notice Returns the pairToken buy ratio.
      */
-    function usdBuyRatio() external view returns (uint256);
+    function pairTokenBuyRatio() external view returns (uint256);
 
     /**
      * @notice Returns the token ID for gauge deposits.
@@ -199,22 +199,22 @@ interface IV2AMO {
 
     /**
      * @notice Sets various parameters for AMO operations.
-     * @param boostMultiplier_ The BOOST multiplier.
+     * @param ionMultiplier_ The ION multiplier.
      * @param validRangeWidth_ The valid range width for liquidity addition.
      * @param validRemovingRatio_ The valid ratio for liquidity removal.
-     * @param boostLowerPriceSell_ The lower price threshold for selling BOOST.
-     * @param boostUpperPriceBuy_ The upper price threshold for buying BOOST.
-     * @param boostSellRatio_ The BOOST sell ratio.
-     * @param usdBuyRatio_ The USD buy ratio.
+     * @param ionLowerPriceSell_ The lower price threshold for selling ION.
+     * @param ionUpperPriceBuy_ The upper price threshold for buying ION.
+     * @param ionSellRatio_ The ION sell ratio.
+     * @param pairTokenBuyRatio_ The pairToken buy ratio.
      */
     function setParams(
-        uint256 boostMultiplier_,
+        uint256 ionMultiplier_,
         uint24 validRangeWidth_,
         uint24 validRemovingRatio_,
-        uint256 boostLowerPriceSell_,
-        uint256 boostUpperPriceBuy_,
-        uint256 boostSellRatio_,
-        uint256 usdBuyRatio_
+        uint256 ionLowerPriceSell_,
+        uint256 ionUpperPriceBuy_,
+        uint256 ionSellRatio_,
+        uint256 pairTokenBuyRatio_
     ) external;
 
     /**
@@ -232,9 +232,9 @@ interface IV2AMO {
     function getReward(address[] memory tokens, bool passTokens) external;
 
     /**
-     * @notice Retrieves the current reserves for BOOST and USD from the pair contract.
-     * @return boostReserve The reserve amount of BOOST (scaled as needed).
-     * @return usdReserve The reserve amount of USD (scaled as needed).
+     * @notice Retrieves the current reserves for ION and pairToken from the pair contract.
+     * @return ionReserve The reserve amount of ION (scaled as needed).
+     * @return pairTokenReserve The reserve amount of pairToken (scaled as needed).
      */
-    function getReserves() external view returns (uint256 boostReserve, uint256 usdReserve);
+    function getReserves() external view returns (uint256 ionReserve, uint256 pairTokenReserve);
 }

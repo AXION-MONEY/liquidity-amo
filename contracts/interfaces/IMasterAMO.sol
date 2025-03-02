@@ -25,7 +25,7 @@ interface IMasterAMO {
     /// @notice Reverts when removing liquidity is attempted with an invalid ratio.
     error InvalidRatioToRemoveLiquidity();
 
-    /// @notice Reverts when the BOOST price is not within an expected range.
+    /// @notice Reverts when the ION price is not within an expected range.
     error PriceNotInRange(uint256 price);
 
     /// @notice Reverts when an operation is attempted but the price is already within the expected range.
@@ -39,37 +39,37 @@ interface IMasterAMO {
     // -------------------------------------------------------------
 
     /**
-     * @notice Emitted when BOOST is minted and sold for USD.
-     * @param boostAmountIn The amount of BOOST minted and sold.
-     * @param usdAmountOut The amount of USD received.
+     * @notice Emitted when ION is minted and sold for PairToken.
+     * @param ionAmountIn The amount of ION minted and sold.
+     * @param pairTokenAmountOut The amount of pairToken received.
      */
-    event MintSell(uint256 boostAmountIn, uint256 usdAmountOut);
+    event MintSell(uint256 ionAmountIn, uint256 pairTokenAmountOut);
 
     /**
      * @notice Emitted when a public `mintSellFarm` operation is executed.
      * @param liquidity The amount of liquidity added.
-     * @param newBoostPrice The new BOOST price after the operation.
+     * @param postOperationIonPrice The new ION price after the operation.
      */
-    event PublicMintSellFarmExecuted(uint256 liquidity, uint256 newBoostPrice);
+    event MintSellFarmExecuted(uint256 liquidity, uint256 postOperationIonPrice);
 
     /**
-     * @notice Emitted when a public `unfarmBuyBurn` operation is executed.
+     * @notice Emitted when a `unfarmBuyBurn` operation is executed.
      * @param liquidity The amount of liquidity removed.
-     * @param newBoostPrice The new BOOST price after the operation.
+     * @param postOperationIonPrice The new ION price after the operation.
      */
-    event PublicUnfarmBuyBurnExecuted(uint256 liquidity, uint256 newBoostPrice);
+    event UnfarmBuyBurnExecuted(uint256 liquidity, uint256 postOperationIonPrice);
 
     /**
      * @notice Emitted when the target price premium is updated.
      * @param premium The new premium value.
      */
-    event SetTargetPricePremium(uint256 premium);
+    event SetIonTargetPricePremium(uint256 premium);
 
     // -------------------------------------------------------------
     //                           ENUMS
     // -------------------------------------------------------------
-    enum PairedTokenType {
-        STABLE, // TODO: Consider renaming to USD for clarity
+    enum PairTokenType {
+        STABLE,
         SUSDE,
         SFRAX,
         SDAI
@@ -93,26 +93,32 @@ interface IMasterAMO {
     // -------------------------------------------------------------
     //                        STATE VARIABLES
     // -------------------------------------------------------------
-    /// @notice Address of the BOOST token.
-    function boost() external view returns (address);
+    /// @notice Address of the ION token.
+    function ionAddress() external view returns (address);
 
-    /// @notice Address of the USD token.
-    function usd() external view returns (address);
+    /// @notice Address of the pair token.
+    function pairTokenAddress() external view returns (address);
 
     /// @notice Address of the liquidity pool.
-    function pool() external view returns (address);
+    function poolAddress() external view returns (address);
 
-    /// @notice Number of decimals used by the BOOST token.
-    function boostDecimals() external view returns (uint8);
+    /// @notice Number of decimals used by the ION token.
+    function ionDecimals() external view returns (uint8);
 
-    /// @notice Number of decimals used by the USD token.
-    function usdDecimals() external view returns (uint8);
+    /// @notice Number of decimals used by the pair token.
+    function pairTokenDecimals() external view returns (uint8);
 
-    /// @notice Address of the BOOST minter contract.
-    function boostMinter() external view returns (address);
+    /// @notice Address of the ION minter contract.
+    function ionMinterAddress() external view returns (address);
 
-    /// @notice BOOST multiplier (scaled to 6 decimals).
-    function boostMultiplier() external view returns (uint256);
+    /// @notice Address of the PriceManager Contract.
+    function priceManagerContractAddress() external view returns (address);
+
+    /// @notice Type of the PairToken either USD or other Staked Stable types.
+    function pairTokenType() external view returns (PairTokenType);
+
+    /// @notice ION multiplier (scaled to 6 decimals).
+    function ionMultiplayer() external view returns (uint256);
 
     /// @notice Valid range ratio for adding liquidity (6 decimals).
     function validRangeWidth() external view returns (uint24);
@@ -120,11 +126,11 @@ interface IMasterAMO {
     /// @notice Valid removing liquidity ratio (6 decimals). expected to be close to 1.
     function validRemovingRatio() external view returns (uint24);
 
-    /// @notice BOOST lower price threshold after a sell operation (6 decimals).
-    function boostLowerPriceSell() external view returns (uint256);
+    /// @notice ION lower price threshold after a sell operation (6 decimals).
+    function ionLowerPriceSell() external view returns (uint256);
 
-    /// @notice BOOST upper price threshold after a buy operation (6 decimals).
-    function boostUpperPriceBuy() external view returns (uint256);
+    /// @notice ION upper price threshold after a buy operation (6 decimals).
+    function ionUpperPriceBuy() external view returns (uint256);
 
     /**
      * @notice Retrieves the current premium offset used for staked pairs in target price calculations.
@@ -134,13 +140,7 @@ interface IMasterAMO {
      *
      * @return The current premium offset.
      */
-    function targetPricePremium() external view returns (uint256);
-
-    /// @notice Address of the PriceManager Contract.
-    function priceManager() external view returns (address);
-
-    /// @notice Type of the PairToken either USD or other Staked Stable types.
-    function pairedTokenType() external view returns (PairedTokenType);
+    function ionTargetPricePremium() external view returns (uint256);
 
     // -------------------------------------------------------------
     //                           FUNCTIONS
@@ -158,26 +158,26 @@ interface IMasterAMO {
     function unpause() external;
 
     /**
-     * @notice Adds liquidity to the BOOST-USD pool, based on the contract's USD balance.
-     * @return boostSpent The BOOST tokens spent.
-     * @return usdSpent The USD tokens spent.
+     * @notice Adds liquidity to the ION-PairToken pool, based on the contract's PairToken balance.
+     * @return ionSpent The ION tokens spent.
+     * @return pairTokenSpent The pair tokens spent.
      * @return liquidity The liquidity tokens received.
      */
-    function addLiquidity() external returns (uint256 boostSpent, uint256 usdSpent, uint256 liquidity);
+    function addLiquidity() external returns (uint256 ionSpent, uint256 pairTokenSpent, uint256 liquidity);
 
     /**
-     * @notice Mints, sells, and farms BOOST tokens when BOOST is over peg.
+     * @notice Mints, sells, and farms ION tokens when ION is over peg.
      * @return liquidity The liquidity tokens received.
-     * @return newBoostPrice The new average BOOST price after the operation.
+     * @return postOperationIonPrice The new average ION price after the operation.
      */
-    function mintSellFarm() external returns (uint256 liquidity, uint256 newBoostPrice);
+    function mintSellFarm() external returns (uint256 liquidity, uint256 postOperationIonPrice);
 
     /**
-     * @notice Unfarms liquidity, buys, and burns BOOST tokens when BOOST is under peg.
+     * @notice Unfarms liquidity, buys, and burns ION tokens when ION is under peg.
      * @return liquidity The liquidity tokens affected.
-     * @return newBoostPrice The new average BOOST price after the operation.
+     * @return postOperationIonPrice The new average ION price after the operation.
      */
-    function unfarmBuyBurn() external returns (uint256 liquidity, uint256 newBoostPrice);
+    function unfarmBuyBurn() external returns (uint256 liquidity, uint256 postOperationIonPrice);
 
     /**
      * @notice Withdraws ERC20 tokens from the contract.
@@ -188,13 +188,13 @@ interface IMasterAMO {
     function withdrawERC20(address token, uint256 amount, address recipient) external;
 
     /**
-     * @notice Retrieves the current BOOST price.
-     * @return price The current BOOST price (using 6 decimals).
+     * @notice Retrieves the current ION price.
+     * @return price The current ION price (using 6 decimals).
      */
-    function boostPrice() external view returns (uint256 price);
+    function ionPrice() external view returns (uint256 price);
 
     /**
-     * @notice Retrieves the target price for Boost based on the paired token type.
+     * @notice Retrieves the target price for ION based on the paired token type.
      * @dev The target price is determined as follows:
      *      - For a STABLE paired token, the target price is set to a fixed base unit (1 × 10^PRICE_DECIMALS).
      *      - For staked pairs (SUSDE, SFRAX, SDAI), the target price is calculated by querying the corresponding
@@ -203,5 +203,5 @@ interface IMasterAMO {
      *
      * @return price The computed target price.
      */
-    function targetPrice() external view returns (uint256 price);
+    function ionTargetPrice() external view returns (uint256 price);
 }

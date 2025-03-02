@@ -20,6 +20,7 @@ import {IRamsesV2Pool} from "./interfaces/v3/IRamsesV2Pool.sol";
 import {IV3AMO} from "./interfaces/v3/IV3AMO.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import {IIONStableCoin} from "./interfaces/IIONStableCoin.sol";
 
 /**
  * @title V3AMO Contract
@@ -44,7 +45,7 @@ contract V3AMO is IV3AMO, MasterAMO {
     /// @inheritdoc IV3AMO
     int24 public override tickUpper;
     /// @inheritdoc IV3AMO
-    address public override quoter;
+    address public override quoterAddress;
 
     // -------------------------------------------------------------
     //                         INTERNAL CONSTANTS
@@ -69,55 +70,63 @@ contract V3AMO is IV3AMO, MasterAMO {
     /**
      * @notice Initializes the V3AMO contract.
      * @param admin Address with admin privileges.
-     * @param boost_ Address of the BOOST token.
-     * @param usd_ Address of the USD token.
-     * @param pool_ Address of the liquidity pool.
+     * @param ionAddress_ Address of the ION Stable token.
+     * @param pairTokenAddress_ Address of the pair token.
+     * @param poolAddress_ Address of the liquidity pool.
      * @param poolType_ The type of pool.
-     * @param quoter_ Address of the quoter contract.
+     * @param quoterAddress_ Address of the quoter contract.
      * @param poolCustomDeployer_ Address of the custom deployer for Algebra integral pools.
-     * @param boostMinter_ Address of the BOOST minter contract.
-     * @param priceManager_ Address of the price manager contract.
+     * @param ionMinterAddress_ Address of the ION minter contract.
+     * @param priceManagerAddress_ Address of the price manager contract.
      * @param pairedTokenType_ The paired token type.
      * @param tickLower_ Lower tick boundary.
      * @param tickUpper_ Upper tick boundary.
-     * @param boostMultiplier_ Multiplier for BOOST minting.
+     * @param ionMultiplayer_ Multiplier for ION minting.
      * @param validRangeWidth_ Valid range width for liquidity addition.
      * @param validRemovingRatio_ Valid ratio for liquidity removal.
-     * @param boostLowerPriceSell_ Lower price threshold for selling BOOST.
-     * @param boostUpperPriceBuy_ Upper price threshold for buying BOOST.
+     * @param ionLowerPriceSell_ Lower price threshold for selling ION.
+     * @param ionUpperPriceBuy_ Upper price threshold for buying ION.
      */
     function initialize(
         address admin,
-        address boost_,
-        address usd_,
-        address pool_,
+        address ionAddress_,
+        address pairTokenAddress_,
+        address poolAddress_,
         PoolType poolType_,
-        address quoter_,
+        address quoterAddress_,
         address poolCustomDeployer_,
-        address boostMinter_,
-        address priceManager_,
-        PairedTokenType pairedTokenType_,
+        address ionMinterAddress_,
+        address priceManagerAddress_,
+        PairTokenType pairedTokenType_,
         int24 tickLower_,
         int24 tickUpper_,
-        uint256 boostMultiplier_,
+        uint256 ionMultiplayer_,
         uint24 validRangeWidth_,
         uint24 validRemovingRatio_,
-        uint256 boostLowerPriceSell_,
-        uint256 boostUpperPriceBuy_
+        uint256 ionLowerPriceSell_,
+        uint256 ionUpperPriceBuy_
     ) public initializer {
-        super.initialize(admin, boost_, usd_, pool_, boostMinter_, priceManager_, pairedTokenType_);
+        super.initialize(
+            admin,
+            ionAddress_,
+            pairTokenAddress_,
+            poolAddress_,
+            ionMinterAddress_,
+            priceManagerAddress_,
+            pairedTokenType_
+        );
         poolType = poolType_;
         poolCustomDeployer = poolCustomDeployer_;
 
         _grantRole(SETTER_ROLE, msg.sender);
         setTickBounds(tickLower_, tickUpper_);
         setParams(
-            quoter_,
-            boostMultiplier_,
+            quoterAddress_,
+            ionMultiplayer_,
             validRangeWidth_,
             validRemovingRatio_,
-            boostLowerPriceSell_,
-            boostUpperPriceBuy_
+            ionLowerPriceSell_,
+            ionUpperPriceBuy_
         );
         _revokeRole(SETTER_ROLE, msg.sender);
     }
@@ -135,27 +144,27 @@ contract V3AMO is IV3AMO, MasterAMO {
 
     /// @inheritdoc IV3AMO
     function setParams(
-        address quoter_,
-        uint256 boostMultiplier_,
+        address quoterAddress_,
+        uint256 ionMultiplayer_,
         uint24 validRangeWidth_,
         uint24 validRemovingRatio_,
-        uint256 boostLowerPriceSell_,
-        uint256 boostUpperPriceBuy_
+        uint256 ionLowerPriceSell_,
+        uint256 ionUpperPriceBuy_
     ) public override onlyRole(SETTER_ROLE) {
         if (validRangeWidth_ > FACTOR || validRemovingRatio_ < FACTOR) revert InvalidRatioValue();
-        quoter = quoter_;
-        boostMultiplier = boostMultiplier_;
+        quoterAddress = quoterAddress_;
+        ionMultiplayer = ionMultiplayer_;
         validRangeWidth = validRangeWidth_;
         validRemovingRatio = validRemovingRatio_;
-        boostLowerPriceSell = boostLowerPriceSell_;
-        boostUpperPriceBuy = boostUpperPriceBuy_;
+        ionLowerPriceSell = ionLowerPriceSell_;
+        ionUpperPriceBuy = ionUpperPriceBuy_;
         emit ParamsSet(
-            quoter,
-            boostMultiplier,
+            quoterAddress,
+            ionMultiplayer,
             validRangeWidth,
             validRemovingRatio,
-            boostLowerPriceSell,
-            boostUpperPriceBuy
+            ionLowerPriceSell,
+            ionUpperPriceBuy
         );
     }
 
@@ -164,22 +173,22 @@ contract V3AMO is IV3AMO, MasterAMO {
     // -------------------------------------------------------------
 
     /**
-     * @notice Internal function to calculate liquidity for a given USD amount.
-     * @param usdAmount USD amount.
+     * @notice Internal function to calculate liquidity for a given pairToken Amount.
+     * @param pairTokenAmount pairToken amount.
      * @return liquidity Calculated liquidity.
      */
-    function _getLiquidityForUsdAmount(uint256 usdAmount) internal view returns (uint256 liquidity) {
+    function _getLiquidityForPairTokenAmount(uint256 pairTokenAmount) internal view returns (uint256 liquidity) {
         uint160 sqrtRatioX96 = _getSqrtPriceX96();
         uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(tickLower);
         uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(tickUpper);
 
-        if (usd < boost) {
+        if (pairTokenAddress < ionAddress) {
             if (sqrtRatioX96 >= sqrtRatioBX96) return 0;
             return
                 LiquidityAmounts.getLiquidityForAmount0(
                     uint160(Math.max(sqrtRatioX96, sqrtRatioAX96)),
                     sqrtRatioBX96,
-                    usdAmount
+                    pairTokenAmount
                 );
         } else {
             if (sqrtRatioX96 <= sqrtRatioAX96) return 0;
@@ -187,7 +196,7 @@ contract V3AMO is IV3AMO, MasterAMO {
                 LiquidityAmounts.getLiquidityForAmount1(
                     sqrtRatioAX96,
                     uint160(Math.min(sqrtRatioX96, sqrtRatioBX96)),
-                    usdAmount
+                    pairTokenAmount
                 );
         }
     }
@@ -203,21 +212,21 @@ contract V3AMO is IV3AMO, MasterAMO {
             poolType == PoolType.ALGEBRA_V1_9 ||
             poolType == PoolType.ALGEBRA_INTEGRAL
         ) {
-            (, data) = pool.staticcall(abi.encodeWithSignature("globalState()"));
+            (, data) = poolAddress.staticcall(abi.encodeWithSignature("globalState()"));
         } else {
-            (, data) = pool.staticcall(abi.encodeWithSignature("slot0()"));
+            (, data) = poolAddress.staticcall(abi.encodeWithSignature("slot0()"));
         }
         _sqrtPriceX96 = abi.decode(data, (uint160));
     }
 
     /// @inheritdoc MasterAMO
-    function _validateSwap(bool boostForUsd) internal view override {
-        uint256 price = boostPrice();
-        uint256 tp = targetPrice();
-        if (boostForUsd) {
-            if (price <= priceUpperBound(tp)) revert PriceAlreadyInRange(price);
+    function _validateSwap(bool ionForPairToken) internal view override {
+        uint256 currentIonPrice = ionPrice();
+        uint256 ionTargetPrice = ionTargetPrice();
+        if (ionForPairToken) {
+            if (currentIonPrice <= ionPriceUpperBound(ionTargetPrice)) revert PriceAlreadyInRange(currentIonPrice);
         } else {
-            if (price >= priceLowerBound(tp)) revert PriceAlreadyInRange(price);
+            if (currentIonPrice >= ionPriceLowerBound(ionTargetPrice)) revert PriceAlreadyInRange(currentIonPrice);
         }
     }
 
@@ -234,26 +243,48 @@ contract V3AMO is IV3AMO, MasterAMO {
      * @dev Processes swap based on SwapType. Reverts if caller is untrusted.
      */
     function _swapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) internal {
-        if (msg.sender != pool) revert UntrustedCaller(msg.sender);
-        uint256 boostTargetPrice = targetPrice();
-        (int256 boostDelta, int256 usdDelta) = sortAmounts(amount0Delta, amount1Delta);
+        // Verify that the caller is the expected pool.
+        if (msg.sender != poolAddress) {
+            revert UntrustedCaller(msg.sender);
+        }
+
+        // Retrieve the current target price for ION.
+        uint256 targetIonPrice = ionTargetPrice();
+
+        // Order the amounts so that ionDelta corresponds to ION token and pairTokenDelta to the pair token.
+        (int256 ionDelta, int256 pairTokenDelta) = orderAmountsByTokenAddress(amount0Delta, amount1Delta);
+
+        // Decode the swap type from the callback data.
         SwapType swapType = abi.decode(data, (SwapType));
+
         if (swapType == SwapType.SELL) {
-            uint256 boostAmountIn = uint256(boostDelta);
-            uint256 usdAmountOut = uint256(-usdDelta);
-            if (
-                balanceOfToken(usd) < usdAmountOut ||
-                (boostAmountIn * boostTargetPrice) / FACTOR > toBoostAmount(usdAmountOut)
-            ) revert InvalidDelta();
-            IMinter(boostMinter).protocolMint(pool, boostAmountIn);
+            // For a SELL, ION is the input token and pair token is the output.
+            uint256 ionInputAmount = uint256(ionDelta);
+            uint256 pairTokenOutputAmount = uint256(-pairTokenDelta);
+
+            // Validate that the pool has enough pair tokens and that price slippage is within allowed bounds.
+            bool insufficientPairTokenBalance = balanceOfToken(pairTokenAddress) < pairTokenOutputAmount;
+            bool priceSlippageExceeded = (ionInputAmount * targetIonPrice) / FACTOR >
+                scalePairTokenToIonDecimals(pairTokenOutputAmount);
+            if (insufficientPairTokenBalance || priceSlippageExceeded) {
+                revert InvalidDelta();
+            }
+            // Mint ION tokens to the pool as part of the swap.
+            IMinter(ionMinterAddress).protocolMint(poolAddress, ionInputAmount);
         } else if (swapType == SwapType.BUY) {
-            uint256 usdAmountIn = uint256(usdDelta);
-            uint256 boostAmountOut = uint256(-boostDelta);
-            if (
-                balanceOfToken(boost) < boostAmountOut ||
-                usdAmountIn > (toUsdAmount(boostAmountOut) * boostTargetPrice) / FACTOR
-            ) revert InvalidDelta();
-            IERC20(usd).safeTransfer(pool, usdAmountIn);
+            // For a BUY, the pair token is used as the input and ION as the output.
+            uint256 ionInputAmount = uint256(pairTokenDelta);
+            uint256 pairTokenOutputAmount = uint256(-ionDelta);
+
+            // Validate that the pool has enough ION tokens and that the input amount is within allowed price bounds.
+            bool insufficientIonBalance = balanceOfToken(ionAddress) < pairTokenOutputAmount;
+            bool priceExceeded = ionInputAmount >
+                (scaleIonToPairTokenDecimals(pairTokenOutputAmount) * targetIonPrice) / FACTOR;
+            if (insufficientIonBalance || priceExceeded) {
+                revert InvalidDelta();
+            }
+            // Transfer pair tokens to the pool to complete the swap.
+            IERC20(pairTokenAddress).safeTransfer(poolAddress, ionInputAmount);
         }
     }
 
@@ -264,38 +295,38 @@ contract V3AMO is IV3AMO, MasterAMO {
      * @param data Callback data.
      */
     function _mintCallback(uint256 amount0Owed, uint256 amount1Owed, bytes calldata data) internal {
-        if (msg.sender != pool) revert UntrustedCaller(msg.sender);
-        (uint256 boostOwed, uint256 usdOwed) = sortAmounts(amount0Owed, amount1Owed);
-        IERC20(usd).safeTransfer(pool, usdOwed);
-        IMinter(boostMinter).protocolMint(pool, boostOwed);
+        if (msg.sender != poolAddress) revert UntrustedCaller(msg.sender);
+        (uint256 ionOwed, uint256 pairTokenOwed) = orderAmountsByTokenAddress(amount0Owed, amount1Owed);
+        IERC20(pairTokenAddress).safeTransfer(poolAddress, pairTokenOwed);
+        IMinter(ionMinterAddress).protocolMint(poolAddress, ionOwed);
     }
 
     ////// MINT-SELL-FARM FUNCTIONS //////
 
     /// @inheritdoc MasterAMO
-    function _mintAndSellBoost(
-        uint256 boostAmount
-    ) internal override returns (uint256 boostAmountIn, uint256 usdAmountOut) {
-        (int256 amount0, int256 amount1) = IUniswapV3Pool(pool).swap(
+    function _mintAndSellIon(
+        uint256 ionAmount
+    ) internal override returns (uint256 ionAmountIn, uint256 pairTokenAmountOut) {
+        (int256 amount0, int256 amount1) = IUniswapV3Pool(poolAddress).swap(
             address(this),
-            boost < usd, // zeroForOne
-            int256(boostAmount),
+            ionAddress < pairTokenAddress, // zeroForOne
+            int256(ionAmount),
             targetSqrtPriceX96(),
             abi.encode(SwapType.SELL)
         );
-        (int256 boostDelta, int256 usdDelta) = sortAmounts(amount0, amount1);
-        boostAmountIn = uint256(boostDelta);
-        usdAmountOut = uint256(-usdDelta);
-        emit MintSell(boostAmountIn, usdAmountOut);
+        (int256 ionDelta, int256 pairTokenDelta) = orderAmountsByTokenAddress(amount0, amount1);
+        ionAmountIn = uint256(ionDelta);
+        pairTokenAmountOut = uint256(-pairTokenDelta);
+        emit MintSell(ionAmountIn, pairTokenAmountOut);
     }
 
     /// @inheritdoc MasterAMO
     function _addLiquidity(
-        uint256 usdAmount,
-        uint256 minBoostSpend,
-        uint256 minUsdSpend
-    ) internal override returns (uint256 boostSpent, uint256 usdSpent, uint256 liquidity) {
-        liquidity = _getLiquidityForUsdAmount(usdAmount);
+        uint256 pairTokenAmount,
+        uint256 minIonSpend,
+        uint256 minPairTokenSpend
+    ) internal override returns (uint256 ionSpent, uint256 pairTokenSpent, uint256 liquidity) {
+        liquidity = _getLiquidityForPairTokenAmount(pairTokenAmount);
         uint256 amount0;
         uint256 amount1;
         if (
@@ -303,7 +334,7 @@ contract V3AMO is IV3AMO, MasterAMO {
             poolType == PoolType.ALGEBRA_V1_9 ||
             poolType == PoolType.ALGEBRA_INTEGRAL
         ) {
-            (amount0, amount1, ) = IAlgebraPool(pool).mint(
+            (amount0, amount1, ) = IAlgebraPool(poolAddress).mint(
                 address(this),
                 address(this),
                 tickLower,
@@ -312,11 +343,17 @@ contract V3AMO is IV3AMO, MasterAMO {
                 ""
             );
         } else {
-            (amount0, amount1) = IUniswapV3Pool(pool).mint(address(this), tickLower, tickUpper, uint128(liquidity), "");
+            (amount0, amount1) = IUniswapV3Pool(poolAddress).mint(
+                address(this),
+                tickLower,
+                tickUpper,
+                uint128(liquidity),
+                ""
+            );
         }
-        (boostSpent, usdSpent) = sortAmounts(amount0, amount1);
-        if (boostSpent < minBoostSpend || usdSpent < minUsdSpend) revert InsufficientTokenSpent();
-        emit AddLiquidity(boostSpent, usdSpent, liquidity);
+        (ionSpent, pairTokenSpent) = orderAmountsByTokenAddress(amount0, amount1);
+        if (ionSpent < minIonSpend || pairTokenSpent < minPairTokenSpend) revert InsufficientTokenSpent();
+        emit AddLiquidity(ionSpent, pairTokenSpent, liquidity);
     }
 
     ////// UNFARM-BUY-BURN FUNCTIONS //////
@@ -324,129 +361,139 @@ contract V3AMO is IV3AMO, MasterAMO {
     /// @inheritdoc MasterAMO
     function _unfarmBuyBurn(
         uint256 liquidity,
-        uint256 minBoostRemove,
-        uint256 minUsdRemove
+        uint256 minIonRemove,
+        uint256 minPairTokenRemove
     )
         internal
         override
-        returns (uint256 boostRemoved, uint256 usdRemoved, uint256 usdAmountIn, uint256 boostAmountOut)
+        returns (uint256 ionRemoved, uint256 pairTokenRemoved, uint256 pairTokenAmountIn, uint256 ionAmountOut)
     {
         uint256 amount0FromBurn;
         uint256 amount1FromBurn;
         if (poolType == PoolType.ALGEBRA_INTEGRAL) {
-            (amount0FromBurn, amount1FromBurn) = IAlgebraIntegralPool(pool).burn(
+            (amount0FromBurn, amount1FromBurn) = IAlgebraIntegralPool(poolAddress).burn(
                 tickLower,
                 tickUpper,
                 uint128(liquidity),
                 ""
             );
         } else {
-            (amount0FromBurn, amount1FromBurn) = IUniswapV3Pool(pool).burn(tickLower, tickUpper, uint128(liquidity));
+            (amount0FromBurn, amount1FromBurn) = IUniswapV3Pool(poolAddress).burn(
+                tickLower,
+                tickUpper,
+                uint128(liquidity)
+            );
         }
-        (boostRemoved, usdRemoved) = sortAmounts(amount0FromBurn, amount1FromBurn);
-        if (boostRemoved < minBoostRemove) revert InsufficientOutputAmount(boostRemoved, minBoostRemove);
-        if (usdRemoved < minUsdRemove) revert InsufficientOutputAmount(usdRemoved, minUsdRemove);
+        (ionRemoved, pairTokenRemoved) = orderAmountsByTokenAddress(amount0FromBurn, amount1FromBurn);
+        if (ionRemoved < minIonRemove) revert InsufficientOutputAmount(ionRemoved, minIonRemove);
+        if (pairTokenRemoved < minPairTokenRemove)
+            revert InsufficientOutputAmount(pairTokenRemoved, minPairTokenRemove);
 
         if (poolType == PoolType.SOLIDLY_V3) {
-            address feeCollector = ISolidlyV3Factory(ISolidlyV3Pool(pool).factory()).feeCollector();
-            IRewardsDistributor(feeCollector).collectPoolFees(pool);
+            address feeCollector = ISolidlyV3Factory(ISolidlyV3Pool(poolAddress).factory()).feeCollector();
+            IRewardsDistributor(feeCollector).collectPoolFees(poolAddress);
         }
         uint128 amount0Collected;
         uint128 amount1Collected;
-        (amount0Collected, amount1Collected) = IUniswapV3Pool(pool).collect(
+        (amount0Collected, amount1Collected) = IUniswapV3Pool(poolAddress).collect(
             address(this),
             tickLower,
             tickUpper,
             type(uint128).max,
             type(uint128).max
         );
-        (uint256 boostCollected, uint256 usdCollected) = sortAmounts(amount0Collected, amount1Collected);
+        (uint256 ionCollected, uint256 pairTokenCollected) = orderAmountsByTokenAddress(
+            amount0Collected,
+            amount1Collected
+        );
 
-        if ((((boostRemoved * validRemovingRatio) / FACTOR) * targetPrice()) / FACTOR < toBoostAmount(usdRemoved))
-            revert InvalidRatioToRemoveLiquidity();
+        if (
+            (((ionRemoved * validRemovingRatio) / FACTOR) * ionTargetPrice()) / FACTOR <
+            scalePairTokenToIonDecimals(pairTokenRemoved)
+        ) revert InvalidRatioToRemoveLiquidity();
 
-        (int256 amount0, int256 amount1) = IUniswapV3Pool(pool).swap(
+        (int256 amount0, int256 amount1) = IUniswapV3Pool(poolAddress).swap(
             address(this),
-            boost > usd, // zeroForOne
-            int256(usdRemoved),
+            ionAddress > pairTokenAddress, // zeroForOne
+            int256(pairTokenRemoved),
             targetSqrtPriceX96(),
             abi.encode(SwapType.BUY)
         );
-        (int256 boostDelta, int256 usdDelta) = sortAmounts(amount0, amount1);
-        usdAmountIn = uint256(usdDelta);
-        boostAmountOut = uint256(-boostDelta);
+        (int256 ionDelta, int256 pairTokenDelta) = orderAmountsByTokenAddress(amount0, amount1);
+        pairTokenAmountIn = uint256(pairTokenDelta);
+        ionAmountOut = uint256(-ionDelta);
 
-        uint256 unusedUsdAmount = usdRemoved - usdAmountIn;
-        if (unusedUsdAmount > 0) _addLiquidity(unusedUsdAmount, 1, 1);
+        uint256 remainedPairTokenAfterOperation = pairTokenRemoved - pairTokenAmountIn;
+        if (remainedPairTokenAfterOperation > 0) _addLiquidity(remainedPairTokenAfterOperation, 1, 1);
 
-        IBoostStablecoin(boost).burn(boostCollected + boostAmountOut);
+        IIONStableCoin(ionAddress).burn(ionCollected + ionAmountOut);
 
         emit UnfarmBuyBurn(
-            boostRemoved,
-            usdRemoved,
+            ionRemoved,
+            pairTokenRemoved,
             liquidity,
-            usdAmountIn,
-            boostAmountOut,
-            boostCollected - boostRemoved,
-            usdCollected - usdRemoved
+            pairTokenAmountIn,
+            ionAmountOut,
+            ionCollected - ionRemoved,
+            pairTokenCollected - pairTokenRemoved
         );
     }
 
     /// @inheritdoc MasterAMO
-    function _mintSellFarm() internal override returns (uint256 liquidity, uint256 newBoostPrice) {
+    function _mintSellFarm() internal override returns (uint256 liquidity, uint256 postOperationIonPrice) {
         (, , , , liquidity) = _mintSellFarm(
             uint256(type(int256).max), // maximum BOOST amount
             1, // minBoostSpend
             1 // minUsdSpend
         );
-        newBoostPrice = boostPrice();
+        postOperationIonPrice = ionPrice();
     }
 
     /// @inheritdoc MasterAMO
-    function _unfarmBuyBurn() internal override returns (uint256 liquidity, uint256 newBoostPrice) {
+    function _unfarmBuyBurn() internal override returns (uint256 liquidity, uint256 postOperationIonPrice) {
         (uint256 positionLiquidity, , ) = position();
         uint256 amountIn;
         if (poolType == PoolType.SOLIDLY_V3) {
-            (int256 amount0, int256 amount1, , , ) = ISolidlyV3Pool(pool).quoteSwap(
-                boost > usd,
+            (int256 amount0, int256 amount1, , , ) = ISolidlyV3Pool(poolAddress).quoteSwap(
+                ionAddress > pairTokenAddress,
                 type(int256).max,
                 targetSqrtPriceX96()
             );
-            (, int256 usdDelta) = sortAmounts(amount0, amount1);
-            amountIn = uint256(usdDelta);
+            (, int256 pairTokenDelta) = orderAmountsByTokenAddress(amount0, amount1);
+            amountIn = uint256(pairTokenDelta);
         } else if (poolType == PoolType.CL) {
             IVeloQuoterV2.QuoteExactOutputSingleParams memory params = IVeloQuoterV2.QuoteExactOutputSingleParams({
-                tokenIn: usd,
-                tokenOut: boost,
+                tokenIn: pairTokenAddress,
+                tokenOut: ionAddress,
                 amount: uint256(type(int256).max),
-                tickSpacing: IUniswapV3Pool(pool).tickSpacing(),
+                tickSpacing: IUniswapV3Pool(poolAddress).tickSpacing(),
                 sqrtPriceLimitX96: targetSqrtPriceX96()
             });
-            (amountIn, , , ) = IVeloQuoterV2(quoter).quoteExactOutputSingle(params);
+            (amountIn, , , ) = IVeloQuoterV2(quoterAddress).quoteExactOutputSingle(params);
         } else if (poolType == PoolType.ALGEBRA_V1_0 || poolType == PoolType.ALGEBRA_V1_9) {
-            (amountIn, ) = IAlgebraQuoter(quoter).quoteExactOutputSingle(
-                usd,
-                boost,
+            (amountIn, ) = IAlgebraQuoter(quoterAddress).quoteExactOutputSingle(
+                pairTokenAddress,
+                ionAddress,
                 uint256(type(int256).max),
                 targetSqrtPriceX96()
             );
         } else if (poolType == PoolType.ALGEBRA_INTEGRAL) {
-            (bool success, bytes memory data) = quoter.call(
+            (bool success, bytes memory data) = quoterAddress.call(
                 abi.encodeWithSignature(
                     "quoteExactOutputSingle((address,address,address,uint256,uint160))",
-                    usd,
-                    boost,
+                    pairTokenAddress,
+                    ionAddress,
                     poolCustomDeployer,
                     uint256(type(int256).max),
                     targetSqrtPriceX96()
                 )
             );
             if (!success)
-                (, data) = quoter.call(
+                (, data) = quoterAddress.call(
                     abi.encodeWithSignature(
                         "quoteExactOutputSingle((address,address,uint256,uint160))",
-                        usd,
-                        boost,
+                        pairTokenAddress,
+                        ionAddress,
                         uint256(type(int256).max),
                         targetSqrtPriceX96()
                     )
@@ -454,19 +501,19 @@ contract V3AMO is IV3AMO, MasterAMO {
             (, amountIn) = abi.decode(data, (uint256, uint256));
         } else {
             IQuoterV2.QuoteExactOutputSingleParams memory params = IQuoterV2.QuoteExactOutputSingleParams({
-                tokenIn: usd,
-                tokenOut: boost,
+                tokenIn: pairTokenAddress,
+                tokenOut: ionAddress,
                 amount: uint256(type(int256).max),
-                fee: IUniswapV3Pool(pool).fee(),
+                fee: IUniswapV3Pool(poolAddress).fee(),
                 sqrtPriceLimitX96: targetSqrtPriceX96()
             });
-            (amountIn, , , ) = IQuoterV2(quoter).quoteExactOutputSingle(params);
+            (amountIn, , , ) = IQuoterV2(quoterAddress).quoteExactOutputSingle(params);
         }
-        liquidity = _getLiquidityForUsdAmount(amountIn);
+        liquidity = _getLiquidityForPairTokenAmount(amountIn);
         if (liquidity > positionLiquidity) liquidity = positionLiquidity;
 
         _unfarmBuyBurn(liquidity, 1, 1);
-        newBoostPrice = boostPrice();
+        postOperationIonPrice = ionPrice();
     }
 
     // -------------------------------------------------------------
@@ -560,12 +607,12 @@ contract V3AMO is IV3AMO, MasterAMO {
     //                      VIEW FUNCTIONS
     // -------------------------------------------------------------
     /**
-     * @notice Calculates the current BOOST price relative to USD.
-     * @return price The calculated BOOST price.
+     * @notice Calculates the current ION price relative to pairToken.
+     * @return price The calculated ION price.
      */
-    function boostPrice() public view override returns (uint256 price) {
+    function ionPrice() public view override returns (uint256 price) {
         uint256 sqrtPriceX96 = uint256(_getSqrtPriceX96());
-        uint8 decimalsDiff = boostDecimals - usdDecimals;
+        uint8 decimalsDiff = ionDecimals - pairTokenDecimals;
         uint256 sqrtDecimals;
         if (decimalsDiff % 2 == 0) {
             sqrtDecimals = 10 ** (decimalsDiff / 2) * 10 ** PRICE_DECIMALS;
@@ -573,7 +620,7 @@ contract V3AMO is IV3AMO, MasterAMO {
             sqrtDecimals = (10 ** (decimalsDiff / 2) * 10 ** PRICE_DECIMALS * SQRT10) / FACTOR;
         }
 
-        if (boost < usd) {
+        if (ionAddress < pairTokenAddress) {
             price = ((sqrtDecimals * sqrtPriceX96) / Q96) ** 2 / 10 ** PRICE_DECIMALS;
         } else {
             price = ((sqrtDecimals * Q96) / sqrtPriceX96) ** 2 / 10 ** PRICE_DECIMALS;
@@ -585,11 +632,11 @@ contract V3AMO is IV3AMO, MasterAMO {
      * @return The target sqrt price in Q64.96 format.
      */
     function targetSqrtPriceX96() public view override returns (uint160) {
-        uint256 boostTargetPrice = targetPrice();
-        if (usd < boost) boostTargetPrice = FACTOR ** 2 / boostTargetPrice;
-        uint256 priceX96 = (boostTargetPrice * Q96 ** 2) / 10 ** PRICE_DECIMALS;
-        uint8 decimalsDiff = boostDecimals - usdDecimals;
-        if (boost < usd) priceX96 /= 10 ** decimalsDiff;
+        uint256 targetIonPrice = ionTargetPrice();
+        if (pairTokenAddress < ionAddress) targetIonPrice = FACTOR ** 2 / targetIonPrice;
+        uint256 priceX96 = (targetIonPrice * Q96 ** 2) / 10 ** PRICE_DECIMALS;
+        uint8 decimalsDiff = ionDecimals - pairTokenDecimals;
+        if (ionAddress < pairTokenAddress) priceX96 /= 10 ** decimalsDiff;
         else priceX96 *= 10 ** decimalsDiff;
         uint256 sqrtPriceX96 = Math.sqrt(priceX96);
         return sqrtPriceX96.toUint160();
@@ -598,10 +645,10 @@ contract V3AMO is IV3AMO, MasterAMO {
     /**
      * @notice Retrieves details of the current liquidity position.
      * @return liquidity Amount of liquidity.
-     * @return boostOwed BOOST tokens owed.
-     * @return usdOwed USD tokens owed.
+     * @return ionOwed ION tokens owed.
+     * @return pairTokenOwed pair tokens owed.
      */
-    function position() public view override returns (uint256 liquidity, uint256 boostOwed, uint256 usdOwed) {
+    function position() public view override returns (uint256 liquidity, uint256 ionOwed, uint256 pairTokenOwed) {
         bytes32 key;
         if (
             poolType == PoolType.ALGEBRA_V1_0 ||
@@ -625,19 +672,19 @@ contract V3AMO is IV3AMO, MasterAMO {
         uint128 tokensOwed0;
         uint128 tokensOwed1;
         if (poolType == PoolType.SOLIDLY_V3) {
-            (_liquidity, tokensOwed0, tokensOwed1) = ISolidlyV3Pool(pool).positions(key);
+            (_liquidity, tokensOwed0, tokensOwed1) = ISolidlyV3Pool(poolAddress).positions(key);
         } else if (poolType == PoolType.ALGEBRA_V1_0) {
-            (_liquidity, , , , tokensOwed0, tokensOwed1) = IAlgebraV10Pool(pool).positions(key);
+            (_liquidity, , , , tokensOwed0, tokensOwed1) = IAlgebraV10Pool(poolAddress).positions(key);
         } else if (poolType == PoolType.ALGEBRA_V1_9) {
-            (_liquidity, , , , tokensOwed0, tokensOwed1) = IAlgebraV19Pool(pool).positions(key);
+            (_liquidity, , , , tokensOwed0, tokensOwed1) = IAlgebraV19Pool(poolAddress).positions(key);
         } else if (poolType == PoolType.ALGEBRA_INTEGRAL) {
-            (liquidity, , , tokensOwed0, tokensOwed1) = IAlgebraIntegralPool(pool).positions(key);
+            (liquidity, , , tokensOwed0, tokensOwed1) = IAlgebraIntegralPool(poolAddress).positions(key);
         } else if (poolType == PoolType.RAMSES_V2) {
-            (_liquidity, , , tokensOwed0, tokensOwed1, ) = IRamsesV2Pool(pool).positions(key);
+            (_liquidity, , , tokensOwed0, tokensOwed1, ) = IRamsesV2Pool(poolAddress).positions(key);
         } else {
-            (_liquidity, , , tokensOwed0, tokensOwed1) = IUniswapV3Pool(pool).positions(key);
+            (_liquidity, , , tokensOwed0, tokensOwed1) = IUniswapV3Pool(poolAddress).positions(key);
         }
-        if (_liquidity > 0) liquidity = uint256(_liquidity);
-        (boostOwed, usdOwed) = sortAmounts(uint256(tokensOwed0), uint256(tokensOwed1));
+        liquidity = _liquidity > 0 ? uint256(_liquidity) : 0;
+        (ionOwed, pairTokenOwed) = orderAmountsByTokenAddress(uint256(tokensOwed0), uint256(tokensOwed1));
     }
 }

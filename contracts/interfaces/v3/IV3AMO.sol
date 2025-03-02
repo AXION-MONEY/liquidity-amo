@@ -26,30 +26,30 @@ interface IV3AMO {
     // -------------------------------------------------------------
     /**
      * @notice Emitted when liquidity is added.
-     * @param boostSpent BOOST tokens spent.
-     * @param usdSpent USD tokens spent.
+     * @param ionSpent ION tokens spent.
+     * @param pairTokenSpent pair tokens spent.
      * @param liquidity Liquidity tokens received.
      */
-    event AddLiquidity(uint256 boostSpent, uint256 usdSpent, uint256 liquidity);
+    event AddLiquidity(uint256 ionSpent, uint256 pairTokenSpent, uint256 liquidity);
 
     /**
      * @notice Emitted when an unfarm-buy-burn operation is executed.
-     * @param boostRemoved BOOST tokens removed.
-     * @param usdRemoved USD tokens removed.
+     * @param ionRemoved ION tokens removed.
+     * @param pairTokenRemoved pair tokens removed.
      * @param liquidity Liquidity tokens affected.
-     * @param usdAmountIn USD tokens used for the swap.
-     * @param boostAmountOut BOOST tokens obtained.
-     * @param boostCollectedFee BOOST fee collected.
-     * @param usdCollectedFee USD fee collected.
+     * @param pairTokenAmountIn pair tokens used for the swap.
+     * @param ionAmountOut ION tokens obtained.
+     * @param ionCollectedFee ION fee collected.
+     * @param pairTokenCollectedFee pairToken fee collected.
      */
     event UnfarmBuyBurn(
-        uint256 boostRemoved,
-        uint256 usdRemoved,
+        uint256 ionRemoved,
+        uint256 pairTokenRemoved,
         uint256 liquidity,
-        uint256 usdAmountIn,
-        uint256 boostAmountOut,
-        uint256 boostCollectedFee,
-        uint256 usdCollectedFee
+        uint256 pairTokenAmountIn,
+        uint256 ionAmountOut,
+        uint256 ionCollectedFee,
+        uint256 pairTokenCollectedFee
     );
 
     /**
@@ -61,20 +61,20 @@ interface IV3AMO {
 
     /**
      * @notice Emitted when parameters are set.
-     * @param quoter The quoter contract address.
-     * @param boostMultiplier The BOOST multiplier.
+     * @param quoterAddress The quoter contract address.
+     * @param ionMultiplayer The ION multiplier.
      * @param validRangeWidth The valid range width.
      * @param validRemovingRatio The valid ratio for liquidity removal.
-     * @param boostLowerPriceSell The lower price threshold for selling BOOST.
-     * @param boostUpperPriceBuy The upper price threshold for buying BOOST.
+     * @param ionLowerPriceSell The lower price threshold for selling ION.
+     * @param ionUpperPriceBuy The upper price threshold for buying ION.
      */
     event ParamsSet(
-        address quoter,
-        uint256 boostMultiplier,
+        address quoterAddress,
+        uint256 ionMultiplayer,
         uint24 validRangeWidth,
         uint24 validRemovingRatio,
-        uint256 boostLowerPriceSell,
-        uint256 boostUpperPriceBuy
+        uint256 ionLowerPriceSell,
+        uint256 ionUpperPriceBuy
     );
 
     // -------------------------------------------------------------
@@ -117,7 +117,7 @@ interface IV3AMO {
     /**
      * @notice Returns the quoter contract address.
      */
-    function quoter() external view returns (address);
+    function quoterAddress() external view returns (address);
 
     /**
      * @notice Returns the lower tick of the liquidity position.
@@ -141,29 +141,29 @@ interface IV3AMO {
 
     /**
      * @notice Sets various parameters for the V3AMO contract.
-     * @param quoter_ The new quoter contract address.
-     * @param boostMultiplier_ The BOOST multiplier.
+     * @param quoterAddress_ The new quoter contract address.
+     * @param ionMultiplayer_ The ION multiplier.
      * @param validRangeWidth_ The valid range width.
      * @param validRemovingRatio_ The valid ratio for liquidity removal.
-     * @param boostLowerPriceSell_ The lower price threshold for selling BOOST.
-     * @param boostUpperPriceBuy_ The upper price threshold for buying BOOST.
+     * @param ionLowerPriceSell_ The lower price threshold for selling ION.
+     * @param ionUpperPriceBuy_ The upper price threshold for buying ION.
      */
     function setParams(
-        address quoter_,
-        uint256 boostMultiplier_,
+        address quoterAddress_,
+        uint256 ionMultiplayer_,
         uint24 validRangeWidth_,
         uint24 validRemovingRatio_,
-        uint256 boostLowerPriceSell_,
-        uint256 boostUpperPriceBuy_
+        uint256 ionLowerPriceSell_,
+        uint256 ionUpperPriceBuy_
     ) external;
 
     /**
      * @notice Returns details of the current liquidity position.
      * @return liquidity The amount of liquidity.
-     * @return boostOwed BOOST tokens owed.
-     * @return usdOwed USD tokens owed.
+     * @return ionOwed ION tokens owed.
+     * @return pairTokenOwed pair tokens owed.
      */
-    function position() external view returns (uint256 liquidity, uint256 boostOwed, uint256 usdOwed);
+    function position() external view returns (uint256 liquidity, uint256 ionOwed, uint256 pairTokenOwed);
 
     /**
      * @notice Returns the target sqrt price for swapping operations.

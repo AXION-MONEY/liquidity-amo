@@ -10,7 +10,6 @@ import {AccessControlEnumerableUpgradeable} from "@openzeppelin/contracts-upgrad
 import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IMinter} from "./interfaces/IMinter.sol";
-import {IBoostStablecoin} from "./interfaces/IBoostStablecoin.sol";
 import {IMasterAMO} from "./interfaces/IMasterAMO.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IPriceManager} from "./price-manager/interfaces/IPriceManager.sol";
@@ -18,14 +17,13 @@ import {IPriceManager} from "./price-manager/interfaces/IPriceManager.sol";
 /**
  * @title MasterAMO Contract
  * @notice This abstract contract provides a framework for Automated Market Operations (AMO)
- *         within the Boost stablecoin ecosystem. It facilitates operations such as minting Boost,
- *         selling it for USD, adding liquidity to a Boost-USD pool, and executing liquidity removal,
+ *         within the ION stablecoin ecosystem. It facilitates operations such as minting ION,
+ *         selling it for PairToken, adding liquidity to a ION-PairToken pool, and executing liquidity removal,
  *         buying, and burning when necessary to maintain the peg.
  *
  * @dev The contract is designed to be upgradeable via a timelock mechanism to allow future enhancements.
  *      It is pausable, and only authorized roles may execute certain operations:
  *      - DEFAULT_ADMIN_ROLE: Admin privileges.
- *      - AMO_ROLE: Executes AMO-related actions.
  *      - SETTER_ROLE: For setting critical parameters.
  *      - PAUSER_ROLE / UNPAUSER_ROLE: For pausing and unpausing contract operations.
  *      - WITHDRAWER_ROLE: For token withdrawals.
@@ -59,59 +57,60 @@ abstract contract MasterAMO is
 
     ////// IMMUTABLE //////
     /// @inheritdoc IMasterAMO
-    address public override boost;
+    address public override ionAddress;
     /// @inheritdoc IMasterAMO
-    address public override usd;
+    address public override pairTokenAddress;
     /// @inheritdoc IMasterAMO
-    address public override pool;
+    address public override poolAddress;
     /// @inheritdoc IMasterAMO
-    uint8 public override boostDecimals;
+    uint8 public override ionDecimals;
     /// @inheritdoc IMasterAMO
-    uint8 public override usdDecimals;
+    uint8 public override pairTokenDecimals;
     /// @inheritdoc IMasterAMO
-    address public override boostMinter;
+    address public override ionMinterAddress;
     /// @inheritdoc IMasterAMO
-    address public priceManager;
+    address public priceManagerContractAddress;
     /// @inheritdoc IMasterAMO
-    PairedTokenType public pairedTokenType;
+    PairTokenType public pairTokenType;
 
     ////// MUTABLE //////
     /// @inheritdoc IMasterAMO
-    uint256 public override boostMultiplier;
+    uint256 public override ionMultiplayer;
     /// @inheritdoc IMasterAMO
     uint24 public override validRangeWidth;
     /// @inheritdoc IMasterAMO
     uint24 public override validRemovingRatio;
     /// @inheritdoc IMasterAMO
-    uint256 public override boostLowerPriceSell;
+    uint256 public override ionLowerPriceSell;
     /// @inheritdoc IMasterAMO
-    uint256 public override boostUpperPriceBuy;
+    uint256 public override ionUpperPriceBuy;
     /// @inheritdoc IMasterAMO
-    uint256 public override targetPricePremium;
+    uint256 public override ionTargetPricePremium;
 
     // -------------------------------------------------------------
     //                      INTERNAL CONSTANTS
     // -------------------------------------------------------------
-    // @notice BOOST price decimals
+    // @notice ION price decimals
     uint8 internal constant PRICE_DECIMALS = 6;
     // @notice Decimals for parameter calculations.
     uint8 internal constant PARAMS_DECIMALS = 6;
     // @notice Scaling factor.
     uint256 internal constant FACTOR = 10 ** PARAMS_DECIMALS;
-    // @notice Indicates a Boost → USD swap.
-    bool internal constant SELL_BOOST = true;
-    // @notice Indicates a USD → Boost swap.
-    bool internal constant BUY_BOOST = false;
+    // @notice Indicates a ION → PairToken swap.
+    bool internal constant SELL_ION = true;
+    // @notice Indicates a PairToken → ION swap.
+    bool internal constant BUY_ION = false;
 
     // -------------------------------------------------------------
     //                           MODIFIERS
     // -------------------------------------------------------------
     /**
      * @dev Modifier to validate swap parameters.
-     * @param boostForUsd A boolean indicating the swap direction: true for Boost → USD, false for USD → Boost.
+     * @param ionForPairToken A boolean indicating the swap direction: true for Ion → PairToken,
+     *        false for PairToken → Ion.
      */
-    modifier validateSwap(bool boostForUsd) {
-        _validateSwap(boostForUsd);
+    modifier validateSwap(bool ionForPairToken) {
+        _validateSwap(ionForPairToken);
         _;
     }
 
@@ -121,21 +120,21 @@ abstract contract MasterAMO is
     /**
      * @notice Initializes the MasterAMO contract.
      * @param admin Address to be granted the DEFAULT_ADMIN_ROLE.
-     * @param boost_ Address of the Boost stablecoin.
-     * @param usd_ Address of the USD stablecoin.
-     * @param pool_ Address of the liquidity pool for the Boost-USD pair.
-     * @param boostMinter_ Address of the Boost minter contract.
+     * @param ionAddress_ Address of the Ion stableCoin.
+     * @param pairTokenAddress_ Address of the pairToken.
+     * @param pool_ Address of the liquidity pool for the ION-PairToken pair.
+     * @param ionMinterAddress_ Address of the Ion minter contract.
      * @param priceManager_ Address of the price manager contract.
-     * @param pairedTokenType_ The type of token paired with Boost.
+     * @param pairTokenType_ The type of token paired with ION.
      */
     function initialize(
         address admin,
-        address boost_,
-        address usd_,
+        address ionAddress_,
+        address pairTokenAddress_,
         address pool_,
-        address boostMinter_,
+        address ionMinterAddress_,
         address priceManager_,
-        PairedTokenType pairedTokenType_
+        PairTokenType pairTokenType_
     ) public onlyInitializing {
         __AccessControlEnumerable_init();
         __Pausable_init();
@@ -143,22 +142,22 @@ abstract contract MasterAMO is
 
         if (
             admin == address(0) ||
-            boost_ == address(0) ||
-            usd_ == address(0) ||
+            ionAddress_ == address(0) ||
+            pairTokenAddress_ == address(0) ||
             pool_ == address(0) ||
-            boostMinter_ == address(0)
+            ionMinterAddress_ == address(0)
         ) revert ZeroAddress();
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
-        boost = boost_;
-        usd = usd_;
-        pool = pool_;
-        boostDecimals = IERC20Metadata(boost).decimals();
-        usdDecimals = IERC20Metadata(usd).decimals();
-        boostMinter = boostMinter_;
-        priceManager = priceManager_;
-        pairedTokenType = pairedTokenType_;
-        targetPricePremium = 0; // Default value.
+        ionAddress = ionAddress_;
+        pairTokenAddress = pairTokenAddress_;
+        poolAddress = pool_;
+        ionDecimals = IERC20Metadata(ionAddress).decimals();
+        pairTokenDecimals = IERC20Metadata(pairTokenAddress).decimals();
+        ionMinterAddress = ionMinterAddress_;
+        priceManagerContractAddress = priceManager_;
+        pairTokenType = pairTokenType_;
+        ionTargetPricePremium = 0; // Default value.
     }
 
     // -------------------------------------------------------------
@@ -168,9 +167,9 @@ abstract contract MasterAMO is
      * @notice Sets the premium offset used in target price calculations.
      * @param _targetPricePremium The new premium offset.
      */
-    function setTargetPricePremium(uint256 _targetPricePremium) external onlyRole(SETTER_ROLE) {
-        targetPricePremium = _targetPricePremium;
-        emit SetTargetPricePremium(targetPricePremium);
+    function setIonTargetPricePremium(uint256 _targetPricePremium) external onlyRole(SETTER_ROLE) {
+        ionTargetPricePremium = _targetPricePremium;
+        emit SetIonTargetPricePremium(ionTargetPricePremium);
     }
 
     // -------------------------------------------------------------
@@ -191,42 +190,50 @@ abstract contract MasterAMO is
     // -------------------------------------------------------------
     /**
      * @notice Sorts two token amounts based on token addresses.
-     * @param amount0 The first token amount.
-     * @param amount1 The second token amount.
+     * @param ionAmount The Ion token amount.
+     * @param pairAmount The pair token amount.
      * @return (uint256, uint256) The sorted token amounts.
      */
-    function sortAmounts(uint256 amount0, uint256 amount1) internal view returns (uint256, uint256) {
-        if (boost < usd) return (amount0, amount1);
-        return (amount1, amount0);
+    function orderAmountsByTokenAddress(
+        uint256 ionAmount,
+        uint256 pairAmount
+    ) internal view returns (uint256, uint256) {
+        return (ionAddress < pairTokenAddress) ? (ionAmount, pairAmount) : (pairAmount, ionAmount);
     }
 
     /**
      * @notice Sorts two signed token amounts based on token addresses.
-     * @param amount0 The first token amount.
-     * @param amount1 The second token amount.
+     * @param amountToken0 The first token amount.
+     * @param amountToken1 The second token amount.
      * @return (int256, int256) The sorted token amounts.
      */
-    function sortAmounts(int256 amount0, int256 amount1) internal view returns (int256, int256) {
-        if (boost < usd) return (amount0, amount1);
-        return (amount1, amount0);
+    function orderAmountsByTokenAddress(
+        int256 amountToken0,
+        int256 amountToken1
+    ) internal view returns (int256, int256) {
+        return (ionAddress < pairTokenAddress) ? (amountToken0, amountToken1) : (amountToken1, amountToken0);
     }
 
     /**
-     * @notice Converts a USD amount to the equivalent BOOST amount.
-     * @param usdAmount Amount in USD.
-     * @return The corresponding BOOST amount.
+     * @notice Scales PariToken amount to match ION decimal precision.
+     * @dev Adjusts the decimal places of the input PairToken amount to align with ION token's decimal precision.
+     * @dev This function assumes that ION has more decimal places than PairToken.
+     * @param pairTokenAmount The amount in pairToken, using pairToken's decimal precision.
+     * @return uint256 The equivalent amount in ION's decimal precision.
      */
-    function toBoostAmount(uint256 usdAmount) internal view returns (uint256) {
-        return usdAmount * 10 ** (boostDecimals - usdDecimals);
+    function scalePairTokenToIonDecimals(uint256 pairTokenAmount) internal view returns (uint256) {
+        return pairTokenAmount * 10 ** (ionDecimals - pairTokenDecimals);
     }
 
     /**
-     * @notice Converts a BOOST amount to the equivalent USD amount.
-     * @param boostAmount Amount in BOOST.
-     * @return The corresponding USD amount.
+     * @notice Scales an ION amount to match pairToken decimal precision.
+     * @dev Adjusts the decimal places of the input ION amount to align with pairToken's decimal precision.
+     * @dev This function assumes that ION has more decimal places than PairToken.
+     * @param ionAmount The amount in ION, using ION's decimal precision.
+     * @return uint256 The equivalent amount in PairToken's decimal precision.
      */
-    function toUsdAmount(uint256 boostAmount) internal view returns (uint256) {
-        return boostAmount / 10 ** (boostDecimals - usdDecimals);
+    function scaleIonToPairTokenDecimals(uint256 ionAmount) internal view returns (uint256) {
+        return ionAmount / 10 ** (ionDecimals - pairTokenDecimals);
     }
 
     /**
@@ -243,7 +250,7 @@ abstract contract MasterAMO is
      * @param price Current price.
      * @return The lower bound price.
      */
-    function priceLowerBound(uint256 price) internal view returns (uint256) {
+    function ionPriceLowerBound(uint256 price) internal view returns (uint256) {
         return price - ((price * validRangeWidth) / FACTOR);
     }
 
@@ -252,15 +259,15 @@ abstract contract MasterAMO is
      * @param price Current price.
      * @return The upper bound price.
      */
-    function priceUpperBound(uint256 price) internal view returns (uint256) {
+    function ionPriceUpperBound(uint256 price) internal view returns (uint256) {
         return price + ((price * validRangeWidth) / FACTOR);
     }
 
     /**
      * @notice Internal function to validate swap parameters.
-     * @param boostForUsd Swap direction: true for Boost → USD, false for USD → Boost.
+     * @param ionForPairToken Swap direction: true for ION → pairToken, false for pairToken → ION.
      */
-    function _validateSwap(bool boostForUsd) internal view virtual;
+    function _validateSwap(bool ionForPairToken) internal view virtual;
 
     // -------------------------------------------------------------
     //                   INTERNAL FUNCTIONS
@@ -269,97 +276,106 @@ abstract contract MasterAMO is
     ////// MINT-SELL-FARM FUNCTIONS //////
 
     /**
-     * @notice Internal function to mint BOOST and sell it for USD.
-     * @param boostAmount The amount of BOOST to mint.
-     * @return boostAmountIn BOOST tokens sent to the pool.
-     * @return usdAmountOut USD tokens received.
+     * @notice Internal function to mint ION and sell it for pairToken.
+     * @param ionAmount The amount of ION to mint.
+     * @return ionAmountIn ION tokens sent to the pool.
+     * @return pairTokenAmount pairToken received.
      * @dev Must be implemented by a derived contract.
      */
-    function _mintAndSellBoost(
-        uint256 boostAmount
-    ) internal virtual returns (uint256 boostAmountIn, uint256 usdAmountOut);
+    function _mintAndSellIon(uint256 ionAmount) internal virtual returns (uint256 ionAmountIn, uint256 pairTokenAmount);
 
     /**
      * @notice Internal function to add liquidity to the pool.
-     * @param usdAmount The USD amount to add.
-     * @param minBoostSpend Minimum BOOST tokens to spend.
-     * @param minUsdSpend Minimum USD tokens to spend.
-     * @return boostSpent BOOST tokens spent.
-     * @return usdSpent USD tokens spent.
+     * @param pairTokenAmount The pairToken amount to add.
+     * @param minIonSpend Minimum ION tokens to spend.
+     * @param minPairTokenSpend Minimum pairTokens to spend.
+     * @return ionSpent ION tokens spent.
+     * @return pairTokenSpent pairTokens spent.
      * @return liquidity Liquidity tokens received.
      * @dev Must be implemented by a derived contract.
      */
     function _addLiquidity(
-        uint256 usdAmount,
-        uint256 minBoostSpend,
-        uint256 minUsdSpend
-    ) internal virtual returns (uint256 boostSpent, uint256 usdSpent, uint256 liquidity);
+        uint256 pairTokenAmount,
+        uint256 minIonSpend,
+        uint256 minPairTokenSpend
+    ) internal virtual returns (uint256 ionSpent, uint256 pairTokenSpent, uint256 liquidity);
 
     /**
-     * @notice Internal function that mints, sells BOOST, and adds liquidity.
-     * @param boostAmount The BOOST amount to mint.
-     * @param minBoostSpend Minimum BOOST tokens to spend.
-     * @param minUsdSpend Minimum USD tokens to spend.
-     * @return boostAmountIn BOOST tokens used in the swap.
-     * @return usdAmountOut USD tokens received from the swap.
-     * @return boostSpent BOOST tokens spent in liquidity addition.
-     * @return usdSpent USD tokens spent in liquidity addition.
+     * @notice Internal function that mints, sells ION, and adds liquidity.
+     * @param ionAmount The ION amount to mint.
+     * @param minIONSpend Minimum ION tokens to spend.
+     * @param minPairTokenSpend Minimum PairTokens to spend.
+     * @return ionAmountIn ION tokens used in the swap.
+     * @return pairTokenAmountOut pairToken tokens received from the swap.
+     * @return ionSpent ION tokens spent in liquidity addition.
+     * @return pairTokenSpent pairTokens spent in liquidity addition.
      * @return liquidity Liquidity tokens received.
-     * @dev Has been Used for AMO-ROLE functions
      */
     function _mintSellFarm(
-        uint256 boostAmount,
-        uint256 minBoostSpend,
-        uint256 minUsdSpend
+        uint256 ionAmount,
+        uint256 minIONSpend,
+        uint256 minPairTokenSpend
     )
         internal
-        returns (uint256 boostAmountIn, uint256 usdAmountOut, uint256 boostSpent, uint256 usdSpent, uint256 liquidity)
+        returns (
+            uint256 ionAmountIn,
+            uint256 pairTokenAmountOut,
+            uint256 ionSpent,
+            uint256 pairTokenSpent,
+            uint256 liquidity
+        )
     {
-        (boostAmountIn, usdAmountOut) = _mintAndSellBoost(boostAmount);
-        uint256 price = boostPrice();
-        uint256 tp = targetPrice();
-        if (price > priceLowerBound(tp) && price < priceUpperBound(tp)) {
-            uint256 usdBalance = IERC20(usd).balanceOf(address(this));
-            (boostSpent, usdSpent, liquidity) = _addLiquidity(usdBalance, minBoostSpend, minUsdSpend);
+        // Explicitly initialize output variables to zero.
+        ( ionSpent,  pairTokenSpent,  liquidity) = (0, 0, 0);
+        (ionAmountIn, pairTokenAmountOut) = _mintAndSellIon(ionAmount);
+        uint256 ionCurrentPrice = ionPrice();
+        uint256 targetIonPrice = ionTargetPrice();
+        if (
+            ionCurrentPrice > ionPriceLowerBound(targetIonPrice) && ionCurrentPrice < ionPriceUpperBound(targetIonPrice)
+        ) {
+            uint256 pairTokenBalance = IERC20(pairTokenAddress).balanceOf(address(this));
+            (ionSpent, pairTokenSpent, liquidity) = _addLiquidity(pairTokenBalance, minIONSpend, minPairTokenSpend);
         }
     }
+
     /**
-     * @notice Internal function to perform mint, sell and liquidity addition when BOOST is over peg.
+     * @notice Internal function to perform mint, sell and liquidity addition when ION is over peg.
      * @return liquidity Liquidity tokens received.
-     * @return newBoostPrice The new average BOOST price after the operation.
+     * @return postOperationIonPrice The new average ION price after the operation.
      * @dev Must be implemented by a derived contract.
      * @dev Has been Used for public functions
      */
-    function _mintSellFarm() internal virtual returns (uint256 liquidity, uint256 newBoostPrice);
+    function _mintSellFarm() internal virtual returns (uint256 liquidity, uint256 postOperationIonPrice);
 
     ////// UNFARM-BUY-BURN FUNCTIONS //////
 
     /**
-     * @notice Internal function to remove liquidity, buy BOOST, and burn it.
+     * @notice Internal function to remove liquidity, buy ION, and burn it.
      * @param liquidity The liquidity tokens to remove.
-     * @param minBoostRemove Minimum BOOST tokens to remove.
-     * @param minUsdRemove Minimum USD tokens to remove.
-     * @return boostRemoved BOOST tokens removed.
-     * @return usdRemoved USD tokens removed.
-     * @return usdAmountIn USD tokens used to buy BOOST.
-     * @return boostAmountOut BOOST tokens obtained.
+     * @param minIonRemove Minimum ION tokens to remove.
+     * @param minPairTokenRemove Minimum Pair tokens to remove.
+     * @return ionRemoved ION tokens removed.
+     * @return pairTokenRemoved pair tokens removed.
+     * @return pairTokenAmountIn pair tokens used to buy ION.
+     * @return ionAmountOut ION tokens obtained.
      * @dev Must be implemented by a derived contract.
-     * @dev Has been Used for AMO-ROLE functions
      */
     function _unfarmBuyBurn(
         uint256 liquidity,
-        uint256 minBoostRemove,
-        uint256 minUsdRemove
-    ) internal virtual returns (uint256 boostRemoved, uint256 usdRemoved, uint256 usdAmountIn, uint256 boostAmountOut);
+        uint256 minIonRemove,
+        uint256 minPairTokenRemove
+    )
+        internal
+        virtual
+        returns (uint256 ionRemoved, uint256 pairTokenRemoved, uint256 pairTokenAmountIn, uint256 ionAmountOut);
 
     /**
-     * @notice Internal function to perform un-farming, buying, and burning when BOOST is under peg.
+     * @notice Internal function to perform un-farming, buying, and burning when ION is under peg.
      * @return liquidity Liquidity tokens affected.
-     * @return newBoostPrice The new average BOOST price after the operation.
+     * @return postOperationIonPrice The new average ION price after the operation.
      * @dev Must be implemented by a derived contract.
-     * @dev Has been Used for public functions
      */
-    function _unfarmBuyBurn() internal virtual returns (uint256 liquidity, uint256 newBoostPrice);
+    function _unfarmBuyBurn() internal virtual returns (uint256 liquidity, uint256 postOperationIonPrice);
 
     // -------------------------------------------------------------
     //                      EXTERNAL FUNCTIONS
@@ -371,16 +387,18 @@ abstract contract MasterAMO is
         override
         whenNotPaused
         nonReentrant
-        returns (uint256 boostSpent, uint256 usdSpent, uint256 liquidity)
+        returns (uint256 ionSpent, uint256 pairTokenSpent, uint256 liquidity)
     {
-        // Only add liquidity when current BOOST price is within the valid range.
-        uint256 price = boostPrice();
-        uint256 boostTargetPrice = targetPrice();
-        if (price <= priceLowerBound(boostTargetPrice) || price >= priceUpperBound(boostTargetPrice))
-            revert InvalidRatioToAddLiquidity();
+        // Only add liquidity when current Ion price is within the valid range.
+        uint256 ionCurrentPrice = ionPrice();
+        uint256 targetIonPrice = ionTargetPrice();
+        if (
+            ionCurrentPrice <= ionPriceLowerBound(targetIonPrice) ||
+            ionCurrentPrice >= ionPriceUpperBound(targetIonPrice)
+        ) revert InvalidRatioToAddLiquidity();
 
-        uint256 usdBalance = IERC20(usd).balanceOf(address(this));
-        (boostSpent, usdSpent, liquidity) = _addLiquidity(usdBalance, 1, 1);
+        uint256 pairTokenBalance = IERC20(pairTokenAddress).balanceOf(address(this));
+        (ionSpent, pairTokenSpent, liquidity) = _addLiquidity(pairTokenBalance, 1, 1);
     }
 
     /// @inheritdoc IMasterAMO
@@ -389,13 +407,13 @@ abstract contract MasterAMO is
         override
         whenNotPaused
         nonReentrant
-        validateSwap(SELL_BOOST)
-        returns (uint256 liquidity, uint256 newBoostPrice)
+        validateSwap(SELL_ION)
+        returns (uint256 liquidity, uint256 postOperationIonPrice)
     {
-        (liquidity, newBoostPrice) = _mintSellFarm();
-        uint256 tp = targetPrice();
-        if (newBoostPrice < (tp * boostLowerPriceSell) / FACTOR) revert PriceNotInRange(newBoostPrice);
-        emit PublicMintSellFarmExecuted(liquidity, newBoostPrice);
+        (liquidity, postOperationIonPrice) = _mintSellFarm();
+        if (postOperationIonPrice < (ionTargetPrice() * ionLowerPriceSell) / FACTOR)
+            revert PriceNotInRange(postOperationIonPrice);
+        emit MintSellFarmExecuted(liquidity, postOperationIonPrice);
     }
 
     /// @inheritdoc IMasterAMO
@@ -404,13 +422,13 @@ abstract contract MasterAMO is
         override
         whenNotPaused
         nonReentrant
-        validateSwap(BUY_BOOST)
-        returns (uint256 liquidity, uint256 newBoostPrice)
+        validateSwap(BUY_ION)
+        returns (uint256 liquidity, uint256 postOperationIonPrice)
     {
-        (liquidity, newBoostPrice) = _unfarmBuyBurn();
-        uint256 tp = targetPrice();
-        if (newBoostPrice > (tp * boostUpperPriceBuy) / FACTOR) revert PriceNotInRange(newBoostPrice);
-        emit PublicUnfarmBuyBurnExecuted(liquidity, newBoostPrice);
+        (liquidity, postOperationIonPrice) = _unfarmBuyBurn();
+        if (postOperationIonPrice > (ionTargetPrice() * ionUpperPriceBuy) / FACTOR)
+            revert PriceNotInRange(postOperationIonPrice);
+        emit UnfarmBuyBurnExecuted(liquidity, postOperationIonPrice);
     }
 
     ////// WITHDRAWAL FUNCTIONS //////
@@ -429,18 +447,18 @@ abstract contract MasterAMO is
     //                        VIEW FUNCTIONS
     // -------------------------------------------------------------
     /// @inheritdoc IMasterAMO
-    function boostPrice() public view virtual override returns (uint256 price);
+    function ionPrice() public view virtual override returns (uint256 price);
 
     /// @inheritdoc IMasterAMO
-    function targetPrice() public view override returns (uint256 price) {
+    function ionTargetPrice() public view override returns (uint256 targetPrice) {
         uint256 baseUnit = 10 ** PRICE_DECIMALS;
-        if (pairedTokenType == PairedTokenType.STABLE) return baseUnit;
-        else if (pairedTokenType == PairedTokenType.SUSDE)
-            return IPriceManager(priceManager).sUsdePreviewDeposit(baseUnit) + targetPricePremium;
-        else if (pairedTokenType == PairedTokenType.SFRAX)
-            return IPriceManager(priceManager).sFraxPreviewDeposit(baseUnit) + targetPricePremium;
-        else if (pairedTokenType == PairedTokenType.SDAI)
-            return IPriceManager(priceManager).sDaiPreviewDeposit(baseUnit) + targetPricePremium;
+        if (pairTokenType == PairTokenType.STABLE) return baseUnit;
+        else if (pairTokenType == PairTokenType.SUSDE)
+            return IPriceManager(priceManagerContractAddress).sUsdePreviewDeposit(baseUnit) + ionTargetPricePremium;
+        else if (pairTokenType == PairTokenType.SFRAX)
+            return IPriceManager(priceManagerContractAddress).sFraxPreviewDeposit(baseUnit) + ionTargetPricePremium;
+        else if (pairTokenType == PairTokenType.SDAI)
+            return IPriceManager(priceManagerContractAddress).sDaiPreviewDeposit(baseUnit) + ionTargetPricePremium;
         else revert InvalidPairedTokenType();
     }
 }

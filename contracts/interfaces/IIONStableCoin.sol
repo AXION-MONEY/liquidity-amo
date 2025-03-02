@@ -4,10 +4,10 @@ pragma solidity 0.8.28;
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 /**
- * @title IBoostStablecoin Interface
- * @notice Interface for the BoostStablecoin contract, defining roles and functions for minting and burning tokens.
+ * @title IIONStableCoin.sol Interface
+ * @notice Interface for the IONStableCoin.sol contract, defining roles and functions for minting and burning tokens.
  */
-interface IBoostStablecoin is IERC20 {
+interface IIONStableCoin is IERC20 {
     // -------------------------------------------------------------
     //                            ROLES
     // -------------------------------------------------------------

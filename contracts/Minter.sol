@@ -8,7 +8,7 @@ import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 import {IMinter} from "./interfaces/IMinter.sol";
-import {IBoostStablecoin} from "./interfaces/IBoostStablecoin.sol";
+import {IIONStableCoin} from "./interfaces/IIONStableCoin.sol";
 
 /**
  * @title Minter Contract
@@ -130,13 +130,13 @@ contract Minter is Initializable, AccessControlEnumerableUpgradeable, PausableUp
             treasury,
             amount / (10 ** (boostDecimals - collateralDecimals))
         );
-        IBoostStablecoin(boostAddress).mint(to, amount);
+        IIONStableCoin(boostAddress).mint(to, amount);
         emit TokenMinted(msg.sender, to, amount);
     }
 
     /// @inheritdoc IMinter
     function protocolMint(address to, uint256 amount) external override whenNotPaused onlyContract onlyRole(AMO_ROLE) {
-        IBoostStablecoin(boostAddress).mint(to, amount);
+        IIONStableCoin(boostAddress).mint(to, amount);
         emit TokenProtocolMinted(msg.sender, to, amount);
     }
 
