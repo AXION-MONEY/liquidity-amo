@@ -231,7 +231,13 @@ contract V2AMO is IV2AMO, MasterAMO {
     ////// MINT-SELL-FARM FUNCTIONS //////
 
     /// @inheritdoc MasterAMO
-    function _mintAndSell(uint256 ionAmount) internal override returns (uint256 ionAmountIn, uint256 pairTokenAmount) {
+    function _mintAndSell() internal override {
+        // Calculating ION amount for mint and sell
+        (uint256 ionReserve, uint256 pairTokenReserve) = getReserves();
+        uint256 ionAmount = ((Math.sqrt((pairTokenReserve * ionReserve * FACTOR) / ionTargetPrice()) - ionReserve) *
+            ionSellRatio) / FACTOR;
+        ionAmount += (ionAmount * poolFee) / (FACTOR - poolFee);
+
         // Mint ION tokens to this contract
         IMinter(ionMinterAddress).protocolMint(address(this), ionAmount);
         uint256 targetPrice = ionTargetPrice();
@@ -272,8 +278,7 @@ contract V2AMO is IV2AMO, MasterAMO {
                 block.timestamp + 1
             );
         }
-        ionAmountIn = amounts[0];
-        pairTokenAmount = amounts[1];
+        uint256 pairTokenAmount = amounts[1];
 
         uint256 postOperationPairTokenBalance = balanceOfToken(pairTokenAddress);
         if (pairTokenAmount != postOperationPairTokenBalance - preOperationPairTokenBalance)
@@ -289,11 +294,7 @@ contract V2AMO is IV2AMO, MasterAMO {
     }
 
     /// @inheritdoc MasterAMO
-    function _addLiquidity(
-        uint256 pairTokenAmount,
-        uint256 minIonSpend,
-        uint256 minPairTokenSpend
-    ) internal override returns (uint256 ionSpent, uint256 pairTokenSpent, uint256 liquidity) {
+    function _addLiquidity(uint256 pairTokenAmount) internal override returns (uint256 liquidity) {
         // Calculate ION amount to mint based on the PairToken amount and multiplier.
         uint256 ionMintAmount = (scalePairTokenToIonDecimals(pairTokenAmount) * ionMultiplayer) / FACTOR;
         IMinter(ionMinterAddress).protocolMint(address(this), ionMintAmount);
@@ -304,14 +305,16 @@ contract V2AMO is IV2AMO, MasterAMO {
 
         uint256 lpBalanceBefore = balanceOfToken(poolAddress);
         // Add liquidity using the Solidly router.
+        uint256 ionSpent;
+        uint256 pairTokenSpent;
         (ionSpent, pairTokenSpent, liquidity) = ISolidlyRouter(routerAddress).addLiquidity(
             ionAddress,
             pairTokenAddress,
             isStablePool,
             ionMintAmount,
             pairTokenAmount,
-            minIonSpend,
-            minPairTokenSpend,
+            1, // minIonSpend
+            1, // minPairTokenSpend
             address(this),
             block.timestamp + 1
         );
@@ -334,20 +337,6 @@ contract V2AMO is IV2AMO, MasterAMO {
         // Burn any excessive minted BOOST.
         if (ionMintAmount > ionSpent) IIon(ionAddress).burn(ionMintAmount - ionSpent);
         emit AddLiquidityAndDeposit(ionSpent, pairTokenSpent, liquidity, tokenId);
-    }
-
-    /// @inheritdoc MasterAMO
-    function _mintSellFarm() internal override returns (uint256 liquidity, uint256 postOperationIonPrice) {
-        (uint256 ionReserve, uint256 pairTokenReserve) = getReserves();
-        uint256 ionAmountIn = ((Math.sqrt((pairTokenReserve * ionReserve * FACTOR) / ionTargetPrice()) - ionReserve) *
-            ionSellRatio) / FACTOR;
-        ionAmountIn += (ionAmountIn * poolFee) / (FACTOR - poolFee);
-        (, , , , liquidity) = _mintSellFarm(
-            ionAmountIn,
-            1, // minBoostSpend
-            1 // minUsdSpend
-        );
-        postOperationIonPrice = ionPrice();
     }
 
     ////// UNFARM-BUY-BURN FUNCTIONS //////
@@ -379,7 +368,7 @@ contract V2AMO is IV2AMO, MasterAMO {
             1,
             1,
             address(this),
-            block.timestamp + 300
+            block.timestamp + 1
         );
         uint256 targetPrice = ionTargetPrice();
         uint256 postOperationPairTokenBalance = balanceOfToken(pairTokenAddress);
@@ -408,7 +397,7 @@ contract V2AMO is IV2AMO, MasterAMO {
                 minIonSwapAmountOut,
                 routes,
                 address(this),
-                block.timestamp + 300
+                block.timestamp + 1
             );
         } else {
             ISolidlyRouter.route[] memory routes = new ISolidlyRouter.route[](1);
@@ -418,7 +407,7 @@ contract V2AMO is IV2AMO, MasterAMO {
                 minIonSwapAmountOut,
                 routes,
                 address(this),
-                block.timestamp + 300
+                block.timestamp + 1
             );
         }
         postOperationIonPrice = ionPrice();

@@ -266,9 +266,8 @@ contract V3AMO is IV3AMO, MasterAMO {
      * @notice Internal function handling mint callbacks.
      * @param amount0Owed Amount of token0 owed.
      * @param amount1Owed Amount of token1 owed.
-     * @param data Callback data.
      */
-    function _mintCallback(uint256 amount0Owed, uint256 amount1Owed, bytes calldata data) internal {
+    function _mintCallback(uint256 amount0Owed, uint256 amount1Owed, bytes calldata /* data */) internal {
         if (msg.sender != poolAddress) revert UntrustedCaller(msg.sender);
         (uint256 ionOwed, uint256 pairTokenOwed) = orderAmountsByTokenAddress(amount0Owed, amount1Owed);
         IERC20(pairTokenAddress).safeTransfer(poolAddress, pairTokenOwed);
@@ -278,28 +277,22 @@ contract V3AMO is IV3AMO, MasterAMO {
     ////// MINT-SELL-FARM FUNCTIONS //////
 
     /// @inheritdoc MasterAMO
-    function _mintAndSell(
-        uint256 ionAmount
-    ) internal override returns (uint256 ionAmountIn, uint256 pairTokenAmountOut) {
+    function _mintAndSell() internal override {
         (int256 amount0, int256 amount1) = IUniswapV3Pool(poolAddress).swap(
             address(this),
             ionAddress < pairTokenAddress, // zeroForOne
-            int256(ionAmount),
+            type(int256).max, // amountSpecified
             targetSqrtPriceX96(),
             abi.encode(SwapType.SELL)
         );
         (int256 ionDelta, int256 pairTokenDelta) = orderAmountsByTokenAddress(amount0, amount1);
-        ionAmountIn = uint256(ionDelta);
-        pairTokenAmountOut = uint256(-pairTokenDelta);
+        uint256 ionAmountIn = uint256(ionDelta);
+        uint256 pairTokenAmountOut = uint256(-pairTokenDelta);
         emit MintSell(ionAmountIn, pairTokenAmountOut);
     }
 
     /// @inheritdoc MasterAMO
-    function _addLiquidity(
-        uint256 pairTokenAmount,
-        uint256 minIonSpend,
-        uint256 minPairTokenSpend
-    ) internal override returns (uint256 ionSpent, uint256 pairTokenSpent, uint256 liquidity) {
+    function _addLiquidity(uint256 pairTokenAmount) internal override returns (uint256 liquidity) {
         liquidity = _getLiquidityForPairTokenAmount(pairTokenAmount);
         uint256 amount0;
         uint256 amount1;
@@ -325,8 +318,7 @@ contract V3AMO is IV3AMO, MasterAMO {
                 ""
             );
         }
-        (ionSpent, pairTokenSpent) = orderAmountsByTokenAddress(amount0, amount1);
-        if (ionSpent < minIonSpend || pairTokenSpent < minPairTokenSpend) revert InsufficientTokenSpent();
+        (uint256 ionSpent, uint256 pairTokenSpent) = orderAmountsByTokenAddress(amount0, amount1);
         emit AddLiquidity(ionSpent, pairTokenSpent, liquidity);
     }
 
@@ -396,16 +388,6 @@ contract V3AMO is IV3AMO, MasterAMO {
     }
 
     /// @inheritdoc MasterAMO
-    function _mintSellFarm() internal override returns (uint256 liquidity, uint256 postOperationIonPrice) {
-        (, , , , liquidity) = _mintSellFarm(
-            uint256(type(int256).max), // maximum BOOST amount
-            1, // minBoostSpend
-            1 // minUsdSpend
-        );
-        postOperationIonPrice = ionPrice();
-    }
-
-    /// @inheritdoc MasterAMO
     function _unfarmBuyBurn() internal override returns (uint256 liquidity, uint256 postOperationIonPrice) {
         liquidity = _calculateLiquidityToUnfarm();
 
@@ -457,7 +439,7 @@ contract V3AMO is IV3AMO, MasterAMO {
         uint256 ionAmountOut = uint256(-ionDelta);
 
         uint256 remainedPairTokenAfterOperation = pairTokenRemoved - pairTokenAmountIn;
-        if (remainedPairTokenAfterOperation > 0) _addLiquidity(remainedPairTokenAfterOperation, 1, 1);
+        if (remainedPairTokenAfterOperation > 0) _addLiquidity(remainedPairTokenAfterOperation);
 
         IIon(ionAddress).burn(ionCollected + ionAmountOut);
         postOperationIonPrice = ionPrice();

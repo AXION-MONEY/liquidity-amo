@@ -22,9 +22,6 @@ interface IMasterAMO {
     /// @notice Reverts when adding liquidity is attempted with an invalid ratio.
     error InvalidRatioToAddLiquidity();
 
-    /// @notice Reverts when removing liquidity is attempted with an invalid ratio.
-    error InvalidRatioToRemoveLiquidity();
-
     /// @notice Reverts when the ION price is not within an expected range.
     error PriceNotInRange(uint256 price);
 
@@ -136,11 +133,9 @@ interface IMasterAMO {
 
     /**
      * @notice Adds liquidity to the ION-PairToken pool, based on the contract's PairToken balance.
-     * @return ionSpent The ION tokens spent.
-     * @return pairTokenSpent The pair tokens spent.
      * @return liquidity The liquidity tokens received.
      */
-    function addLiquidity() external returns (uint256 ionSpent, uint256 pairTokenSpent, uint256 liquidity);
+    function addLiquidity() external returns (uint256 liquidity);
 
     /**
      * @notice Mints, sells, and farms ION tokens when ION is over peg.

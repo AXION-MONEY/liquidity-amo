@@ -271,64 +271,17 @@ abstract contract MasterAMO is
 
     /**
      * @notice Internal function to mint ION and sell it for pairToken.
-     * @param ionAmount The amount of ION to mint.
-     * @return ionAmountIn ION tokens sent to the pool.
-     * @return pairTokenAmount pairToken received.
      * @dev Must be implemented by a derived contract.
      */
-    function _mintAndSell(uint256 ionAmount) internal virtual returns (uint256 ionAmountIn, uint256 pairTokenAmount);
+    function _mintAndSell() internal virtual;
 
     /**
      * @notice Internal function to add liquidity to the pool.
      * @param pairTokenAmount The pairToken amount to add.
-     * @param minIonSpend Minimum ION tokens to spend.
-     * @param minPairTokenSpend Minimum pairTokens to spend.
-     * @return ionSpent ION tokens spent.
-     * @return pairTokenSpent pairTokens spent.
      * @return liquidity Liquidity tokens received.
      * @dev Must be implemented by a derived contract.
      */
-    function _addLiquidity(
-        uint256 pairTokenAmount,
-        uint256 minIonSpend,
-        uint256 minPairTokenSpend
-    ) internal virtual returns (uint256 ionSpent, uint256 pairTokenSpent, uint256 liquidity);
-
-    /**
-     * @notice Internal function that mints, sells ION, and adds liquidity.
-     * @param ionAmount The ION amount to mint.
-     * @param minIONSpend Minimum ION tokens to spend.
-     * @param minPairTokenSpend Minimum PairTokens to spend.
-     * @return ionAmountIn ION tokens used in the swap.
-     * @return pairTokenAmountOut pairToken tokens received from the swap.
-     * @return ionSpent ION tokens spent in liquidity addition.
-     * @return pairTokenSpent pairTokens spent in liquidity addition.
-     * @return liquidity Liquidity tokens received.
-     */
-    function _mintSellFarm(
-        uint256 ionAmount,
-        uint256 minIONSpend,
-        uint256 minPairTokenSpend
-    )
-        internal
-        returns (
-            uint256 ionAmountIn,
-            uint256 pairTokenAmountOut,
-            uint256 ionSpent,
-            uint256 pairTokenSpent,
-            uint256 liquidity
-        )
-    {
-        // Explicitly initialize output variables to zero.
-        (ionSpent, pairTokenSpent, liquidity) = (0, 0, 0);
-        (ionAmountIn, pairTokenAmountOut) = _mintAndSell(ionAmount);
-        uint256 currentPrice = ionPrice();
-        uint256 targetPrice = ionTargetPrice();
-        if (currentPrice > ionPriceLowerBound(targetPrice) && currentPrice < ionPriceUpperBound(targetPrice)) {
-            uint256 pairTokenBalance = IERC20(pairTokenAddress).balanceOf(address(this));
-            (ionSpent, pairTokenSpent, liquidity) = _addLiquidity(pairTokenBalance, minIONSpend, minPairTokenSpend);
-        }
-    }
+    function _addLiquidity(uint256 pairTokenAmount) internal virtual returns (uint256 liquidity);
 
     /**
      * @notice Internal function to perform mint, sell and liquidity addition when ION is over peg.
@@ -337,7 +290,18 @@ abstract contract MasterAMO is
      * @dev Must be implemented by a derived contract.
      * @dev Has been Used for public functions
      */
-    function _mintSellFarm() internal virtual returns (uint256 liquidity, uint256 postOperationIonPrice);
+    function _mintSellFarm() internal returns (uint256 liquidity, uint256 postOperationIonPrice) {
+        _mintAndSell();
+        postOperationIonPrice = ionPrice();
+        uint256 targetPrice = ionTargetPrice();
+        if (
+            postOperationIonPrice > ionPriceLowerBound(targetPrice) &&
+            postOperationIonPrice < ionPriceUpperBound(targetPrice)
+        ) {
+            uint256 pairTokenBalance = IERC20(pairTokenAddress).balanceOf(address(this));
+            liquidity = _addLiquidity(pairTokenBalance);
+        }
+    }
 
     ////// UNFARM-BUY-BURN FUNCTIONS //////
 
@@ -354,13 +318,7 @@ abstract contract MasterAMO is
     // -------------------------------------------------------------
 
     /// @inheritdoc IMasterAMO
-    function addLiquidity()
-        external
-        override
-        whenNotPaused
-        nonReentrant
-        returns (uint256 ionSpent, uint256 pairTokenSpent, uint256 liquidity)
-    {
+    function addLiquidity() external override whenNotPaused nonReentrant returns (uint256 liquidity) {
         // Only add liquidity when current Ion price is within the valid range.
         uint256 currentPrice = ionPrice();
         uint256 targetPrice = ionTargetPrice();
@@ -368,7 +326,7 @@ abstract contract MasterAMO is
             revert InvalidRatioToAddLiquidity();
 
         uint256 pairTokenBalance = IERC20(pairTokenAddress).balanceOf(address(this));
-        (ionSpent, pairTokenSpent, liquidity) = _addLiquidity(pairTokenBalance, 1, 1);
+        liquidity = _addLiquidity(pairTokenBalance);
     }
 
     /// @inheritdoc IMasterAMO

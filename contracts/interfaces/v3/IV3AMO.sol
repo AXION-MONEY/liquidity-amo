@@ -16,10 +16,6 @@ interface IV3AMO {
     error UntrustedCaller(address caller);
     /// @notice Thrown when swap delta values are invalid.
     error InvalidDelta();
-    /// @notice Thrown when the owed token amounts are invalid.
-    error InvalidOwed();
-    /// @notice Thrown when the tokens spent are insufficient.
-    error InsufficientTokenSpent();
 
     // -------------------------------------------------------------
     //                         EVENTS
