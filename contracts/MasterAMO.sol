@@ -79,12 +79,6 @@ abstract contract MasterAMO is
     /// @inheritdoc IMasterAMO
     uint24 public override validRangeWidth;
     /// @inheritdoc IMasterAMO
-    uint24 public override validRemovingRatio;
-    /// @inheritdoc IMasterAMO
-    uint256 public override ionLowerPriceSell;
-    /// @inheritdoc IMasterAMO
-    uint256 public override ionUpperPriceBuy;
-    /// @inheritdoc IMasterAMO
     uint256 public override ionTargetPricePremium;
 
     // -------------------------------------------------------------
@@ -348,26 +342,6 @@ abstract contract MasterAMO is
     ////// UNFARM-BUY-BURN FUNCTIONS //////
 
     /**
-     * @notice Internal function to remove liquidity, buy ION, and burn it.
-     * @param liquidity The liquidity tokens to remove.
-     * @param minIonRemove Minimum ION tokens to remove.
-     * @param minPairTokenRemove Minimum Pair tokens to remove.
-     * @return ionRemoved ION tokens removed.
-     * @return pairTokenRemoved pair tokens removed.
-     * @return pairTokenAmountIn pair tokens used to buy ION.
-     * @return ionAmountOut ION tokens obtained.
-     * @dev Must be implemented by a derived contract.
-     */
-    function _unfarmBuyBurn(
-        uint256 liquidity,
-        uint256 minIonRemove,
-        uint256 minPairTokenRemove
-    )
-        internal
-        virtual
-        returns (uint256 ionRemoved, uint256 pairTokenRemoved, uint256 pairTokenAmountIn, uint256 ionAmountOut);
-
-    /**
      * @notice Internal function to perform un-farming, buying, and burning when ION is under peg.
      * @return liquidity Liquidity tokens affected.
      * @return postOperationIonPrice The new average ION price after the operation.
@@ -407,9 +381,6 @@ abstract contract MasterAMO is
         returns (uint256 liquidity, uint256 postOperationIonPrice)
     {
         (liquidity, postOperationIonPrice) = _mintSellFarm();
-        if (postOperationIonPrice < (ionTargetPrice() * ionLowerPriceSell) / FACTOR)
-            revert PriceNotInRange(postOperationIonPrice);
-        emit MintSellFarmExecuted(liquidity, postOperationIonPrice);
     }
 
     /// @inheritdoc IMasterAMO
@@ -422,9 +393,6 @@ abstract contract MasterAMO is
         returns (uint256 liquidity, uint256 postOperationIonPrice)
     {
         (liquidity, postOperationIonPrice) = _unfarmBuyBurn();
-        if (postOperationIonPrice > (ionTargetPrice() * ionUpperPriceBuy) / FACTOR)
-            revert PriceNotInRange(postOperationIonPrice);
-        emit UnfarmBuyBurnExecuted(liquidity, postOperationIonPrice);
     }
 
     ////// WITHDRAWAL FUNCTIONS //////

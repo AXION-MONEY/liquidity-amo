@@ -69,21 +69,10 @@ interface IV2AMO {
      * @notice Emitted when various parameters are set.
      * @param ionMultiplayer The ION multiplier.
      * @param validRangeWidth The valid range width.
-     * @param validRemovingRatio The valid ratio for liquidity removal.
-     * @param ionLowerPriceSell The lower price threshold for selling ION.
-     * @param ionUpperPriceBuy The upper price threshold for buying ION.
      * @param ionSellRatio The ION sell ratio.
      * @param pairTokenBuyRatio The pairToken buy ratio.
      */
-    event ParamsSet(
-        uint256 ionMultiplayer,
-        uint24 validRangeWidth,
-        uint24 validRemovingRatio,
-        uint256 ionLowerPriceSell,
-        uint256 ionUpperPriceBuy,
-        uint256 ionSellRatio,
-        uint256 pairTokenBuyRatio
-    );
+    event ParamsSet(uint256 ionMultiplayer, uint24 validRangeWidth, uint256 ionSellRatio, uint256 pairTokenBuyRatio);
 
     /**
      * @notice Emitted when reward tokens whitelist is updated.
@@ -201,18 +190,12 @@ interface IV2AMO {
      * @notice Sets various parameters for AMO operations.
      * @param ionMultiplier_ The ION multiplier.
      * @param validRangeWidth_ The valid range width for liquidity addition.
-     * @param validRemovingRatio_ The valid ratio for liquidity removal.
-     * @param ionLowerPriceSell_ The lower price threshold for selling ION.
-     * @param ionUpperPriceBuy_ The upper price threshold for buying ION.
      * @param ionSellRatio_ The ION sell ratio.
      * @param pairTokenBuyRatio_ The pairToken buy ratio.
      */
     function setParams(
         uint256 ionMultiplier_,
         uint24 validRangeWidth_,
-        uint24 validRemovingRatio_,
-        uint256 ionLowerPriceSell_,
-        uint256 ionUpperPriceBuy_,
         uint256 ionSellRatio_,
         uint256 pairTokenBuyRatio_
     ) external;

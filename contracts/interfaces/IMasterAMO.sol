@@ -46,20 +46,6 @@ interface IMasterAMO {
     event MintSell(uint256 ionAmountIn, uint256 pairTokenAmountOut);
 
     /**
-     * @notice Emitted when a public `mintSellFarm` operation is executed.
-     * @param liquidity The amount of liquidity added.
-     * @param postOperationIonPrice The new ION price after the operation.
-     */
-    event MintSellFarmExecuted(uint256 liquidity, uint256 postOperationIonPrice);
-
-    /**
-     * @notice Emitted when a `unfarmBuyBurn` operation is executed.
-     * @param liquidity The amount of liquidity removed.
-     * @param postOperationIonPrice The new ION price after the operation.
-     */
-    event UnfarmBuyBurnExecuted(uint256 liquidity, uint256 postOperationIonPrice);
-
-    /**
      * @notice Emitted when the target price premium is updated.
      * @param premium The new premium value.
      */
@@ -122,15 +108,6 @@ interface IMasterAMO {
 
     /// @notice Valid range ratio for adding liquidity (6 decimals).
     function validRangeWidth() external view returns (uint24);
-
-    /// @notice Valid removing liquidity ratio (6 decimals). expected to be close to 1.
-    function validRemovingRatio() external view returns (uint24);
-
-    /// @notice ION lower price threshold after a sell operation (6 decimals).
-    function ionLowerPriceSell() external view returns (uint256);
-
-    /// @notice ION upper price threshold after a buy operation (6 decimals).
-    function ionUpperPriceBuy() external view returns (uint256);
 
     /**
      * @notice Retrieves the current premium offset used for staked pairs in target price calculations.

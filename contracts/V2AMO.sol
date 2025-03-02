@@ -87,9 +87,6 @@ contract V2AMO is IV2AMO, MasterAMO {
      * @param useTokenId_ Boolean indicating whether to use the token ID.
      * @param ionMultiplier_ Multiplier used to calculate ION amount to mint in addLiquidity().
      * @param validRangeWidth_ Valid range width for liquidity addition.
-     * @param validRemovingRatio_ Valid ratio for liquidity removal.
-     * @param ionLowerPriceSell_ Lower price threshold for selling ION.
-     * @param ionUpperPriceBuy_ Upper price threshold for buying ION.
      * @param ionSellRatio_ ION sell ratio.
      * @param pairTokenBuyRatio_ PairToken buy ratio.
      */
@@ -110,9 +107,6 @@ contract V2AMO is IV2AMO, MasterAMO {
         bool useTokenId_,
         uint256 ionMultiplier_,
         uint24 validRangeWidth_,
-        uint24 validRemovingRatio_,
-        uint256 ionLowerPriceSell_,
-        uint256 ionUpperPriceBuy_,
         uint256 ionSellRatio_,
         uint256 pairTokenBuyRatio_
     ) public initializer {
@@ -157,15 +151,7 @@ contract V2AMO is IV2AMO, MasterAMO {
         setPoolFee((poolFee_ * FACTOR) / feeScaledFactor);
         setVault(rewardVault_);
         setTokenId(tokenId_, useTokenId_);
-        setParams(
-            ionMultiplier_,
-            validRangeWidth_,
-            validRemovingRatio_,
-            ionLowerPriceSell_,
-            ionUpperPriceBuy_,
-            ionSellRatio_,
-            pairTokenBuyRatio_
-        );
+        setParams(ionMultiplier_, validRangeWidth_, ionSellRatio_, pairTokenBuyRatio_);
         _revokeRole(SETTER_ROLE, msg.sender);
     }
 
@@ -197,30 +183,15 @@ contract V2AMO is IV2AMO, MasterAMO {
     function setParams(
         uint256 ionMultiplier_,
         uint24 validRangeWidth_,
-        uint24 validRemovingRatio_,
-        uint256 ionLowerPriceSell_,
-        uint256 ionUpperPriceBuy_,
         uint256 ionSellRatio_,
         uint256 pairTokenBuyRatio_
     ) public override onlyRole(SETTER_ROLE) {
-        // Ensure valid ratios (validRangeWidth must be lower than FACTOR; validRemovingRatio must be greater than FACTOR)
-        if (validRangeWidth_ > FACTOR || validRemovingRatio_ < FACTOR) revert InvalidRatioValue();
+        if (validRangeWidth_ > FACTOR) revert InvalidRatioValue();
         ionMultiplayer = ionMultiplier_;
         validRangeWidth = validRangeWidth_;
-        validRemovingRatio = validRemovingRatio_;
-        ionLowerPriceSell = ionLowerPriceSell_;
-        ionUpperPriceBuy = ionUpperPriceBuy_;
         ionSellRatio = ionSellRatio_;
         pairTokenBuyRatio = pairTokenBuyRatio_;
-        emit ParamsSet(
-            ionMultiplayer,
-            validRangeWidth,
-            validRemovingRatio,
-            ionLowerPriceSell,
-            ionUpperPriceBuy,
-            ionSellRatio,
-            pairTokenBuyRatio
-        );
+        emit ParamsSet(ionMultiplayer, validRangeWidth, ionSellRatio, pairTokenBuyRatio);
     }
 
     /// @inheritdoc IV2AMO
@@ -381,29 +352,32 @@ contract V2AMO is IV2AMO, MasterAMO {
 
     ////// UNFARM-BUY-BURN FUNCTIONS //////
 
+    function _calculateLiquidityToUnfarm() internal view returns (uint256 liquidity) {
+        (uint256 ionReserve, uint256 pairTokenReserve) = getReserves();
+        uint256 totalLp = IERC20(poolAddress).totalSupply();
+        uint256 sqrtResRatio = Math.sqrt((FACTOR ** 2 * pairTokenReserve) / ((ionReserve * ionTargetPrice()) / FACTOR));
+        uint256 removalPercentage = (FACTOR * (FACTOR - sqrtResRatio)) / (FACTOR - ((poolFee * sqrtResRatio) / FACTOR));
+        liquidity = (totalLp * removalPercentage) / FACTOR;
+    }
+
     /// @inheritdoc MasterAMO
-    function _unfarmBuyBurn(
-        uint256 liquidity,
-        uint256 minIonRemove,
-        uint256 minPairTokenRemove
-    )
-        internal
-        override
-        returns (uint256 ionRemoved, uint256 pairTokenRemoved, uint256 pairTokenAmountIn, uint256 ionAmountOut)
-    {
+    function _unfarmBuyBurn() internal override returns (uint256 liquidity, uint256 postOperationIonPrice) {
+        liquidity = _calculateLiquidityToUnfarm();
+        liquidity = (liquidity * pairTokenBuyRatio) / FACTOR;
+
         // Withdraw LP tokens from the gauge.
         IGauge(gaugeAddress).withdraw(liquidity);
         IERC20(poolAddress).approve(routerAddress, liquidity);
 
         uint256 preOperationPairTokenBalance = balanceOfToken(pairTokenAddress);
 
-        (ionRemoved, pairTokenRemoved) = ISolidlyRouter(routerAddress).removeLiquidity(
+        (uint256 ionRemoved, uint256 pairTokenRemoved) = ISolidlyRouter(routerAddress).removeLiquidity(
             ionAddress,
             pairTokenAddress,
             isStablePool,
             liquidity,
-            minIonRemove,
-            minPairTokenRemove,
+            1,
+            1,
             address(this),
             block.timestamp + 300
         );
@@ -414,10 +388,6 @@ contract V2AMO is IV2AMO, MasterAMO {
                 pairTokenRemoved,
                 postOperationPairTokenBalance - preOperationPairTokenBalance
             );
-        if (
-            (((ionRemoved * validRemovingRatio) / FACTOR) * targetPrice) / FACTOR <
-            scalePairTokenToIonDecimals(pairTokenRemoved)
-        ) revert InvalidRatioToRemoveLiquidity();
 
         // Approve router for the PairToken swap.
         IERC20(pairTokenAddress).forceApprove(routerAddress, pairTokenRemoved);
@@ -451,28 +421,11 @@ contract V2AMO is IV2AMO, MasterAMO {
                 block.timestamp + 300
             );
         }
-        uint256 currentPrice = ionPrice();
-        if (currentPrice >= ionPriceUpperBound(targetPrice)) revert PriceNotInRange(currentPrice);
-        pairTokenAmountIn = amounts[0];
-        ionAmountOut = amounts[1];
+        postOperationIonPrice = ionPrice();
+        if (postOperationIonPrice >= ionPriceUpperBound(targetPrice)) revert PriceNotInRange(postOperationIonPrice);
+        uint256 ionAmountOut = amounts[1];
         IIon(ionAddress).burn(ionRemoved + ionAmountOut);
         emit UnfarmBuyBurn(ionRemoved, pairTokenRemoved, liquidity, ionAmountOut);
-    }
-
-    /// @inheritdoc MasterAMO
-    function _unfarmBuyBurn() internal override returns (uint256 liquidity, uint256 postOperationIonPrice) {
-        (uint256 ionReserve, uint256 pairTokenReserve) = getReserves();
-        uint256 totalLp = IERC20(poolAddress).totalSupply();
-        uint256 sqrtResRatio = Math.sqrt((FACTOR ** 2 * pairTokenReserve) / ((ionReserve * ionTargetPrice()) / FACTOR));
-        uint256 removalPercentage = (FACTOR * (FACTOR - sqrtResRatio)) / (FACTOR - ((poolFee * sqrtResRatio) / FACTOR));
-        liquidity = (totalLp * removalPercentage) / FACTOR;
-        liquidity = (liquidity * pairTokenBuyRatio) / FACTOR;
-        _unfarmBuyBurn(
-            liquidity,
-            (liquidity * ionReserve) / totalLp, // minBoostRemove
-            scaleIonToPairTokenDecimals((liquidity * pairTokenReserve) / totalLp) // minUsdRemove, recalculated to cover precision loss
-        );
-        postOperationIonPrice = ionPrice();
     }
 
     // -------------------------------------------------------------

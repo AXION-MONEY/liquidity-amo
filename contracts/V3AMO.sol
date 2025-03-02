@@ -83,9 +83,6 @@ contract V3AMO is IV3AMO, MasterAMO {
      * @param tickUpper_ Upper tick boundary.
      * @param ionMultiplayer_ Multiplier for ION minting.
      * @param validRangeWidth_ Valid range width for liquidity addition.
-     * @param validRemovingRatio_ Valid ratio for liquidity removal.
-     * @param ionLowerPriceSell_ Lower price threshold for selling ION.
-     * @param ionUpperPriceBuy_ Upper price threshold for buying ION.
      */
     function initialize(
         address admin,
@@ -101,10 +98,7 @@ contract V3AMO is IV3AMO, MasterAMO {
         int24 tickLower_,
         int24 tickUpper_,
         uint256 ionMultiplayer_,
-        uint24 validRangeWidth_,
-        uint24 validRemovingRatio_,
-        uint256 ionLowerPriceSell_,
-        uint256 ionUpperPriceBuy_
+        uint24 validRangeWidth_
     ) public initializer {
         super.initialize(
             admin,
@@ -120,14 +114,7 @@ contract V3AMO is IV3AMO, MasterAMO {
 
         _grantRole(SETTER_ROLE, msg.sender);
         setTickBounds(tickLower_, tickUpper_);
-        setParams(
-            quoterAddress_,
-            ionMultiplayer_,
-            validRangeWidth_,
-            validRemovingRatio_,
-            ionLowerPriceSell_,
-            ionUpperPriceBuy_
-        );
+        setParams(quoterAddress_, ionMultiplayer_, validRangeWidth_);
         _revokeRole(SETTER_ROLE, msg.sender);
     }
 
@@ -146,26 +133,13 @@ contract V3AMO is IV3AMO, MasterAMO {
     function setParams(
         address quoterAddress_,
         uint256 ionMultiplayer_,
-        uint24 validRangeWidth_,
-        uint24 validRemovingRatio_,
-        uint256 ionLowerPriceSell_,
-        uint256 ionUpperPriceBuy_
+        uint24 validRangeWidth_
     ) public override onlyRole(SETTER_ROLE) {
-        if (validRangeWidth_ > FACTOR || validRemovingRatio_ < FACTOR) revert InvalidRatioValue();
+        if (validRangeWidth_ > FACTOR) revert InvalidRatioValue();
         quoterAddress = quoterAddress_;
         ionMultiplayer = ionMultiplayer_;
         validRangeWidth = validRangeWidth_;
-        validRemovingRatio = validRemovingRatio_;
-        ionLowerPriceSell = ionLowerPriceSell_;
-        ionUpperPriceBuy = ionUpperPriceBuy_;
-        emit ParamsSet(
-            quoterAddress,
-            ionMultiplayer,
-            validRangeWidth,
-            validRemovingRatio,
-            ionLowerPriceSell,
-            ionUpperPriceBuy
-        );
+        emit ParamsSet(quoterAddress, ionMultiplayer, validRangeWidth);
     }
 
     // -------------------------------------------------------------
@@ -358,99 +332,7 @@ contract V3AMO is IV3AMO, MasterAMO {
 
     ////// UNFARM-BUY-BURN FUNCTIONS //////
 
-    /// @inheritdoc MasterAMO
-    function _unfarmBuyBurn(
-        uint256 liquidity,
-        uint256 minIonRemove,
-        uint256 minPairTokenRemove
-    )
-        internal
-        override
-        returns (uint256 ionRemoved, uint256 pairTokenRemoved, uint256 pairTokenAmountIn, uint256 ionAmountOut)
-    {
-        uint256 amount0FromBurn;
-        uint256 amount1FromBurn;
-        if (poolType == PoolType.ALGEBRA_INTEGRAL) {
-            (amount0FromBurn, amount1FromBurn) = IAlgebraIntegralPool(poolAddress).burn(
-                tickLower,
-                tickUpper,
-                uint128(liquidity),
-                ""
-            );
-        } else {
-            (amount0FromBurn, amount1FromBurn) = IUniswapV3Pool(poolAddress).burn(
-                tickLower,
-                tickUpper,
-                uint128(liquidity)
-            );
-        }
-        (ionRemoved, pairTokenRemoved) = orderAmountsByTokenAddress(amount0FromBurn, amount1FromBurn);
-        if (ionRemoved < minIonRemove) revert InsufficientOutputAmount(ionRemoved, minIonRemove);
-        if (pairTokenRemoved < minPairTokenRemove)
-            revert InsufficientOutputAmount(pairTokenRemoved, minPairTokenRemove);
-
-        if (poolType == PoolType.SOLIDLY_V3) {
-            address feeCollector = ISolidlyV3Factory(ISolidlyV3Pool(poolAddress).factory()).feeCollector();
-            IRewardsDistributor(feeCollector).collectPoolFees(poolAddress);
-        }
-        uint128 amount0Collected;
-        uint128 amount1Collected;
-        (amount0Collected, amount1Collected) = IUniswapV3Pool(poolAddress).collect(
-            address(this),
-            tickLower,
-            tickUpper,
-            type(uint128).max,
-            type(uint128).max
-        );
-        (uint256 ionCollected, uint256 pairTokenCollected) = orderAmountsByTokenAddress(
-            amount0Collected,
-            amount1Collected
-        );
-
-        if (
-            (((ionRemoved * validRemovingRatio) / FACTOR) * ionTargetPrice()) / FACTOR <
-            scalePairTokenToIonDecimals(pairTokenRemoved)
-        ) revert InvalidRatioToRemoveLiquidity();
-
-        (int256 amount0, int256 amount1) = IUniswapV3Pool(poolAddress).swap(
-            address(this),
-            ionAddress > pairTokenAddress, // zeroForOne
-            int256(pairTokenRemoved),
-            targetSqrtPriceX96(),
-            abi.encode(SwapType.BUY)
-        );
-        (int256 ionDelta, int256 pairTokenDelta) = orderAmountsByTokenAddress(amount0, amount1);
-        pairTokenAmountIn = uint256(pairTokenDelta);
-        ionAmountOut = uint256(-ionDelta);
-
-        uint256 remainedPairTokenAfterOperation = pairTokenRemoved - pairTokenAmountIn;
-        if (remainedPairTokenAfterOperation > 0) _addLiquidity(remainedPairTokenAfterOperation, 1, 1);
-
-        IIon(ionAddress).burn(ionCollected + ionAmountOut);
-
-        emit UnfarmBuyBurn(
-            ionRemoved,
-            pairTokenRemoved,
-            liquidity,
-            pairTokenAmountIn,
-            ionAmountOut,
-            ionCollected - ionRemoved,
-            pairTokenCollected - pairTokenRemoved
-        );
-    }
-
-    /// @inheritdoc MasterAMO
-    function _mintSellFarm() internal override returns (uint256 liquidity, uint256 postOperationIonPrice) {
-        (, , , , liquidity) = _mintSellFarm(
-            uint256(type(int256).max), // maximum BOOST amount
-            1, // minBoostSpend
-            1 // minUsdSpend
-        );
-        postOperationIonPrice = ionPrice();
-    }
-
-    /// @inheritdoc MasterAMO
-    function _unfarmBuyBurn() internal override returns (uint256 liquidity, uint256 postOperationIonPrice) {
+    function _calculateLiquidityToUnfarm() internal returns (uint256 liquidity) {
         (uint256 positionLiquidity, , ) = position();
         uint256 amountIn;
         if (poolType == PoolType.SOLIDLY_V3) {
@@ -511,9 +393,83 @@ contract V3AMO is IV3AMO, MasterAMO {
         }
         liquidity = _getLiquidityForPairTokenAmount(amountIn);
         if (liquidity > positionLiquidity) liquidity = positionLiquidity;
+    }
 
-        _unfarmBuyBurn(liquidity, 1, 1);
+    /// @inheritdoc MasterAMO
+    function _mintSellFarm() internal override returns (uint256 liquidity, uint256 postOperationIonPrice) {
+        (, , , , liquidity) = _mintSellFarm(
+            uint256(type(int256).max), // maximum BOOST amount
+            1, // minBoostSpend
+            1 // minUsdSpend
+        );
         postOperationIonPrice = ionPrice();
+    }
+
+    /// @inheritdoc MasterAMO
+    function _unfarmBuyBurn() internal override returns (uint256 liquidity, uint256 postOperationIonPrice) {
+        liquidity = _calculateLiquidityToUnfarm();
+
+        uint256 amount0FromBurn;
+        uint256 amount1FromBurn;
+        if (poolType == PoolType.ALGEBRA_INTEGRAL) {
+            (amount0FromBurn, amount1FromBurn) = IAlgebraIntegralPool(poolAddress).burn(
+                tickLower,
+                tickUpper,
+                uint128(liquidity),
+                ""
+            );
+        } else {
+            (amount0FromBurn, amount1FromBurn) = IUniswapV3Pool(poolAddress).burn(
+                tickLower,
+                tickUpper,
+                uint128(liquidity)
+            );
+        }
+        (uint256 ionRemoved, uint256 pairTokenRemoved) = orderAmountsByTokenAddress(amount0FromBurn, amount1FromBurn);
+
+        if (poolType == PoolType.SOLIDLY_V3) {
+            address feeCollector = ISolidlyV3Factory(ISolidlyV3Pool(poolAddress).factory()).feeCollector();
+            IRewardsDistributor(feeCollector).collectPoolFees(poolAddress);
+        }
+        uint128 amount0Collected;
+        uint128 amount1Collected;
+        (amount0Collected, amount1Collected) = IUniswapV3Pool(poolAddress).collect(
+            address(this),
+            tickLower,
+            tickUpper,
+            type(uint128).max,
+            type(uint128).max
+        );
+        (uint256 ionCollected, uint256 pairTokenCollected) = orderAmountsByTokenAddress(
+            amount0Collected,
+            amount1Collected
+        );
+
+        (int256 amount0, int256 amount1) = IUniswapV3Pool(poolAddress).swap(
+            address(this),
+            ionAddress > pairTokenAddress, // zeroForOne
+            int256(pairTokenRemoved),
+            targetSqrtPriceX96(),
+            abi.encode(SwapType.BUY)
+        );
+        (int256 ionDelta, int256 pairTokenDelta) = orderAmountsByTokenAddress(amount0, amount1);
+        uint256 pairTokenAmountIn = uint256(pairTokenDelta);
+        uint256 ionAmountOut = uint256(-ionDelta);
+
+        uint256 remainedPairTokenAfterOperation = pairTokenRemoved - pairTokenAmountIn;
+        if (remainedPairTokenAfterOperation > 0) _addLiquidity(remainedPairTokenAfterOperation, 1, 1);
+
+        IIon(ionAddress).burn(ionCollected + ionAmountOut);
+        postOperationIonPrice = ionPrice();
+        emit UnfarmBuyBurn(
+            ionRemoved,
+            pairTokenRemoved,
+            liquidity,
+            pairTokenAmountIn,
+            ionAmountOut,
+            ionCollected - ionRemoved,
+            pairTokenCollected - pairTokenRemoved
+        );
     }
 
     // -------------------------------------------------------------

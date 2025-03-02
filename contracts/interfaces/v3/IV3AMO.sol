@@ -64,18 +64,8 @@ interface IV3AMO {
      * @param quoterAddress The quoter contract address.
      * @param ionMultiplayer The ION multiplier.
      * @param validRangeWidth The valid range width.
-     * @param validRemovingRatio The valid ratio for liquidity removal.
-     * @param ionLowerPriceSell The lower price threshold for selling ION.
-     * @param ionUpperPriceBuy The upper price threshold for buying ION.
      */
-    event ParamsSet(
-        address quoterAddress,
-        uint256 ionMultiplayer,
-        uint24 validRangeWidth,
-        uint24 validRemovingRatio,
-        uint256 ionLowerPriceSell,
-        uint256 ionUpperPriceBuy
-    );
+    event ParamsSet(address quoterAddress, uint256 ionMultiplayer, uint24 validRangeWidth);
 
     // -------------------------------------------------------------
     //                          ENUMS
@@ -144,18 +134,8 @@ interface IV3AMO {
      * @param quoterAddress_ The new quoter contract address.
      * @param ionMultiplayer_ The ION multiplier.
      * @param validRangeWidth_ The valid range width.
-     * @param validRemovingRatio_ The valid ratio for liquidity removal.
-     * @param ionLowerPriceSell_ The lower price threshold for selling ION.
-     * @param ionUpperPriceBuy_ The upper price threshold for buying ION.
      */
-    function setParams(
-        address quoterAddress_,
-        uint256 ionMultiplayer_,
-        uint24 validRangeWidth_,
-        uint24 validRemovingRatio_,
-        uint256 ionLowerPriceSell_,
-        uint256 ionUpperPriceBuy_
-    ) external;
+    function setParams(address quoterAddress_, uint256 ionMultiplayer_, uint24 validRangeWidth_) external;
 
     /**
      * @notice Returns details of the current liquidity position.
