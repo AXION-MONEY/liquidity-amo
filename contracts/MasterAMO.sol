@@ -215,7 +215,7 @@ abstract contract MasterAMO is
     }
 
     /**
-     * @notice Scales PariToken amount to match ION decimal precision.
+     * @notice Scales PairToken amount to match ION decimal precision.
      * @dev Adjusts the decimal places of the input PairToken amount to align with ION token's decimal precision.
      * @dev This function assumes that ION has more decimal places than PairToken.
      * @param pairTokenAmount The amount in pairToken, using pairToken's decimal precision.
