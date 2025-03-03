@@ -614,7 +614,7 @@ contract V3AMO is IV3AMO, MasterAMO {
         } else {
             (_liquidity, , , tokensOwed0, tokensOwed1) = IUniswapV3Pool(poolAddress).positions(key);
         }
-        liquidity = _liquidity > 0 ? uint256(_liquidity) : 0;
+        if (_liquidity > 0) liquidity = uint256(_liquidity);
         (ionOwed, pairTokenOwed) = orderAmountsByTokenAddress(uint256(tokensOwed0), uint256(tokensOwed1));
     }
 }
