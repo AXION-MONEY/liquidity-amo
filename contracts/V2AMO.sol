@@ -49,10 +49,6 @@ contract V2AMO is IV2AMO, MasterAMO {
     /// @inheritdoc IV2AMO
     mapping(address => bool) public override whitelistedRewardTokens;
     /// @inheritdoc IV2AMO
-    uint256 public override ionSellRatio;
-    /// @inheritdoc IV2AMO
-    uint256 public override pairTokenBuyRatio;
-    /// @inheritdoc IV2AMO
     uint256 public override tokenId;
     /// @inheritdoc IV2AMO
     bool public override useTokenId;
@@ -85,9 +81,9 @@ contract V2AMO is IV2AMO, MasterAMO {
      * @param rewardVault_ Address of the reward vault.
      * @param tokenId_ The token ID to be used when depositing liquidity.
      * @param useTokenId_ Boolean indicating whether to use the token ID.
-     * @param validRangeWidth_ Valid range width for liquidity addition.
-     * @param ionSellRatio_ ION sell ratio.
-     * @param pairTokenBuyRatio_ PairToken buy ratio.
+     * @param validRangeWidth_ The valid range width for liquidity addition.
+     * @param sellRatio_ The sell ratio as mintSellFarm's swap ratio.
+     * @param buyRatio_ The buy ratio as unfarmBuyBurn's swap ratio.
      */
     function initialize(
         address admin,
@@ -105,8 +101,8 @@ contract V2AMO is IV2AMO, MasterAMO {
         uint256 tokenId_,
         bool useTokenId_,
         uint24 validRangeWidth_,
-        uint256 ionSellRatio_,
-        uint256 pairTokenBuyRatio_
+        uint24 sellRatio_,
+        uint24 buyRatio_
     ) public initializer {
         // Validate required addresses
         if (routerAddress_ == address(0) || gaugeAddress_ == address(0)) revert ZeroAddress();
@@ -139,7 +135,10 @@ contract V2AMO is IV2AMO, MasterAMO {
             pool_,
             ionMinterAddress_,
             priceManagerAddress_,
-            pairTokenType_
+            pairTokenType_,
+            validRangeWidth_,
+            sellRatio_,
+            buyRatio_
         );
 
         routerAddress = routerAddress_;
@@ -149,7 +148,6 @@ contract V2AMO is IV2AMO, MasterAMO {
         setPoolFee((poolFee_ * FACTOR) / feeScaledFactor);
         setVault(rewardVault_);
         setTokenId(tokenId_, useTokenId_);
-        setParams(validRangeWidth_, ionSellRatio_, pairTokenBuyRatio_);
         _revokeRole(SETTER_ROLE, msg.sender);
     }
 
@@ -175,19 +173,6 @@ contract V2AMO is IV2AMO, MasterAMO {
         tokenId = tokenId_;
         useTokenId = useTokenId_;
         emit TokenIdSet(tokenId, useTokenId);
-    }
-
-    /// @inheritdoc IV2AMO
-    function setParams(
-        uint24 validRangeWidth_,
-        uint256 ionSellRatio_,
-        uint256 pairTokenBuyRatio_
-    ) public override onlyRole(SETTER_ROLE) {
-        if (validRangeWidth_ > FACTOR) revert InvalidRatioValue();
-        validRangeWidth = validRangeWidth_;
-        ionSellRatio = ionSellRatio_;
-        pairTokenBuyRatio = pairTokenBuyRatio_;
-        emit ParamsSet(validRangeWidth, ionSellRatio, pairTokenBuyRatio);
     }
 
     /// @inheritdoc IV2AMO
@@ -227,11 +212,11 @@ contract V2AMO is IV2AMO, MasterAMO {
     ////// MINT-SELL-FARM FUNCTIONS //////
 
     /// @inheritdoc MasterAMO
-    function _mintAndSell() internal override {
+    function _mintAndSell(uint24 swapRatio) internal override {
         // Calculating ION amount for mint and sell
         (uint256 ionReserve, uint256 pairTokenReserve) = getReserves();
         uint256 ionAmount = ((Math.sqrt((pairTokenReserve * ionReserve * FACTOR) / ionTargetPrice()) - ionReserve) *
-            ionSellRatio) / FACTOR;
+            swapRatio) / FACTOR;
         ionAmount += (ionAmount * poolFee) / (FACTOR - poolFee);
 
         // Mint ION tokens to this contract
@@ -363,9 +348,11 @@ contract V2AMO is IV2AMO, MasterAMO {
     }
 
     /// @inheritdoc MasterAMO
-    function _unfarmBuyBurn() internal override returns (uint256 liquidity, uint256 postOperationIonPrice) {
+    function _unfarmBuyBurn(
+        uint24 swapRatio
+    ) internal override returns (uint256 liquidity, uint256 postOperationIonPrice) {
         liquidity = _calculateLiquidityToUnfarm();
-        liquidity = (liquidity * pairTokenBuyRatio) / FACTOR;
+        liquidity = (liquidity * swapRatio) / FACTOR;
 
         // Withdraw LP tokens from the gauge.
         IGauge(gaugeAddress).withdraw(liquidity);

@@ -41,11 +41,13 @@ contract V3AMO is IV3AMO, MasterAMO {
     /// @inheritdoc IV3AMO
     address public override poolCustomDeployer;
     /// @inheritdoc IV3AMO
+    address public override quoterAddress;
+
+    ////// MUTABLE //////
+    /// @inheritdoc IV3AMO
     int24 public override tickLower;
     /// @inheritdoc IV3AMO
     int24 public override tickUpper;
-    /// @inheritdoc IV3AMO
-    address public override quoterAddress;
 
     // -------------------------------------------------------------
     //                         INTERNAL CONSTANTS
@@ -81,7 +83,9 @@ contract V3AMO is IV3AMO, MasterAMO {
      * @param pairTokenType_ The type of the token paired with ION.
      * @param tickLower_ Lower tick boundary.
      * @param tickUpper_ Upper tick boundary.
-     * @param validRangeWidth_ Valid range width for liquidity addition.
+     * @param validRangeWidth_ The valid range width for liquidity addition.
+     * @param sellRatio_ The sell ratio as mintSellFarm's swap ratio.
+     * @param buyRatio_ The buy ratio as unfarmBuyBurn's swap ratio.
      */
     function initialize(
         address admin,
@@ -96,7 +100,9 @@ contract V3AMO is IV3AMO, MasterAMO {
         PairTokenType pairTokenType_,
         int24 tickLower_,
         int24 tickUpper_,
-        uint24 validRangeWidth_
+        uint24 validRangeWidth_,
+        uint24 sellRatio_,
+        uint24 buyRatio_
     ) public initializer {
         super.initialize(
             admin,
@@ -105,14 +111,17 @@ contract V3AMO is IV3AMO, MasterAMO {
             poolAddress_,
             ionMinterAddress_,
             priceManagerAddress_,
-            pairTokenType_
+            pairTokenType_,
+            validRangeWidth_,
+            sellRatio_,
+            buyRatio_
         );
         poolType = poolType_;
         poolCustomDeployer = poolCustomDeployer_;
+        quoterAddress = quoterAddress_;
 
         _grantRole(SETTER_ROLE, msg.sender);
         setTickBounds(tickLower_, tickUpper_);
-        setParams(quoterAddress_, validRangeWidth_);
         _revokeRole(SETTER_ROLE, msg.sender);
     }
 
@@ -125,14 +134,6 @@ contract V3AMO is IV3AMO, MasterAMO {
         tickLower = tickLower_;
         tickUpper = tickUpper_;
         emit TickBoundsSet(tickLower, tickUpper);
-    }
-
-    /// @inheritdoc IV3AMO
-    function setParams(address quoterAddress_, uint24 validRangeWidth_) public override onlyRole(SETTER_ROLE) {
-        if (validRangeWidth_ > FACTOR) revert InvalidRatioValue();
-        quoterAddress = quoterAddress_;
-        validRangeWidth = validRangeWidth_;
-        emit ParamsSet(quoterAddress, validRangeWidth);
     }
 
     // -------------------------------------------------------------
@@ -270,12 +271,14 @@ contract V3AMO is IV3AMO, MasterAMO {
     ////// MINT-SELL-FARM FUNCTIONS //////
 
     /// @inheritdoc MasterAMO
-    function _mintAndSell() internal override {
+    function _mintAndSell(uint24 swapRatio) internal override {
+        uint256 targetPrice = ionTargetPrice();
+        targetPrice += ((ionPrice() - targetPrice) * (FACTOR - swapRatio)) / FACTOR;
         (int256 amount0, int256 amount1) = IUniswapV3Pool(poolAddress).swap(
             address(this),
             ionAddress < pairTokenAddress, // zeroForOne
             type(int256).max, // amountSpecified
-            targetSqrtPriceX96(),
+            toSqrtPriceX96(targetPrice),
             abi.encode(SwapType.SELL)
         );
         (int256 ionDelta, int256 pairTokenDelta) = orderAmountsByTokenAddress(amount0, amount1);
@@ -317,14 +320,19 @@ contract V3AMO is IV3AMO, MasterAMO {
 
     ////// UNFARM-BUY-BURN FUNCTIONS //////
 
-    function _calculateLiquidityToUnfarm() internal returns (uint256 liquidity) {
+    function _calculateLiquidityToUnfarm(
+        uint24 swapRatio
+    ) internal returns (uint256 liquidity, uint160 sqrtPriceLimitX96) {
         (uint256 positionLiquidity, , ) = position();
+        uint256 targetPrice = ionTargetPrice();
+        targetPrice -= ((targetPrice - ionPrice()) * (FACTOR - swapRatio)) / FACTOR;
+        sqrtPriceLimitX96 = toSqrtPriceX96(targetPrice);
         uint256 amountIn;
         if (poolType == PoolType.SOLIDLY_V3) {
             (int256 amount0, int256 amount1, , , ) = ISolidlyV3Pool(poolAddress).quoteSwap(
                 ionAddress > pairTokenAddress,
                 type(int256).max,
-                targetSqrtPriceX96()
+                sqrtPriceLimitX96
             );
             (, int256 pairTokenDelta) = orderAmountsByTokenAddress(amount0, amount1);
             amountIn = uint256(pairTokenDelta);
@@ -334,7 +342,7 @@ contract V3AMO is IV3AMO, MasterAMO {
                 tokenOut: ionAddress,
                 amount: uint256(type(int256).max),
                 tickSpacing: IUniswapV3Pool(poolAddress).tickSpacing(),
-                sqrtPriceLimitX96: targetSqrtPriceX96()
+                sqrtPriceLimitX96: sqrtPriceLimitX96
             });
             (amountIn, , , ) = IVeloQuoterV2(quoterAddress).quoteExactOutputSingle(params);
         } else if (poolType == PoolType.ALGEBRA_V1_0 || poolType == PoolType.ALGEBRA_V1_9) {
@@ -342,7 +350,7 @@ contract V3AMO is IV3AMO, MasterAMO {
                 pairTokenAddress,
                 ionAddress,
                 uint256(type(int256).max),
-                targetSqrtPriceX96()
+                sqrtPriceLimitX96
             );
         } else if (poolType == PoolType.ALGEBRA_INTEGRAL) {
             (bool success, bytes memory data) = quoterAddress.call(
@@ -352,7 +360,7 @@ contract V3AMO is IV3AMO, MasterAMO {
                     ionAddress,
                     poolCustomDeployer,
                     uint256(type(int256).max),
-                    targetSqrtPriceX96()
+                    sqrtPriceLimitX96
                 )
             );
             if (!success)
@@ -362,7 +370,7 @@ contract V3AMO is IV3AMO, MasterAMO {
                         pairTokenAddress,
                         ionAddress,
                         uint256(type(int256).max),
-                        targetSqrtPriceX96()
+                        sqrtPriceLimitX96
                     )
                 );
             (, amountIn) = abi.decode(data, (uint256, uint256));
@@ -372,7 +380,7 @@ contract V3AMO is IV3AMO, MasterAMO {
                 tokenOut: ionAddress,
                 amount: uint256(type(int256).max),
                 fee: IUniswapV3Pool(poolAddress).fee(),
-                sqrtPriceLimitX96: targetSqrtPriceX96()
+                sqrtPriceLimitX96: sqrtPriceLimitX96
             });
             (amountIn, , , ) = IQuoterV2(quoterAddress).quoteExactOutputSingle(params);
         }
@@ -381,8 +389,11 @@ contract V3AMO is IV3AMO, MasterAMO {
     }
 
     /// @inheritdoc MasterAMO
-    function _unfarmBuyBurn() internal override returns (uint256 liquidity, uint256 postOperationIonPrice) {
-        liquidity = _calculateLiquidityToUnfarm();
+    function _unfarmBuyBurn(
+        uint24 swapRatio
+    ) internal override returns (uint256 liquidity, uint256 postOperationIonPrice) {
+        uint160 sqrtPriceLimitX96;
+        (liquidity, sqrtPriceLimitX96) = _calculateLiquidityToUnfarm(swapRatio);
 
         uint256 amount0FromBurn;
         uint256 amount1FromBurn;
@@ -424,7 +435,7 @@ contract V3AMO is IV3AMO, MasterAMO {
             address(this),
             ionAddress > pairTokenAddress, // zeroForOne
             int256(pairTokenRemoved),
-            targetSqrtPriceX96(),
+            sqrtPriceLimitX96,
             abi.encode(SwapType.BUY)
         );
         (int256 ionDelta, int256 pairTokenDelta) = orderAmountsByTokenAddress(amount0, amount1);
@@ -537,10 +548,7 @@ contract V3AMO is IV3AMO, MasterAMO {
     // -------------------------------------------------------------
     //                      VIEW FUNCTIONS
     // -------------------------------------------------------------
-    /**
-     * @notice Calculates the current ION price relative to pairToken.
-     * @return price The calculated ION price.
-     */
+    /// @inheritdoc IMasterAMO
     function ionPrice() public view override returns (uint256 price) {
         uint256 sqrtPriceX96 = uint256(_getSqrtPriceX96());
         uint8 decimalsDiff = ionDecimals - pairTokenDecimals;
@@ -558,14 +566,10 @@ contract V3AMO is IV3AMO, MasterAMO {
         }
     }
 
-    /**
-     * @notice Computes the target sqrt price for swapping operations.
-     * @return The target sqrt price in Q64.96 format.
-     */
-    function targetSqrtPriceX96() public view override returns (uint160) {
-        uint256 targetPrice = ionTargetPrice();
-        if (pairTokenAddress < ionAddress) targetPrice = FACTOR ** 2 / targetPrice;
-        uint256 priceX96 = (targetPrice * Q96 ** 2) / 10 ** PRICE_DECIMALS;
+    /// @inheritdoc IV3AMO
+    function toSqrtPriceX96(uint256 price) public view override returns (uint160) {
+        if (pairTokenAddress < ionAddress) price = FACTOR ** 2 / price;
+        uint256 priceX96 = (price * Q96 ** 2) / 10 ** PRICE_DECIMALS;
         uint8 decimalsDiff = ionDecimals - pairTokenDecimals;
         if (ionAddress < pairTokenAddress) priceX96 /= 10 ** decimalsDiff;
         else priceX96 *= 10 ** decimalsDiff;
@@ -573,12 +577,7 @@ contract V3AMO is IV3AMO, MasterAMO {
         return sqrtPriceX96.toUint160();
     }
 
-    /**
-     * @notice Retrieves details of the current liquidity position.
-     * @return liquidity Amount of liquidity.
-     * @return ionOwed ION tokens owed.
-     * @return pairTokenOwed pair tokens owed.
-     */
+    /// @inheritdoc IV3AMO
     function position() public view override returns (uint256 liquidity, uint256 ionOwed, uint256 pairTokenOwed) {
         bytes32 key;
         if (

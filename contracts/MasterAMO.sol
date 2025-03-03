@@ -78,6 +78,12 @@ abstract contract MasterAMO is
     uint24 public override validRangeWidth;
     /// @inheritdoc IMasterAMO
     uint256 public override ionTargetPricePremium;
+    /// @inheritdoc IMasterAMO
+    uint24 public override sellRatio;
+    /// @inheritdoc IMasterAMO
+    uint24 public override buyRatio;
+    /// @inheritdoc IMasterAMO
+    mapping(address => bool) public override bypassSwapRatioWhitelist;
 
     // -------------------------------------------------------------
     //                      INTERNAL CONSTANTS
@@ -118,6 +124,9 @@ abstract contract MasterAMO is
      * @param ionMinterAddress_ Address of the Ion minter contract.
      * @param priceManager_ Address of the price manager contract.
      * @param pairTokenType_ The type of the token paired with ION.
+     * @param validRangeWidth_ The valid range width for liquidity addition.
+     * @param sellRatio_ The sell ratio as mintSellFarm's swap ratio.
+     * @param buyRatio_ The buy ratio as unfarmBuyBurn's swap ratio.
      */
     function initialize(
         address admin,
@@ -126,8 +135,11 @@ abstract contract MasterAMO is
         address pool_,
         address ionMinterAddress_,
         address priceManager_,
-        PairTokenType pairTokenType_
-    ) public onlyInitializing {
+        PairTokenType pairTokenType_,
+        uint24 validRangeWidth_,
+        uint24 sellRatio_,
+        uint24 buyRatio_
+    ) internal onlyInitializing {
         __AccessControlEnumerable_init();
         __Pausable_init();
         __ReentrancyGuard_init();
@@ -150,18 +162,33 @@ abstract contract MasterAMO is
         priceManagerContractAddress = priceManager_;
         pairTokenType = pairTokenType_;
         ionTargetPricePremium = 0; // Default value.
+
+        // Temporarily grant SETTER_ROLE to msg.sender for initialization
+        _grantRole(SETTER_ROLE, msg.sender);
+        setParams(validRangeWidth_, sellRatio_, buyRatio_);
+        _revokeRole(SETTER_ROLE, msg.sender);
     }
 
     // -------------------------------------------------------------
     //                        SETTER ACTIONS
     // -------------------------------------------------------------
-    /**
-     * @notice Sets the premium offset used in target price calculations.
-     * @param _targetPricePremium The new premium offset.
-     */
-    function setIonTargetPricePremium(uint256 _targetPricePremium) external onlyRole(SETTER_ROLE) {
-        ionTargetPricePremium = _targetPricePremium;
-        emit SetIonTargetPricePremium(ionTargetPricePremium);
+    /// @inheritdoc IMasterAMO
+    function setIonTargetPricePremium(uint256 targetPricePremium_) external onlyRole(SETTER_ROLE) {
+        ionTargetPricePremium = targetPricePremium_;
+        emit IonTargetPricePremiumSet(ionTargetPricePremium);
+    }
+
+    /// @inheritdoc IMasterAMO
+    function setParams(
+        uint24 validRangeWidth_,
+        uint24 sellRatio_,
+        uint24 buyRatio_
+    ) public override onlyRole(SETTER_ROLE) {
+        if (validRangeWidth_ > FACTOR || sellRatio_ > FACTOR || buyRatio_ > FACTOR) revert InvalidRatioValue();
+        validRangeWidth = validRangeWidth_;
+        sellRatio = sellRatio_;
+        buyRatio = buyRatio_;
+        emit ParamsSet(validRangeWidth, sellRatio, buyRatio);
     }
 
     // -------------------------------------------------------------
@@ -269,9 +296,10 @@ abstract contract MasterAMO is
 
     /**
      * @notice Internal function to mint ION and sell it for pairToken.
+     * @param swapRatio The swap ratio for selling ION.
      * @dev Must be implemented by a derived contract.
      */
-    function _mintAndSell() internal virtual;
+    function _mintAndSell(uint24 swapRatio) internal virtual;
 
     /**
      * @notice Internal function to add liquidity to the pool.
@@ -283,13 +311,14 @@ abstract contract MasterAMO is
 
     /**
      * @notice Internal function to perform mint, sell and liquidity addition when ION is over peg.
+     * @param swapRatio The swap ratio for selling ION.
      * @return liquidity Liquidity tokens received.
      * @return postOperationIonPrice The new average ION price after the operation.
      * @dev Must be implemented by a derived contract.
      * @dev Has been Used for public functions
      */
-    function _mintSellFarm() internal returns (uint256 liquidity, uint256 postOperationIonPrice) {
-        _mintAndSell();
+    function _mintSellFarm(uint24 swapRatio) internal returns (uint256 liquidity, uint256 postOperationIonPrice) {
+        _mintAndSell(swapRatio);
         postOperationIonPrice = ionPrice();
         uint256 targetPrice = ionTargetPrice();
         if (
@@ -305,11 +334,14 @@ abstract contract MasterAMO is
 
     /**
      * @notice Internal function to perform un-farming, buying, and burning when ION is under peg.
+     * @param swapRatio The swap ratio for buying ION.
      * @return liquidity Liquidity tokens affected.
      * @return postOperationIonPrice The new average ION price after the operation.
      * @dev Must be implemented by a derived contract.
      */
-    function _unfarmBuyBurn() internal virtual returns (uint256 liquidity, uint256 postOperationIonPrice);
+    function _unfarmBuyBurn(
+        uint24 swapRatio
+    ) internal virtual returns (uint256 liquidity, uint256 postOperationIonPrice);
 
     // -------------------------------------------------------------
     //                      EXTERNAL FUNCTIONS
@@ -336,7 +368,8 @@ abstract contract MasterAMO is
         validateSwap(SELL_ION)
         returns (uint256 liquidity, uint256 postOperationIonPrice)
     {
-        (liquidity, postOperationIonPrice) = _mintSellFarm();
+        uint24 swapRatio = bypassSwapRatioWhitelist[msg.sender] ? uint24(FACTOR) : sellRatio;
+        (liquidity, postOperationIonPrice) = _mintSellFarm(swapRatio);
     }
 
     /// @inheritdoc IMasterAMO
@@ -348,7 +381,8 @@ abstract contract MasterAMO is
         validateSwap(BUY_ION)
         returns (uint256 liquidity, uint256 postOperationIonPrice)
     {
-        (liquidity, postOperationIonPrice) = _unfarmBuyBurn();
+        uint24 swapRatio = bypassSwapRatioWhitelist[msg.sender] ? uint24(FACTOR) : sellRatio;
+        (liquidity, postOperationIonPrice) = _unfarmBuyBurn(swapRatio);
     }
 
     ////// WITHDRAWAL FUNCTIONS //////

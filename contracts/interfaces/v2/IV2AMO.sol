@@ -66,14 +66,6 @@ interface IV2AMO {
     event TokenIdSet(uint256 tokenId, bool useTokenId);
 
     /**
-     * @notice Emitted when various parameters are set.
-     * @param validRangeWidth The valid range width.
-     * @param ionSellRatio The ION sell ratio.
-     * @param pairTokenBuyRatio The pairToken buy ratio.
-     */
-    event ParamsSet(uint24 validRangeWidth, uint256 ionSellRatio, uint256 pairTokenBuyRatio);
-
-    /**
      * @notice Emitted when reward tokens whitelist is updated.
      * @param tokens Array of token addresses.
      * @param isWhitelisted Boolean indicating the whitelist status.
@@ -144,16 +136,6 @@ interface IV2AMO {
     function whitelistedRewardTokens(address token) external view returns (bool);
 
     /**
-     * @notice Returns the ION sell ratio.
-     */
-    function ionSellRatio() external view returns (uint256);
-
-    /**
-     * @notice Returns the pairToken buy ratio.
-     */
-    function pairTokenBuyRatio() external view returns (uint256);
-
-    /**
      * @notice Returns the token ID for gauge deposits.
      */
     function tokenId() external view returns (uint256);
@@ -184,14 +166,6 @@ interface IV2AMO {
      * @param useTokenId_ Boolean indicating whether to use the token ID.
      */
     function setTokenId(uint256 tokenId_, bool useTokenId_) external;
-
-    /**
-     * @notice Sets various parameters for AMO operations.
-     * @param validRangeWidth_ The valid range width for liquidity addition.
-     * @param ionSellRatio_ The ION sell ratio.
-     * @param pairTokenBuyRatio_ The pairToken buy ratio.
-     */
-    function setParams(uint24 validRangeWidth_, uint256 ionSellRatio_, uint256 pairTokenBuyRatio_) external;
 
     /**
      * @notice Sets the whitelist status for an array of reward tokens.

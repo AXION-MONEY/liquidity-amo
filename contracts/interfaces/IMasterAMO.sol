@@ -46,7 +46,15 @@ interface IMasterAMO {
      * @notice Emitted when the target price premium is updated.
      * @param premium The new premium value.
      */
-    event SetIonTargetPricePremium(uint256 premium);
+    event IonTargetPricePremiumSet(uint256 premium);
+
+    /**
+     * @notice Emitted when various parameters are set.
+     * @param validRangeWidth The valid range width for liquidity addition.
+     * @param sellRatio The sell ratio as mintSellFarm's swap ratio.
+     * @param buyRatio The buy ratio as unfarmBuyBurn's swap ratio.
+     */
+    event ParamsSet(uint24 validRangeWidth, uint24 sellRatio, uint24 buyRatio);
 
     // -------------------------------------------------------------
     //                           ENUMS
@@ -113,6 +121,19 @@ interface IMasterAMO {
      */
     function ionTargetPricePremium() external view returns (uint256);
 
+    /// @notice Returns the sell ratio as mintSellFarm's swap ratio.
+    function sellRatio() external view returns (uint24);
+
+    /// @notice Returns the buy ratio as unfarmBuyBurn's swap ratio.
+    function buyRatio() external view returns (uint24);
+
+    /**
+     * @notice Checks if a user is whitelisted for bypassing the swap ratio (sellRatio and buyRatio).
+     * @param user The user address.
+     * @return True if whitelisted; false otherwise.
+     */
+    function bypassSwapRatioWhitelist(address user) external view returns (bool);
+
     // -------------------------------------------------------------
     //                           FUNCTIONS
     // -------------------------------------------------------------
@@ -127,6 +148,20 @@ interface IMasterAMO {
      * @dev Only accounts with UNPAUSER_ROLE can invoke this.
      */
     function unpause() external;
+
+    /**
+     * @notice Sets the premium offset used in target price calculations.
+     * @param targetPricePremium_ The new premium offset.
+     */
+    function setIonTargetPricePremium(uint256 targetPricePremium_) external;
+
+    /**
+     * @notice Sets various parameters for AMO operations.
+     * @param validRangeWidth_ The valid range width for liquidity addition.
+     * @param sellRatio_ The sell ratio as mintSellFarm's swap ratio.
+     * @param buyRatio_ The buy ratio as unfarmBuyBurn's swap ratio.
+     */
+    function setParams(uint24 validRangeWidth_, uint24 sellRatio_, uint24 buyRatio_) external;
 
     /**
      * @notice Adds liquidity to the ION-PairToken pool, based on the contract's PairToken balance.

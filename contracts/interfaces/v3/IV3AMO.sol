@@ -125,13 +125,6 @@ interface IV3AMO {
     function setTickBounds(int24 tickLower_, int24 tickUpper_) external;
 
     /**
-     * @notice Sets various parameters for the V3AMO contract.
-     * @param quoterAddress_ The new quoter contract address.
-     * @param validRangeWidth_ The valid range width.
-     */
-    function setParams(address quoterAddress_, uint24 validRangeWidth_) external;
-
-    /**
      * @notice Returns details of the current liquidity position.
      * @return liquidity The amount of liquidity.
      * @return ionOwed ION tokens owed.
@@ -140,8 +133,9 @@ interface IV3AMO {
     function position() external view returns (uint256 liquidity, uint256 ionOwed, uint256 pairTokenOwed);
 
     /**
-     * @notice Returns the target sqrt price for swapping operations.
-     * @return The target sqrt price in Q64.96 format.
+     * @notice Converts a price to sqrt price in Q64.96 format.
+     * @param price The price value to be converted.
+     * @return sqrtPriceX96 representation.
      */
-    function targetSqrtPriceX96() external view returns (uint160);
+    function toSqrtPriceX96(uint256 price) external view returns (uint160);
 }

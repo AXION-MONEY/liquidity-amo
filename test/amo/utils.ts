@@ -247,10 +247,9 @@ export async function deployV2AMO(
   priceManagerAddress: string,
   pairedTokenType: number,
   routerAddress: string,
-  ionMultiplier: bigint,
   validRangeWidth: bigint,
-  ionSellRatio: bigint,
-  pairTokenBuyRatio: bigint
+  sellRatio: bigint,
+  buyRatio: bigint
 ): Promise<V2AMO> {
   const GaugeFactory = await ethers.getContractFactory("MockGauge");
   const gauge = await GaugeFactory.deploy();
@@ -280,15 +279,13 @@ export async function deployV2AMO(
     admin.address, // rewardVault
     0, // tokenId
     false, // useTokenId
-    ionMultiplier,
     validRangeWidth,
-    ionSellRatio,
-    pairTokenBuyRatio
+    sellRatio,
+    buyRatio
   ];
   const V2AMOFactory = await ethers.getContractFactory("V2AMO");
   const amo = await upgrades.deployProxy(V2AMOFactory, args, {
-    initializer:
-      "initialize(address,address,address,bool,uint8,address,address,uint8,address,address,address,address,uint256,bool,uint256,uint24,uint256,uint256)"
+    initializer: "initialize"
   });
   await amo.waitForDeployment();
   return amo;
@@ -306,8 +303,9 @@ export async function deployV3AMO(
   pairedTokenType: number,
   tickLower: number,
   tickUpper: number,
-  ionMultiplier: bigint,
-  validRangeWidth: bigint
+  validRangeWidth: bigint,
+  sellRatio: bigint,
+  buyRatio: bigint
 ): Promise<V3AMO> {
   const args = [
     admin.address,
@@ -322,13 +320,13 @@ export async function deployV3AMO(
     pairedTokenType,
     tickLower,
     tickUpper,
-    ionMultiplier,
-    validRangeWidth
+    validRangeWidth,
+    sellRatio,
+    buyRatio
   ];
   const V3AMOFactory = await ethers.getContractFactory("V3AMO");
   const amo = await upgrades.deployProxy(V3AMOFactory, args, {
-    initializer:
-      "initialize(address,address,address,address,uint8,address,address,address,address,uint8,int24,int24,uint256,uint24)"
+    initializer: "initialize"
   });
   await amo.waitForDeployment();
   return amo;

@@ -41,14 +41,13 @@ describe("AERODROME", function () {
   const pairTokenDecimalsToTest = [6, 18];
 
   // AMO consts
-  const ionMultiplier = ethers.parseUnits("1.01", 6);
   const _vrw = tickSpacing == 2_000 ? "0.02" : "0.01";
   const validRangeWidth = ethers.parseUnits(_vrw, 6);
+  const sellRatio = ethers.parseUnits("1", 6);
+  const buyRatio = ethers.parseUnits("1", 6);
 
   // V2 consts
   const AERO_V2_ROUTER = "0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43";
-  const ionSellRatio = ethers.parseUnits("1", 6);
-  const pairTokenBuyRatio = ethers.parseUnits("1", 6);
 
   // V3 consts
   const AERO_POOL_FACTORY = "0x5e7BB104d84c7CB9B682AaC2F3d509f5F406809A";
@@ -104,8 +103,9 @@ describe("AERODROME", function () {
                 pairedTokenType,
                 tickLower,
                 tickUpper,
-                ionMultiplier,
-                validRangeWidth
+                validRangeWidth,
+                sellRatio,
+                buyRatio
               );
               const amoAddress = await v3amo.getAddress();
               const AMO_ROLE = await minter.AMO_ROLE();
@@ -171,10 +171,9 @@ describe("AERODROME", function () {
                 await priceManager.getAddress(),
                 pairedTokenType,
                 AERO_V2_ROUTER,
-                ionMultiplier,
                 validRangeWidth,
-                ionSellRatio,
-                pairTokenBuyRatio
+                sellRatio,
+                buyRatio
               );
               const amoAddress = await v2amo.getAddress();
               const AMO_ROLE = await minter.AMO_ROLE();
