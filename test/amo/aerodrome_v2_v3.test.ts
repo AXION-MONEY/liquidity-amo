@@ -67,7 +67,7 @@ describe("AERODROME", function () {
   for (const pairedTokenType of pairTokenTypesToTest) {
     describe(`Paired token type: ${pairedTokenTypeName(pairedTokenType)}`, function () {
       for (const pairTokenDecimals of pairTokenDecimalsToTest) {
-        describe(`USD decimals: ${pairTokenDecimals}`, function () {
+        describe(`Pair token decimals: ${pairTokenDecimals}`, function () {
           describe("V3AMO", function () {
             before(async () => {
               [admin, user, priceManager] = await initNetwork(rpcUrl, forkingBlock);

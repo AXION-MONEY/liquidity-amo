@@ -1,14 +1,7 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
-import {
-  BoostStablecoin,
-  Minter,
-  MockERC20,
-  MockUniswapV3PoolCaller,
-  PriceManager,
-  V3AMO
-} from "../../typechain-types";
+import { Ion, Minter, MockERC20, MockUniswapV3PoolCaller, PriceManager, V3AMO } from "../../typechain-types";
 import {
   deployBaseContracts,
   deployV3AMO,
@@ -18,7 +11,7 @@ import {
   getTickBounds,
   initNetwork,
   logPriceDiff,
-  PairedTokenType,
+  PairTokenType,
   pairedTokenTypeName,
   V3PoolType,
   v3Swap,
@@ -41,21 +34,14 @@ describe("SOLIDLY", function () {
   const initAmount = "11000000"; // 11M
   const lpAmount = "1000000"; // 1M
   const delta = ethers.parseUnits("0.00001", 6);
-  const pairedTokenTypesToTest = [
-    PairedTokenType.STABLE,
-    PairedTokenType.SDAI,
-    PairedTokenType.SFRAX,
-    PairedTokenType.SUSDE
-  ];
-  const usdDecimalsToTest = [18];
+  const pairTokenTypesToTest = [PairTokenType.STABLE, PairTokenType.SDAI, PairTokenType.SFRAX, PairTokenType.SUSDE];
+  const pairTokenDecimalsToTest = [18];
 
   // AMO consts
-  const boostMultiplier = ethers.parseUnits("1.01", 6);
   const _vrw = tickSpacing == 200 ? "0.02" : "0.01";
   const validRangeWidth = ethers.parseUnits(_vrw, 6);
-  const validRemovingRatio = ethers.parseUnits("1.01", 6);
-  const boostLowerPriceSell = ethers.parseUnits("0.99", 6);
-  const boostUpperPriceBuy = ethers.parseUnits("1.01", 6);
+  const sellRatio = ethers.parseUnits("1", 6);
+  const buyRatio = ethers.parseUnits("1", 6);
 
   // V3 consts
   const POOL_FACTORY = "0x777fAca731b17E8847eBF175c94DbE9d81A8f630"; // SolidlyV3Factory
@@ -64,42 +50,44 @@ describe("SOLIDLY", function () {
   let admin: SignerWithAddress;
   let user: SignerWithAddress;
 
-  let boost: BoostStablecoin;
-  let usd: MockERC20;
+  let ion: Ion;
+  let pairToken: MockERC20;
   let minter: Minter;
   let priceManager: PriceManager;
   let v3amo: V3AMO;
   let poolCaller: MockUniswapV3PoolCaller;
 
-  for (const pairedTokenType of pairedTokenTypesToTest) {
+  for (const pairedTokenType of pairTokenTypesToTest) {
     describe(`Paired token type: ${pairedTokenTypeName(pairedTokenType)}`, function () {
-      for (const usdDecimals of usdDecimalsToTest) {
-        describe(`USD decimals: ${usdDecimals}`, function () {
+      for (const pairTokenDecimals of pairTokenDecimalsToTest) {
+        describe(`Pair token decimals: ${pairTokenDecimals}`, function () {
           describe("V3AMO", function () {
             before(async () => {
               [admin, user, priceManager] = await initNetwork(rpcUrl, forkingBlock);
-              console.log(`\t\t\t\t\tNetwork init for V3AMO ${pairedTokenTypeName(pairedTokenType)}\t${usdDecimals}`);
+              console.log(
+                `\t\t\t\t\tNetwork init for V3AMO ${pairedTokenTypeName(pairedTokenType)}\t${pairTokenDecimals}`
+              );
             });
             beforeEach(async function () {
-              [boost, usd, minter] = await deployBaseContracts(admin, user, usdDecimals, initAmount);
+              [ion, pairToken, minter] = await deployBaseContracts(admin, user, pairTokenDecimals, initAmount);
               const initPrice = await getInitPrice(priceManager, pairedTokenType);
-              const poolAddress = await createSolidlyPool(POOL_FACTORY, boost, usd, initPrice, v3Fee, tickSpacing);
+              const poolAddress = await createSolidlyPool(POOL_FACTORY, ion, pairToken, initPrice, v3Fee, tickSpacing);
               const factory = await ethers.getContractFactory("MockUniswapV3PoolCaller");
               poolCaller = await factory.deploy(poolAddress);
               await poolCaller.waitForDeployment();
 
               const [lowerPriceValue, upperPriceValue] = priceBounds[0];
               const { tickLower, tickUpper } = await getTickBounds(
-                boost,
-                usd,
+                ion,
+                pairToken,
                 tickSpacing,
                 lowerPriceValue,
                 upperPriceValue
               );
               v3amo = await deployV3AMO(
                 admin,
-                await boost.getAddress(),
-                await usd.getAddress(),
+                await ion.getAddress(),
+                await pairToken.getAddress(),
                 poolAddress,
                 V3PoolType.SOLIDLY_V3,
                 QUOTER,
@@ -108,24 +96,22 @@ describe("SOLIDLY", function () {
                 pairedTokenType,
                 tickLower,
                 tickUpper,
-                boostMultiplier,
                 validRangeWidth,
-                validRemovingRatio,
-                boostLowerPriceSell,
-                boostUpperPriceBuy
+                sellRatio,
+                buyRatio
               );
               const amoAddress = await v3amo.getAddress();
               const AMO_ROLE = await minter.AMO_ROLE();
               await minter.connect(admin).grantRole(AMO_ROLE, amoAddress);
-              const usdAmount = (ethers.parseUnits(lpAmount, usdDecimals) * initPrice) / BigInt(10 ** 6);
-              await usd.connect(admin).mint(amoAddress, usdAmount);
+              const usdAmount = (ethers.parseUnits(lpAmount, pairTokenDecimals) * initPrice) / BigInt(10 ** 6);
+              await pairToken.connect(admin).mint(amoAddress, usdAmount);
               await v3amo.addLiquidity();
             });
 
             describe("V3 Public mintSellFarm", () => {
               for (const swapAmount of swapAmounts) {
                 it(getTestCaseTitle(swapAmount), async function () {
-                  await v3Swap(user, poolCaller, usd, boost, swapAmount);
+                  await v3Swap(user, poolCaller, pairToken, ion, swapAmount);
                   const { tp, cp } = await logPriceDiff(v3amo);
                   if (Number(swapAmount) > 0) {
                     await v3amo.mintSellFarm();
@@ -143,7 +129,7 @@ describe("SOLIDLY", function () {
             describe("V3 Public unfarmBuyBurn", () => {
               for (const swapAmount of swapAmounts) {
                 it(getTestCaseTitle(swapAmount, true), async function () {
-                  await v3Swap(user, poolCaller, boost, usd, swapAmount);
+                  await v3Swap(user, poolCaller, ion, pairToken, swapAmount);
                   const { tp, cp } = await logPriceDiff(v3amo);
                   if (Number(swapAmount) > 0) {
                     await v3amo.unfarmBuyBurn();
