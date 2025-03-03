@@ -7,6 +7,7 @@ import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {AccessControlEnumerableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlEnumerableUpgradeable.sol";
+import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IMinter} from "./interfaces/IMinter.sol";
@@ -38,6 +39,7 @@ abstract contract MasterAMO is
     ReentrancyGuardUpgradeable
 {
     using SafeERC20 for IERC20;
+    using EnumerableSet for EnumerableSet.AddressSet;
 
     // -------------------------------------------------------------
     //                             ROLES
@@ -84,6 +86,7 @@ abstract contract MasterAMO is
     uint24 public override buyRatio;
     /// @inheritdoc IMasterAMO
     mapping(address => bool) public override bypassSwapRatioWhitelist;
+    EnumerableSet.AddressSet internal _bypassSwapRatioMembers;
 
     // -------------------------------------------------------------
     //                      INTERNAL CONSTANTS
@@ -189,6 +192,26 @@ abstract contract MasterAMO is
         sellRatio = sellRatio_;
         buyRatio = buyRatio_;
         emit ParamsSet(validRangeWidth, sellRatio, buyRatio);
+    }
+
+    function addBypassSwapRatioMember(address member) external onlyRole(SETTER_ROLE) returns (bool) {
+        if (!bypassSwapRatioWhitelist[member]) {
+            bypassSwapRatioWhitelist[member] = true;
+            _bypassSwapRatioMembers.add(member);
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    function removeBypassSwapRatioMember(address member) external onlyRole(SETTER_ROLE) returns (bool) {
+        if (bypassSwapRatioWhitelist[member]) {
+            bypassSwapRatioWhitelist[member] = false;
+            _bypassSwapRatioMembers.remove(member);
+            return true;
+        } else {
+            return false;
+        }
     }
 
     // -------------------------------------------------------------
@@ -414,5 +437,9 @@ abstract contract MasterAMO is
         else if (pairTokenType == PairTokenType.SDAI)
             return IPriceManager(priceManagerContractAddress).sDaiPreviewDeposit(baseUnit) + ionTargetPricePremium;
         else revert InvalidPairTokenType();
+    }
+
+    function getBypassSwapRatioMembers() external view returns (address[] memory) {
+        return _bypassSwapRatioMembers.values();
     }
 }
