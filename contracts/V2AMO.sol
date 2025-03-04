@@ -283,7 +283,7 @@ contract V2AMO is IV2AMO, MasterAMO {
                 pairTokenAddress,
                 isStablePool,
                 factoryAddress,
-                pairTokenAmount << 16,
+                scalePairTokenToIonDecimals(pairTokenAmount) << 16,
                 pairTokenAmount
             );
         } else {
@@ -291,7 +291,7 @@ contract V2AMO is IV2AMO, MasterAMO {
                 ionAddress,
                 pairTokenAddress,
                 isStablePool,
-                pairTokenAmount << 16,
+                scalePairTokenToIonDecimals(pairTokenAmount) << 16,
                 pairTokenAmount
             );
         }
