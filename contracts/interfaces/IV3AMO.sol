@@ -123,12 +123,10 @@ interface IV3AMO {
     function setTickBounds(int24 tickLower_, int24 tickUpper_) external;
 
     /**
-     * @notice Returns details of the current liquidity position.
+     * @notice Returns the position's current liquidity.
      * @return liquidity The amount of liquidity.
-     * @return ionOwed ION tokens owed.
-     * @return pairTokenOwed pair tokens owed.
      */
-    function position() external view returns (uint256 liquidity, uint256 ionOwed, uint256 pairTokenOwed);
+    function getLiquidity() external view returns (uint256 liquidity);
 
     /**
      * @notice Converts a price to sqrt price in Q64.96 format.

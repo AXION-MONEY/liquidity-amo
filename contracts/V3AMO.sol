@@ -325,7 +325,7 @@ contract V3AMO is IV3AMO, MasterAMO {
     function _calculateLiquidityToUnfarm(
         uint24 swapRatio
     ) internal returns (uint256 liquidity, uint160 sqrtPriceLimitX96) {
-        (uint256 positionLiquidity, , ) = position();
+        uint256 positionLiquidity = getLiquidity();
         uint256 targetPrice = ionTargetPrice();
         uint256 priceDelta = targetPrice - ionPrice();
         targetPrice -= priceDelta.mulDiv((FACTOR - swapRatio), FACTOR);
@@ -581,7 +581,7 @@ contract V3AMO is IV3AMO, MasterAMO {
     }
 
     /// @inheritdoc IV3AMO
-    function position() public view override returns (uint256 liquidity, uint256 ionOwed, uint256 pairTokenOwed) {
+    function getLiquidity() public view override returns (uint256 liquidity) {
         bytes32 key;
         if (
             poolType == PoolType.ALGEBRA_V1_0 ||
@@ -600,24 +600,7 @@ contract V3AMO is IV3AMO, MasterAMO {
         } else {
             key = keccak256(abi.encodePacked(address(this), tickLower, tickUpper));
         }
-
-        uint128 _liquidity;
-        uint128 tokensOwed0;
-        uint128 tokensOwed1;
-        if (poolType == PoolType.SOLIDLY_V3) {
-            (_liquidity, tokensOwed0, tokensOwed1) = ISolidlyV3Pool(poolAddress).positions(key);
-        } else if (poolType == PoolType.ALGEBRA_V1_0) {
-            (_liquidity, , , , tokensOwed0, tokensOwed1) = IAlgebraV10Pool(poolAddress).positions(key);
-        } else if (poolType == PoolType.ALGEBRA_V1_9) {
-            (_liquidity, , , , tokensOwed0, tokensOwed1) = IAlgebraV19Pool(poolAddress).positions(key);
-        } else if (poolType == PoolType.ALGEBRA_INTEGRAL) {
-            (liquidity, , , tokensOwed0, tokensOwed1) = IAlgebraIntegralPool(poolAddress).positions(key);
-        } else if (poolType == PoolType.RAMSES_V2) {
-            (_liquidity, , , tokensOwed0, tokensOwed1, ) = IRamsesV2Pool(poolAddress).positions(key);
-        } else {
-            (_liquidity, , , tokensOwed0, tokensOwed1) = IUniswapV3Pool(poolAddress).positions(key);
-        }
-        if (_liquidity > 0) liquidity = uint256(_liquidity);
-        (ionOwed, pairTokenOwed) = orderAmountsByTokenAddress(uint256(tokensOwed0), uint256(tokensOwed1));
+        (, bytes memory data) = poolAddress.staticcall(abi.encodeWithSignature("positions(bytes32)", key));
+        liquidity = poolType == PoolType.ALGEBRA_INTEGRAL ? abi.decode(data, (uint256)) : abi.decode(data, (uint128));
     }
 }
