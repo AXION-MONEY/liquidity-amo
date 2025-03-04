@@ -39,6 +39,7 @@ abstract contract MasterAMO is
     ReentrancyGuardUpgradeable
 {
     using SafeERC20 for IERC20;
+    using Math for uint256;
     using EnumerableSet for EnumerableSet.AddressSet;
 
     // -------------------------------------------------------------
@@ -293,7 +294,7 @@ abstract contract MasterAMO is
      * @return The lower bound price.
      */
     function ionPriceLowerBound(uint256 price) internal view returns (uint256) {
-        return price - ((price * validRangeWidth) / FACTOR);
+        return price - price.mulDiv(validRangeWidth, FACTOR);
     }
 
     /**
@@ -302,7 +303,7 @@ abstract contract MasterAMO is
      * @return The upper bound price.
      */
     function ionPriceUpperBound(uint256 price) internal view returns (uint256) {
-        return price + ((price * validRangeWidth) / FACTOR);
+        return price + price.mulDiv(validRangeWidth, FACTOR);
     }
 
     /**
@@ -404,7 +405,7 @@ abstract contract MasterAMO is
         validateSwap(BUY_ION)
         returns (uint256 liquidity, uint256 postOperationIonPrice)
     {
-        uint24 swapRatio = bypassSwapRatioWhitelist[msg.sender] ? uint24(FACTOR) : sellRatio;
+        uint24 swapRatio = bypassSwapRatioWhitelist[msg.sender] ? uint24(FACTOR) : buyRatio;
         (liquidity, postOperationIonPrice) = _unfarmBuyBurn(swapRatio);
     }
 

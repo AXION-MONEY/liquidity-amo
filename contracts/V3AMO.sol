@@ -29,6 +29,7 @@ import {IIon} from "./interfaces/IIon.sol";
  */
 contract V3AMO is IV3AMO, MasterAMO {
     using SafeERC20 for IERC20;
+    using Math for uint256;
     using SafeCast for uint256;
 
     // -------------------------------------------------------------
@@ -232,8 +233,8 @@ contract V3AMO is IV3AMO, MasterAMO {
 
             // Validate that the pool has enough pair tokens and that price slippage is within allowed bounds.
             bool insufficientPairTokenBalance = balanceOfToken(pairTokenAddress) < pairTokenOutputAmount;
-            bool priceSlippageExceeded = (ionInputAmount * targetPrice) / FACTOR >
-                scalePairTokenToIonDecimals(pairTokenOutputAmount);
+            bool priceSlippageExceeded = scalePairTokenToIonDecimals(pairTokenOutputAmount) <
+                ionInputAmount.mulDiv(targetPrice, FACTOR);
             if (insufficientPairTokenBalance || priceSlippageExceeded) {
                 revert InvalidDelta();
             }
@@ -241,18 +242,18 @@ contract V3AMO is IV3AMO, MasterAMO {
             IMinter(ionMinterAddress).protocolMint(poolAddress, ionInputAmount);
         } else if (swapType == SwapType.BUY) {
             // For a BUY, the pair token is used as the input and ION as the output.
-            uint256 ionInputAmount = uint256(pairTokenDelta);
-            uint256 pairTokenOutputAmount = uint256(-ionDelta);
+            uint256 pairTokenInputAmount = uint256(pairTokenDelta);
+            uint256 ionOutputAmount = uint256(-ionDelta);
 
             // Validate that the pool has enough ION tokens and that the input amount is within allowed price bounds.
-            bool insufficientIonBalance = balanceOfToken(ionAddress) < pairTokenOutputAmount;
-            bool priceExceeded = ionInputAmount >
-                (scaleIonToPairTokenDecimals(pairTokenOutputAmount) * targetPrice) / FACTOR;
+            bool insufficientIonBalance = balanceOfToken(ionAddress) < ionOutputAmount;
+            bool priceExceeded = scalePairTokenToIonDecimals(pairTokenInputAmount) >
+                ionOutputAmount.mulDiv(targetPrice, FACTOR);
             if (insufficientIonBalance || priceExceeded) {
                 revert InvalidDelta();
             }
             // Transfer pair tokens to the pool to complete the swap.
-            IERC20(pairTokenAddress).safeTransfer(poolAddress, ionInputAmount);
+            IERC20(pairTokenAddress).safeTransfer(poolAddress, pairTokenInputAmount);
         }
     }
 
@@ -273,7 +274,8 @@ contract V3AMO is IV3AMO, MasterAMO {
     /// @inheritdoc MasterAMO
     function _mintAndSell(uint24 swapRatio) internal override {
         uint256 targetPrice = ionTargetPrice();
-        targetPrice += ((ionPrice() - targetPrice) * (FACTOR - swapRatio)) / FACTOR;
+        uint256 priceDelta = ionPrice() - targetPrice;
+        targetPrice += priceDelta.mulDiv((FACTOR - swapRatio), FACTOR);
         (int256 amount0, int256 amount1) = IUniswapV3Pool(poolAddress).swap(
             address(this),
             ionAddress < pairTokenAddress, // zeroForOne
@@ -325,7 +327,8 @@ contract V3AMO is IV3AMO, MasterAMO {
     ) internal returns (uint256 liquidity, uint160 sqrtPriceLimitX96) {
         (uint256 positionLiquidity, , ) = position();
         uint256 targetPrice = ionTargetPrice();
-        targetPrice -= ((targetPrice - ionPrice()) * (FACTOR - swapRatio)) / FACTOR;
+        uint256 priceDelta = targetPrice - ionPrice();
+        targetPrice -= priceDelta.mulDiv((FACTOR - swapRatio), FACTOR);
         sqrtPriceLimitX96 = toSqrtPriceX96(targetPrice);
         uint256 amountIn;
         if (poolType == PoolType.SOLIDLY_V3) {
