@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {IMasterAMO} from "../IMasterAMO.sol";
-
 /**
  * @title IV3AMO Interface
  * @notice Interface for the V3AMO contract defining errors, events, enums, state variables (as view functions),

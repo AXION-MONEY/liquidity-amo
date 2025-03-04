@@ -5,7 +5,7 @@ import "./MasterAMO.sol";
 import {IGauge} from "./interfaces/v2/IGauge.sol";
 import {ISolidlyRouter} from "./interfaces/v2/ISolidlyRouter.sol";
 import {IPair} from "./interfaces/v2/IPair.sol";
-import {IV2AMO} from "./interfaces/v2/IV2AMO.sol";
+import {IV2AMO} from "./interfaces/IV2AMO.sol";
 import {IVRouter} from "./interfaces/v2/IVRouter.sol";
 import {IPoolFactory} from "./interfaces/v2/IPoolFactory.sol";
 import {IPairFactory} from "./interfaces/v2/IPairFactory.sol";
