@@ -32,13 +32,13 @@ The AMO interacts with **both Concentrated Liquidity AMMs (CLAMM) and Traditiona
 ## **Supported Pair Tokens**
 The AMO primarily interacts with **stablecoins & staked stable assets** to manage ION’s liquidity:
 
-### ** Supported Stablecoins**
+### Supported Stablecoins
 - **USDC** (Circle)
 - **DAI** (MakerDAO)
 - **FRAX** (Frax Finance)
 - **Any Other Stable Coin**
 
-### ** Supported Staked Stablecoins**
+### Supported Staked Stablecoins
 - **sUSDe** (Ethena Staked USDe)
 - **sFRAX** (Frax Staked FRAX)
 - **sDAI** (MakerDAO Staked DAI)
