@@ -45,7 +45,7 @@ The AMO primarily interacts with **stablecoins & staked stable assets** to manag
 
 ---
 
-## ** Core Components**
+## Core Components
 
 ### ION Stable Coin Contract
 
@@ -71,7 +71,7 @@ This ensures that token transfers are only allowed when the contract is not paus
 
 ---
 
-### ** Liquidity AMO Contracts**
+###  Liquidity AMO Contracts
 #### MasterAMO
 
 MasterAMO is an abstract base contract that defines the shared framework for Automated Market Operations. It provides the core logic for both mint–sell–farm (when ION is above its target) and unfarm–buy–burn (when ION is below its target). It also includes utility functions for:
