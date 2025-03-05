@@ -1,18 +1,10 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
-import {
-  BoostStablecoin,
-  Minter,
-  MockERC20,
-  MockUniswapV3PoolCaller,
-  PriceManager,
-  V2AMO,
-  V3AMO
-} from "../../typechain-types";
+import { Ion, Minter, MockERC20, MockUniswapV3PoolCaller, PriceManager, V2AMO, V3AMO } from "../../typechain-types";
 import {
   addV2Liquidity,
-  createRamsesPool,
+  createCLPool,
   deployBaseContracts,
   deployV2AMO,
   deployV3AMO,
@@ -22,17 +14,17 @@ import {
   getTickBounds,
   initNetwork,
   logPriceDiff,
-  PairedTokenType,
+  PairTokenType,
   pairedTokenTypeName,
   V2PoolType,
+  v2VeloSwap,
   V3PoolType,
-  v2Swap,
   v3Swap
 } from "./utils";
 
-describe("Price Manager tests", function () {
-  const rpcUrl = "https://arbitrum.rpc.subquery.network/public";
-  const forkingBlock = 308991000;
+describe("VELODROME", function () {
+  const rpcUrl = "https://optimism.rpc.subquery.network/public";
+  const forkingBlock = 132445400;
   const priceBounds = [
     [undefined, undefined], // full range
     ["0.7", "1.5"],
@@ -40,106 +32,100 @@ describe("Price Manager tests", function () {
     ["0.1", "10.0"]
   ];
   const swapAmounts = ["900000"];
-  let v3Fee = 100; // Valid (fee, tickSpacing) values for Ramses: [(100, 1), (500, 10), (3000, 60), (10000, 200)]
-  let tickSpacing = 1;
-  const LOG_PRICES = true;
+  let tickSpacing = 1; // Valid values for Aero: [1, 50, 100, 200, 2_000]
+  const LOG_PRICES = false;
   const initAmount = "11000000"; // 11M
   const lpAmount = "1000000"; // 1M
   const delta = ethers.parseUnits("0.00001", 6);
-  const v2Delta = ethers.parseUnits("0.01", 6);
-  const pairedTokenTypesToTest = [PairedTokenType.SUSDE, PairedTokenType.STABLE];
-  const usdDecimalsToTest = [6, 18];
+  const pairTokenTypesToTest = [PairTokenType.SUSDE, PairTokenType.STABLE];
+  const pairTokenDecimalsToTest = [6, 18];
 
   // AMO consts
-  const boostMultiplier = ethers.parseUnits("1.01", 6);
-  const _vrw = tickSpacing == 200 ? "0.02" : "0.01";
+  const _vrw = tickSpacing == 2_000 ? "0.02" : "0.01";
   const validRangeWidth = ethers.parseUnits(_vrw, 6);
-  const validRemovingRatio = ethers.parseUnits("1.01", 6);
-  const boostLowerPriceSell = ethers.parseUnits("0.99", 6);
-  const boostUpperPriceBuy = ethers.parseUnits("1.01", 6);
+  const sellRatio = ethers.parseUnits("1", 6);
+  const buyRatio = ethers.parseUnits("1", 6);
 
   // V2 consts
-  const V2_ROUTER = "0xAAA87963EFeB6f7E0a2711F397663105Acb1805e"; // Router
-  const boostSellRatio = ethers.parseUnits("1", 6);
-  const usdBuyRatio = ethers.parseUnits("1", 6);
+  const AERO_V2_ROUTER = "0xa062aE8A9c5e11aaA026fc2670B0D65cCc8B2858";
 
   // V3 consts
-  const POOL_FACTORY = "0xAA2cd7477c451E703f3B9Ba5663334914763edF8"; // RamsesV2Factory
-  const QUOTER = "0xAA20EFF7ad2F523590dE6c04918DaAE0904E3b20"; // QuoterV2
+  const AERO_POOL_FACTORY = "0xCc0bDDB707055e04e497aB22a59c2aF4391cd12F";
+  const AERO_QUOTER = "0x89D8218ed5fF1e46d8dcd33fb0bbeE3be1621466";
 
   let admin: SignerWithAddress;
   let user: SignerWithAddress;
 
-  let boost: BoostStablecoin;
-  let usd: MockERC20;
+  let ion: Ion;
+  let pairToken: MockERC20;
   let minter: Minter;
   let priceManager: PriceManager;
   let v2amo: V2AMO;
   let v3amo: V3AMO;
   let poolCaller: MockUniswapV3PoolCaller;
 
-  for (const pairedTokenType of pairedTokenTypesToTest) {
+  for (const pairedTokenType of pairTokenTypesToTest) {
     describe(`Paired token type: ${pairedTokenTypeName(pairedTokenType)}`, function () {
-      for (const usdDecimals of usdDecimalsToTest) {
-        describe(`USD decimals: ${usdDecimals}`, function () {
+      for (const pairTokenDecimals of pairTokenDecimalsToTest) {
+        describe(`Pair token decimals: ${pairTokenDecimals}`, function () {
           describe("V3AMO", function () {
             before(async () => {
               [admin, user, priceManager] = await initNetwork(rpcUrl, forkingBlock);
-              console.log(`\t\t\t\t\tNetwork init for V3AMO ${pairedTokenTypeName(pairedTokenType)}\t${usdDecimals}`);
+              console.log(
+                `\t\t\t\t\tNetwork init for V3AMO ${pairedTokenTypeName(pairedTokenType)}\t${pairTokenDecimals}`
+              );
             });
             beforeEach(async function () {
-              [boost, usd, minter] = await deployBaseContracts(admin, user, usdDecimals, initAmount);
+              [ion, pairToken, minter] = await deployBaseContracts(admin, user, pairTokenDecimals, initAmount);
               const initPrice = await getInitPrice(priceManager, pairedTokenType);
-              const pool = await createRamsesPool(POOL_FACTORY, boost, usd, initPrice, v3Fee);
+              const poolAddress = await createCLPool(AERO_POOL_FACTORY, ion, pairToken, initPrice, tickSpacing);
               const factory = await ethers.getContractFactory("MockUniswapV3PoolCaller");
-              poolCaller = await factory.deploy(await pool.getAddress());
+              poolCaller = await factory.deploy(poolAddress);
               await poolCaller.waitForDeployment();
 
-              const [lowerPriceValue, upperPriceValue] = priceBounds[0];
+              const [lowerPriceValue, upperPriceValue] = priceBounds[3];
               const { tickLower, tickUpper } = await getTickBounds(
-                boost,
-                usd,
+                ion,
+                pairToken,
                 tickSpacing,
                 lowerPriceValue,
                 upperPriceValue
               );
               v3amo = await deployV3AMO(
                 admin,
-                await boost.getAddress(),
-                await usd.getAddress(),
-                await pool.getAddress(),
-                V3PoolType.RAMSES_V2,
-                QUOTER,
+                await ion.getAddress(),
+                await pairToken.getAddress(),
+                poolAddress,
+                V3PoolType.CL,
+                AERO_QUOTER,
                 await minter.getAddress(),
                 await priceManager.getAddress(),
                 pairedTokenType,
                 tickLower,
                 tickUpper,
-                boostMultiplier,
                 validRangeWidth,
-                validRemovingRatio,
-                boostLowerPriceSell,
-                boostUpperPriceBuy
+                sellRatio,
+                buyRatio
               );
               const amoAddress = await v3amo.getAddress();
               const AMO_ROLE = await minter.AMO_ROLE();
               await minter.connect(admin).grantRole(AMO_ROLE, amoAddress);
-              const usdAmount = (ethers.parseUnits(lpAmount, usdDecimals) * initPrice) / BigInt(10 ** 6);
-              await usd.connect(admin).mint(amoAddress, usdAmount);
-              await v3amo.connect(admin).addLiquidity(usdAmount, 0, 0);
+              const usdAmount = (ethers.parseUnits(lpAmount, pairTokenDecimals) * initPrice) / BigInt(10 ** 6);
+              await pairToken.connect(admin).mint(amoAddress, usdAmount);
+              await v3amo.addLiquidity();
             });
 
             describe("V3 Public mintSellFarm", () => {
               for (const swapAmount of swapAmounts) {
                 it(getTestCaseTitle(swapAmount), async function () {
-                  await v3Swap(user, poolCaller, usd, boost, swapAmount);
+                  await v3Swap(user, poolCaller, pairToken, ion, swapAmount);
                   const { tp, cp } = await logPriceDiff(v3amo);
                   if (Number(swapAmount) > 0) {
-                    await v3amo["mintSellFarm()"]();
+                    await v3amo.mintSellFarm();
                     const newPrice = await getCurrentPrice(v3amo, LOG_PRICES);
                     expect(newPrice).to.be.approximately(tp, delta);
                   } else {
-                    await expect(v3amo["mintSellFarm()"]())
+                    await expect(v3amo.mintSellFarm())
                       .to.be.revertedWithCustomError(v3amo, "PriceAlreadyInRange")
                       .withArgs(cp);
                   }
@@ -150,14 +136,14 @@ describe("Price Manager tests", function () {
             describe("V3 Public unfarmBuyBurn", () => {
               for (const swapAmount of swapAmounts) {
                 it(getTestCaseTitle(swapAmount, true), async function () {
-                  await v3Swap(user, poolCaller, boost, usd, swapAmount);
+                  await v3Swap(user, poolCaller, ion, pairToken, swapAmount);
                   const { tp, cp } = await logPriceDiff(v3amo);
                   if (Number(swapAmount) > 0) {
-                    await v3amo["unfarmBuyBurn()"]();
+                    await v3amo.unfarmBuyBurn();
                     const newPrice = await getCurrentPrice(v3amo, LOG_PRICES);
                     expect(newPrice).to.be.approximately(tp, delta);
                   } else {
-                    await expect(v3amo["unfarmBuyBurn()"]())
+                    await expect(v3amo.unfarmBuyBurn())
                       .to.be.revertedWithCustomError(v3amo, "PriceAlreadyInRange")
                       .withArgs(cp);
                   }
@@ -169,47 +155,44 @@ describe("Price Manager tests", function () {
           describe("V2AMO", function () {
             before(async () => {
               [admin, user, priceManager] = await initNetwork(rpcUrl, forkingBlock);
-              console.log(`\t\t\t\t\tNetwork init for V2AMO ${pairedTokenTypeName(pairedTokenType)}\t${usdDecimals}`);
+              console.log(
+                `\t\t\t\t\tNetwork init for V2AMO ${pairedTokenTypeName(pairedTokenType)}\t${pairTokenDecimals}`
+              );
             });
             beforeEach(async function () {
-              [boost, usd, minter] = await deployBaseContracts(admin, user, usdDecimals, initAmount);
-
-              const initPrice = await getInitPrice(priceManager, pairedTokenType);
+              [ion, pairToken, minter] = await deployBaseContracts(admin, user, pairTokenDecimals, initAmount);
 
               v2amo = await deployV2AMO(
                 admin,
-                await boost.getAddress(),
-                await usd.getAddress(),
-                V2PoolType.SOLIDLY_V2,
+                await ion.getAddress(),
+                await pairToken.getAddress(),
+                V2PoolType.VELO_LIKE,
                 await minter.getAddress(),
                 await priceManager.getAddress(),
                 pairedTokenType,
-                V2_ROUTER,
-                boostMultiplier,
+                AERO_V2_ROUTER,
                 validRangeWidth,
-                validRemovingRatio,
-                boostLowerPriceSell,
-                boostUpperPriceBuy,
-                boostSellRatio,
-                usdBuyRatio
+                sellRatio,
+                buyRatio
               );
               const amoAddress = await v2amo.getAddress();
               const AMO_ROLE = await minter.AMO_ROLE();
               await minter.connect(admin).grantRole(AMO_ROLE, amoAddress);
-              await addV2Liquidity(admin, V2_ROUTER, boost, usd, amoAddress, lpAmount, initPrice);
+              const initPrice = await getInitPrice(priceManager, pairedTokenType);
+              await addV2Liquidity(admin, AERO_V2_ROUTER, ion, pairToken, amoAddress, lpAmount, initPrice);
             });
 
             describe("V2 Public mintSellFarm", () => {
               for (const swapAmount of swapAmounts) {
                 it(getTestCaseTitle(swapAmount), async function () {
-                  await v2Swap(user, usd, boost, V2_ROUTER, swapAmount);
+                  await v2VeloSwap(user, pairToken, ion, AERO_V2_ROUTER, swapAmount);
                   const { tp, cp } = await logPriceDiff(v2amo);
                   if (Number(swapAmount) > 0) {
-                    await v2amo["mintSellFarm()"]();
+                    await v2amo.mintSellFarm();
                     const newPrice = await getCurrentPrice(v2amo, LOG_PRICES);
-                    expect(newPrice).to.be.approximately(tp, v2Delta);
+                    expect(newPrice).to.be.approximately(tp, delta);
                   } else {
-                    await expect(v2amo["mintSellFarm()"]())
+                    await expect(v2amo.mintSellFarm())
                       .to.be.revertedWithCustomError(v2amo, "InvalidReserveRatio")
                       .withArgs(cp);
                   }
@@ -220,14 +203,14 @@ describe("Price Manager tests", function () {
             describe("V2 Public unfarmBuyBurn", () => {
               for (const swapAmount of swapAmounts) {
                 it(getTestCaseTitle(swapAmount, false), async function () {
-                  await v2Swap(user, boost, usd, V2_ROUTER, swapAmount);
+                  await v2VeloSwap(user, ion, pairToken, AERO_V2_ROUTER, swapAmount);
                   const { tp, cp } = await logPriceDiff(v2amo);
                   if (Number(swapAmount) > 0) {
-                    await v2amo["unfarmBuyBurn()"]();
+                    await v2amo.unfarmBuyBurn();
                     const newPrice = await getCurrentPrice(v2amo, LOG_PRICES);
-                    expect(newPrice).to.be.approximately(tp, v2Delta);
+                    expect(newPrice).to.be.approximately(tp, delta);
                   } else {
-                    await expect(v2amo["unfarmBuyBurn()"]())
+                    await expect(v2amo.unfarmBuyBurn())
                       .to.be.revertedWithCustomError(v2amo, "InvalidReserveRatio")
                       .withArgs(cp);
                   }

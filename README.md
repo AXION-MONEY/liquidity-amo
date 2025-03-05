@@ -1,183 +1,318 @@
-# Liquidity AMO —— rebalancing the liquidity and stable price altogether
+# **Liquidity AMO: Automated Market Operations for ION Stability & Liquidity Management**
 
-## Organization
-The AMO manages a significant portion of the USDC ( or staked stable ) backing for the stablecoin (referred to as BOOST in this version). There are two functions:
-* v3AMO.sol For ve33 Dexes/pools based on CLAMM (Uniswap v3 and algebra contracts).
-* v2AMO.sol For ve33 Dexes based on Uniswap v2 contracts.
+## **Overview**
 
-*Note 1:* These two functions have identical logic, they just interact with two different AMM contracts => similarity qualitatively over 90% 
+The **Liquidity AMO (Automated Market Operations)** ensures **ION price stability and deep liquidity** by dynamically
+interacting with **multiple AMMs (Automated Market Makers) and stablecoins**. It **mints, sells, adds liquidity, removes
+liquidity, and burns ION** based on **real-time market conditions**.
 
-*Note 2:* Price rebalancing is triggered by a bot but can also be activated by the community through the publicAMO.sol contracts. This rebalancing is designed to be beneficial for the protocol, with no possible risk to the stablecoin project from either community actions or flash loans.
+The AMO operates **permissionlessly**, meaning that **anyone** can trigger `mintSellFarm` & `unfarmBuyBurn` to *
+*rebalance ION’s price**. The system **cannot be manipulated** by flash loans or external actors, ensuring secure and
+optimal liquidity management.
 
+The **AMO** supports both **stablecoins** and **Staked Stable Coins (sUSDe, sDAI, ...)** pools. For staked stablecoin
+pairs, the AMO executes Automated Market Operations based on data from the price manager contract. This price can be
+updated permissionlessly using the **Muon Network**, which retrieves price data from their corresponding contract on the
+Mainnet and generates a signature with the necessary data.
 
-## Audit Scope
+---
 
-* Both the v2AMO and v3AMO logic.
-* The utils contract (which manages veNFT, our voting power in Dexes) on the other branch.
-* Interfaces: note that some interfaces are external and do not need to be audited, typically: 
-    + v2AMO: IGauge.sol, IPair.sol, [Dexname]_Router.sol
-    + v3AMO: [Dexname]_Factory.sol, [Dexname]_Pool.sol
+## **Supported DEXs**
 
-*Note*: Each ve33 Dex has slightly different contract versions, meaning adaptations for each chain or Dex may be required. This could lead to later ad-hoc reviews by an auditor.
+The AMO interacts with **both Concentrated Liquidity AMMs (CLAMM) and Traditional AMMs (Uniswap V2-style pools)** Any
+other DEXs that is use same algorithm as these DEXs can easily add and integrated with AMO Contract:
 
-## Running the project
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a script that deploys that contract.
+### CLAMM (Concentrated Liquidity)
 
-Try running some of the following tasks:
+- **Uniswap V3**
+- **Solidly V3**
+- **Aerodrome**
+- **Velodrome**
+- **Algebra V1**
+- **Algebra Integral**
+- **Ramses V2**
 
-```shell
-npx hardhat help
+### Uniswap V2-Style AMMs
+
+- **Solidly V2**
+- **Velodrome**
+- **Aerodrome**
+- **Equalizer**
+
+---
+
+## **Supported Pair Tokens**
+
+The AMO primarily interacts with **stablecoins & staked stable assets** to manage ION’s liquidity:
+
+### Supported Stablecoins
+
+- **USDC** (Circle)
+- **DAI** (MakerDAO)
+- **FRAX** (Frax Finance)
+- **Any Other Stable Coin**
+
+### Supported Staked Stablecoins
+
+- **sUSDe** (Ethena Staked USDe)
+- **sFRAX** (Frax Staked FRAX)
+- **sDAI** (MakerDAO Staked DAI)
+
+---
+
+## Core Components
+
+### ION Stable Coin Contract
+
+The ION contract implements an ERC-20 token called "ION," which serves as the foundation of the ION stablecoin project.
+
+#### Key Contract Functions**
+
+| Function              | Description                                                                                |
+|-----------------------|--------------------------------------------------------------------------------------------|
+| `Pause() & Unpause()` | function can be delegated to a security monitoring firms for automatic responses.          |
+| `protocolMint()`      | mint new tokens (using the Minter.Sol contract) and send them to a specified address (to_) |
+
+#### Security & Risk Management
+
+##### Role-Based Access Control (RBAC)
+
+- **PAUSER ROLE** can halt operations if needed.
+- **Minter Role** mint new tokens for AMO operations.
+
+##### Token Transfer Guard
+
+This ensures that token transfers are only allowed when the contract is not paused, adding another layer of security.
+
+---
+
+### Liquidity AMO Contracts
+
+#### MasterAMO
+
+MasterAMO is an abstract base contract that defines the shared framework for Automated Market Operations. It provides
+the core logic for both mint–sell–farm (when ION is above its target) and unfarm–buy–burn (when ION is below its
+target). It also includes utility functions for:
+
+- **Token Scaling:**
+- **Price Bounds Calculation:**
+- **Reserve and Balance Checks:**
+
+##### **Key Functions and Patterns:**
+
+- **Swap Validation:**
+  The modifier `validateSwap(bool ionForPairToken)` and the abstract `_validateSwap` function enforce that swaps occur
+  only when market conditions (current price versus target price) are met.
+- **Operation Orchestration:**
+  The public functions `mintSellFarm` and `unfarmBuyBurn` call the internal implementations defined by the derived
+  contracts (V3AMO or V2AMO). These functions:
+    - Trigger minting of ION (when over peg) or liquidity removal (when under peg).
+    - Interact with DEX routers to swap tokens.
+    - Finally, add liquidity or burn ION as required by the current market condition.
+
+#### V3AMO
+
+The V3AMO contract is specialized for concentrated liquidity AMMs (CLAMMs) such as Uniswap V3, Algebra, Ramses V2, and
+Solidly V3. It extends MasterAMO by implementing tick-based liquidity management and precise pricing logic using
+fixed-point arithmetic.
+
+##### **Key Components:**
+
+- **TickMath & Liquidity Calculations:**
+  The contract uses Uniswap V3’s `TickMath` library to calculate the square root ratios at the tick boundaries (
+  `tickLower` and `tickUpper`).
+    - The function `_getLiquidityForPairTokenAmount` calculates liquidity available for a given amount of the paired
+      token by choosing the correct formula based on the token order.
+- **Target Price Conversion:**
+  The function `toSqrtPriceX96` converts the target ION price (as determined by the price manager and premium
+  adjustments) into the Q64.96 format.
+
+* **Swap Callbacks:**
+  V3AMO implements multiple swap callback functions (e.g., `uniswapV3SwapCallback`, `algebraSwapCallback`,
+  `solidlyV3SwapCallback`, and `ramsesV2SwapCallback`). All these functions call an internal helper `_swapCallback`,
+  which:
+
+    - Verifies that the caller is the expected pool.
+
+    - Decodes swap data to determine whether the operation is a **SELL** (ION is being swapped for the pair token) or a
+      **BUY**.
+
+    - Validates the token amounts and price slippage before minting ION or transferring tokens.
+
+* **Mint Callbacks:**
+  Similar to swap callbacks, mint callbacks (e.g., `uniswapV3MintCallback`, `algebraMintCallback`, etc.) verify the pool
+  caller and then settle token transfers by minting ION or transferring the paired token.
+
+##### **Usage Example in V3AMO:**
+
+When executing a mint–sell operation:
+
+1. The contract calls `IUniswapV3Pool.swap` with the maximum swap amount and a target sqrt price.
+2. During the swap, the pool triggers a callback (`uniswapV3SwapCallback`), which calls `_swapCallback` to validate and
+   process the swap.
+3. The callback uses Q96-scaled prices to compute liquidity and ensure that the trade respects the tick boundaries and
+   slippage limits.
+4. After the swap, the contract mints ION tokens (if selling) and adds liquidity with `_addLiquidity`.
+
+#### V2AMO
+
+V2AMO is tailored for Uniswap V2-style AMMs such as Solidly V2, Velodrome, and Equalizer. Unlike V3AMO, it does not use
+tick-based liquidity but instead interacts with liquidity gauges and traditional AMM routers.
+
+**Math & Liquidity Operations:**
+
+- **Mint–Sell Calculation:**
+  When ION is above the target price, V2AMO mints ION tokens and sells them to acquire the paired token.
+
+    - The ION minting amount is calculated using the formula:
+
+      ```mathematica
+      ionAmountWithoutFee = ((√(pairTokenReserve × ionReserve × FACTOR / ionTargetPrice) − ionReserve) × ionSellRatio) / FACTOR;
+      ```
+
+      An additional fee adjustment is added:
+
+      ```mathematica
+      ionAmount = (ionAmountWithoutFee × FACTOR) / (FACTOR − poolFee);
+      ```
+
+- **Unfarm-Buy Burn Calculation**
+
+  When ION is below the target price, V2AMO initiates the unfarm–buy–burn process by withdrawing a calculated amount of
+  liquidity from the gauge, removing liquidity from the pool, and then swapping to buy ION (which is subsequently
+  burned). The key step is determining how much liquidity to unfarm. This is computed using the following formulas:
+
+    * **Calculate the Square Root Ratio:**
+
+      The square root ratio adjusts the reserves based on the target price:
+
+      ```mathematica
+      sqrtResRatio = sqrt((FACTOR^2 × pairTokenReserve) / ((ionReserve × ionTargetPrice) / FACTOR))
+      ```
+
+    * **Compute the Removal Percentage:**
+
+      This percentage determines the fraction of total liquidity that should be withdrawn, factoring in the pool fee:
+
+      ```mathematica
+      removalPercentage = (FACTOR × (FACTOR − sqrtResRatio)) / (FACTOR − ((poolFee × sqrtResRatio) / FACTOR))
+      
+      ```
+
+    * **Determine the Liquidity to Unfarm:**
+
+      Finally, the liquidity amount is calculated as a proportion of the total LP token supply:
+
+  ```mathematica
+  liquidity = totalLp × removalPercentage / FACTOR
+  ```
+
+- **Liquidity Addition:**
+  After swapping, the contract adds liquidity by:
+
+    - Quoting the required ION amount using the router’s `quoteAddLiquidity` function.
+    - Minting the needed ION tokens.
+    - Approving the router and calling its `addLiquidity` method to receive LP tokens.
+    - Depositing these LP tokens into the liquidity gauge (with an optional token ID if required).
+
+- **Unfarm–Buy–Burn Calculation:**
+  For under-peg situations, the contract calculates the proportion of liquidity to remove based on current reserves:
+
+    - It computes a square root ratio (`sqrtResRatio`) that compares the pair token reserve and the ion reserve (
+      adjusted by the target price).
+
+    - Then, a `removalPercentage` is determined, which is used to calculate the liquidity amount to be removed from the
+      total LP token supply.
+
+    - The liquidity removal is further scaled by the `pairTokenBuyRatio`.
+
+#### **Automated Rebalancing Process**
+
+1. **Fetch Market Data**
+    - Retrieves **ION price** from AMM pools.
+    - Queries **Muon Oracles & mainnet staking contracts** for **sUSDe, sFRAX, and sDAI prices**.
+    - Update Price on price manager contract if needed.
+2. **Decide Action**
+    - **If ION > Target Price** → **Mint & Sell ION** → **Provide Liquidity**.
+    - **If ION < Target Price** → **Remove Liquidity** → **Buy & Burn ION**.
+
+#### **Key Contract Functions**
+
+| Function                      | Description                                                                |
+|-------------------------------|----------------------------------------------------------------------------|
+| `mintSellFarm()`              | Mints & sells ION for stablecoins, then adds liquidity. (✅ Permissionless) |
+| `unfarmBuyBurn()`             | Removes liquidity, buys back ION, and burns it. (✅ Permissionless)         |
+| `addLiquidity()`              | Adds protocol-owned liquidity to pools.                                    |
+| `removeLiquidity()`           | Removes protocol-owned liquidity from pools.                               |
+| `setTickBounds()`             | Sets Uniswap V3 tick ranges for liquidity.                                 |
+| `ionPriceInPairToken()`       | Fetches the current ION price in the pairToken.                            |
+| `ionTargetPriceInPairToken()` | Computes the target price for ION in the pairToken.                        |
+| `getLiquidity()`              | Retrieves current liquidity position in AMMs.                              |
+
+#### **Security & Risk Management**
+
+- **Role-Based Access Control (RBAC)**
+    - **Admin role** can update critical parameters.
+    - **Pauser role** (Timelock Governance) can halt operations if needed.
+- **Flash Loan Resistant**
+    - Liquidity rebalancing **cannot be exploited** via arbitrage or flash loans.
+    - Only **authorized AMO contracts** can execute swaps & liquidity moves.
+- **Timelock Governance for Pausing**
+    - **AMO operations can only be paused via a Timelock contract**.
+    - Ensures **no centralized control over liquidity operations**.
+
+------
+
+### **Minter**
+
+- **Manages ION minting & burning**.
+- **Security measures**:
+    - **Only callable by authorized AMO contracts**.
+    - **Protocol-owned minting only for liquidity rebalancing**.
+    - **Timelock governance for emergency pauses**.
+
+---
+
+### **PriceManager**
+
+- **Tracks real-time prices of staked stablecoins (sUSDe, sFRAX, sDAI)**.
+- Uses **Muon Oracle & mainnet staking contracts** for **accurate price updates**.
+- **Prevents AMO operations if price feed is unreliable**.
+- **Allows emergency manual price updates via governance role**.
+
+#### **Security & Risk Management**
+
+- **Muon Oracle & Risk Management**
+    - **Muon Oracles fetch real-time data from mainnet staking contracts** (sUSDe, sFRAX, sDAI).
+    - **Fallback Manual Update Mechanism**:
+        - If **Muon Oracle fails**, **governance can manually update price feeds**.
+        - This prevents AMO from making **bad liquidity decisions** due to faulty price feeds.
+
+---
+
+## **💻 Running the Project**
+
+### **Install Dependencies**
+
+```sh
+npm install
+
+```
+
+### **Run Tests**
+
+```sh
 npx hardhat test
-REPORT_GAS=true npx hardhat test
-npx hardhat node
+```
+
+**Deploy Contracts**
+
+```sh
 npx hardhat run scripts/deploy.ts
 ```
 
-# Description of contracts and components
+**Start Local Blockchain Node**
 
-## I) Booststablecoin:
-The BoostStablecoin contract implements an ERC-20 token called "BOOST," which serves as the foundation of the BOOST stablecoin project. This token is upgradable and includes several key features for managing and securing its functionality:
-
-**Main Functions**
-* **Pause & Unpause**: These functions allow addresses with the PAUSER_ROLE to pause token transfers and UNPAUSER_ROLE to resume transfers. This can be useful in emergency scenarios.
-The pause function can be delegated to a security monitoring firms for automatic responses.
-* **Minting**: This function allows addresses with the MINTER_ROLE to mint new tokens (using the Minter.Sol contract) and send them to a specified address (to_).
-Token Transfer Guard: This ensures that token transfers are only allowed when the contract is not paused, adding an additional layer of security.
-
-## II) LiquidityAMO:
-The LiquidityAMO smart contract is designed for a dual purpose:
-* it maintains the BOOST peg to USD in ve33 pool.
-* It provides protocol-owned liquidity to the pools. 
-
-This joint operation involves
-* When BOOST is above par, minting BOOST tokens, selling them for USD, then farming the USDC with free-minted BOOST 
-* When BOOST is below par, removing liquidity from the pool, buying back BOOST from the pool with the USD, then burning BOOST
-
-Sub-cases:
-* the AMO contracts deal with two cases: a reference stable coin with value one ( eg USDC or DAI ), and a stakedstablecoin (eg sUSDe or sDAI) which value drifts ups progressively
-* this is reflected in the variable: `pairedTokenType_`
-
-Staked stable case: when BOOST is paired with a staked stablecoin, the logic is as follows
-* the `pricemanager.sol` contracts updates the staked price state variable
-* the equilibrium univ2 "xyz" pool balances are updated in the `AMOv2.sol` contract
-* the bot ( a simple logic bot will be shared !FIXME!) also monitors prices and pool balances to trigger rebalancing
-* rebalancing can also be done permissionlessly
-
-**Note on vocabulary:** 
-* Free-minted BOOST is called protocol-owned BOOST in the Frax vocabulary; it has no backing and is created when the protocol receives USD — and burned when the USDC is redeemed.
-* USD is a generic name for a reference stable coin paired with BOOST in the AMO ( USDC and USDT are the first natural candidates )
-
-Below are the key functions that define the core logic of the contract:
-**Main Functions:**
-### 1. Initialize
-Purpose: The initialize function sets up the Liquidity AMO contract, defining the addresses of BOOST, USD, Minter, Dex Pool and Treasury. Typically called when the contract is first deployed, this replaces a constructor in upgradeable contracts.
-### 2. setVault Function
-This function sets or changes the treasury vault address. Only an account with the SETTER_ROLE can call it.
-### 3. setTickBounds
-Purpose: this function is only available in the main branch which relies on uniswap v3 tech. setTickBounds defines the price range (ticks) at which it provides liquidity in the BOOST-USD pool. The current tech, however, uses full-range liquidity.	
-
-### 4.  mintAndSellBoost
-			Purpose: Mints a specified amount of BOOST and sells it for USD in the pool. 
-Triggered: When the BOOST-USD price diverges from peg (e.g., BOOST is trading above $1), this function is triggered to mint additional BOOST and sell it for USD to bring the price back down to peg.
-
-**Parameters:**
-* boostAmount: The amount of BOOST tokens to be minted and sold
-* minUsdAmountOut: The minimum USD amount should be received following the swap
-* deadline: Timestamp representing the deadline for the operation to be executed
-* usdAmountOut: The USD amount that received from the swap
-
-**Return values:** 
-	usdAmountOut: The USD amount that received from the swap
-Logic and economic security: the function reverts if Boost is not sold above par, so this function can never induce a loss for the protocol.
-
-### 5. addLiquidity ( v3AMO.sol ) and addLiquidityAndDeposit  v2AMO.sol )
-
-**Purpose (brief):** These addLiquidity functions add protocol-owned liquidity to the BOOST-USD pool, with minor implementation changes between the v3AMO (which “mints” positions) and v2AMO (which adds liquidity and stakes it).
-It involves free-minting BOOST tokens, pairing it with USDC backing, and after approving both BOOST and USD tokens for transfer to the pool, ading them as liquidity.
-
-**Purpose (detailed)**: 
-1. The function first calculates the amount of BOOST to be minted based on the usdAmount provided. The minted BOOST amount is determined by converting the USD amount to its BOOST equivalent and applying a margin for error with the boostMultiplier.  
-2. The contract interacts with the boostMinter to mint the calculated amount of BOOST tokens. 
-3. The contract approves the BOOST and USD tokens for transfer to the pool. 
-4. The contract calculates the amount of liquidity that will be provided to the pool based on the USD amount. It also calculates the minimum amounts of BOOST and USD that can be used to add liquidity (from minBoostSpend and minUsdSpend).
-5. The function sorts the amounts of BOOST and USD to determine the actual amounts spent when adding liquidity.
-6. It then checks that the USD spent is within the valid range based on the validRangeWidth and BOOST spent. This ensures the liquidity added is balanced between BOOST and USD.
-7. If any BOOST tokens are left unused (i.e., not spent to provide liquidity), the contract burns them.
-
-**Triggered**: When the protocol needs to add liquidity to the BOOST-USD pool, usually right after price rebalancing (MintAndSell).
-**Example**: The protocol decides to add liquidity using 100,000 USD. It free-mints the corresponding amount of BOOST and adds both BOOST and USD as liquidity to the pool.
-**Parameters**:
-* usdAmount (uint256): The total amount of USD that will be added as liquidity to the pool.
-* minBoostSpend (uint256): The minimum required amount of BOOST tokens that must be spent in order to proceed with the liquidity addition.
-* minUsdSpend (uint256): The minimum required amount of USD that must be contributed to the pool for the liquidity addition to be valid.
-* deadline (uint256): Timestamp representing the deadline for the operation to be executed. If the deadline is exceeded, the transaction will revert.
-
-### 6. mintSellFarm
- Purpose (brief): The mintSellFarm essentially bundles the mintAndSell and the addLiquidity functions.
- 
-
-
-### 7.unfarmBuyBurn
-	**Purpose (brief)**: The unfarmBuyBurn function is used to increase BOOST price back to peg and is symmetrical to the MintSellFarm function. 
-First it removes protocol owned liquidity, swaps the USD for Boost, then burns the BOOST
-
-**Purpose (detailed):** 
-* The function first checks the available liquidity using the position() function and ensures the requested liquidity removal does not exceed the protocol's allowed limits (liquidityAmountLimit).
-* The function removes liquidity using the appropriate underlying pool logic: it calls burnAndCollect() in v3AMO.sol, and withdraw() and removeLiquidity() in v2AMO.sol.
-* The function reverts if BOOST amount withdrawn is lesser than USDC amount, as BOOST pool implied price would not be below peg.
-* Once liquidity is removed, the function swaps the USD tokens for BOOST tokens in the pool. The swap ensures that at least minBoostAmountOut BOOST is received.
-* The BOOST tokens received from removing liquidity and swapping USD are burned to reduce the circulating supply of BOOST. 
-
-**Return values:**
-* boostRemoved (uint256): The amount of BOOST tokens removed from the liquidity pool.
-* usdRemoved (uint256): The amount of USD tokens removed from the liquidity pool.
-* boostAmountOut (uint256): The amount of BOOST tokens received from swapping USD tokens.
-
-**Parameters (for v3AMO.sol)**:
-* liquidity (uint256): The amount of liquidity tokens to be removed from the BOOST-USD pool.
-* minBoostRemove (uint256): The minimum amount of BOOST tokens that should be removed from the pool when liquidity is withdrawn.
-* minUsdRemove (uint256): The minimum amount of USD tokens that should be removed from the pool when liquidity is withdrawn.
-* minBoostAmountOut (uint256): The minimum amount of BOOST tokens to be received after swapping USD tokens for BOOST.
-* deadline (uint256): The deadline by which the transaction must be completed. If this deadline is exceeded, the transaction will fail.
-
-## III) PublicAMO:
-
-Purpose:
-
-1) The contract ensures decentralised security, 
-It lets any participant (even though the contract allows for whitelisting) rebalance the BOOST price permissionless. 
-It ensures that the health of the protocol does not depend on our team or any given (possibly centralised) infrastructure: it is permissionless.
-
-2) Mechanism: 
-Technically, it triggers the AMO mechanisms where the amount to mint, sell and farm, or unfarm and buy back, is computed onchain —— rather than by an off-chain bot.
-
-3) A user-friendly interface: 
-The PublicAMO contract provides a simpler interface for users or other contracts to interact with the underlying LiquidityAMO functionality, such as minting, selling, adding/removing liquidity, etc., without exposing all the internal difficulties of the LiquidityAMO contract.
-
-# Readme for price manager
-
-## Organisation
-
-This folder comprises two files:
-*  PriceManager.sol, a contract that serves both to update the price of the staked stables AND to store the last value
-*  PriceManagerQuoter.sol, a view function to the price of the staked stables
-
-## Logic of pricemanager.sol
-
-*  The contracts call a Muon oracle to update the price of the staked stables
-*  for instance, the staked price of sUSDe ( staked eThena USD(e)) is updated calling the internal function `function _setSUsde(StakedUSDeLib.StakedUSDe calldata _sUSDe, Block calldata srcBlock)`
-*  this function reads the Muon signature (that includes the data such as timestamp and blocknumber) and extracts the data
-*  then `muonClient.verifyTSSAndGW()` verifies that the signature has the correct data ( eg gateway etc...)
-*  the function `function _validateSrcBlock` of the `pricemanager.sol` contract checks if the signature has been issued in more recent timeblocks than that of the current price state variable
-_ (we also verify that the price has not been signed at a future tmestamp)_ !FIXME! do we need that? a next block price is better than a last hours price!!!
-
-
-## Logic of PriceManagerQuoter.sol
-
-The `PriceManagerQuoter.sol` contract contains value-adding view functions that will be used in the AMO
-
-## Implementation
-
-* The price state variables can be implemented permissionless.
-* In addition, msig has the ability to update state variables (which can be useful in case of any unknown issue) — for instance the `function setSUsde()` is trusted
-* Axion team will run a bot that will probably be the most frequent updater ( a simple bot logic will be shared in the price manager folder later !FIXME!)
+```sh
+npx hardhat node
+```

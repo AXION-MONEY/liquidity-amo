@@ -1,195 +1,211 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
+/**
+ * @title IMasterAMO
+ * @notice Interface defining core functions, roles, and events for Automated Market Operations (AMO).
+ */
 interface IMasterAMO {
-    /* ========== ENUMS ========== */
-    enum PairedTokenType {
-        STABLE, // # FIXME: rename to USD
+    // -------------------------------------------------------------
+    //                           ERRORS
+    // -------------------------------------------------------------
+
+    /// @notice Reverts when an operation is attempted with a zero address.
+    error ZeroAddress();
+
+    /// @notice Reverts when an invalid ratio value is provided.
+    error InvalidRatioValue();
+
+    /// @notice Reverts when an operation outputs insufficient tokens.
+    error InsufficientOutputAmount(uint256 outputAmount, uint256 minRequired);
+
+    /// @notice Reverts when adding liquidity is attempted with an invalid ratio.
+    error InvalidRatioToAddLiquidity();
+
+    /// @notice Reverts when the ION price is not within an expected range.
+    error PriceNotInRange(uint256 price);
+
+    /// @notice Reverts when an operation is attempted but the price is already within the expected range.
+    error PriceAlreadyInRange(uint256 price);
+
+    /// @notice Reverts when an unsupported pair token type is used.
+    error InvalidPairTokenType();
+
+    // -------------------------------------------------------------
+    //                           EVENTS
+    // -------------------------------------------------------------
+
+    /**
+     * @notice Emitted when ION is minted and sold for PairToken.
+     * @param ionAmountIn The amount of ION minted and sold.
+     * @param pairTokenAmountOut The amount of pairToken received.
+     */
+    event MintSell(uint256 ionAmountIn, uint256 pairTokenAmountOut);
+
+    /**
+     * @notice Emitted when the target price premium is updated.
+     * @param premium The new premium value.
+     */
+    event IonTargetPricePremiumSet(uint256 premium);
+
+    /**
+     * @notice Emitted when various parameters are set.
+     * @param validRangeWidth The valid range width for liquidity addition.
+     * @param sellRatio The sell ratio as mintSellFarm's swap ratio.
+     * @param buyRatio The buy ratio as unfarmBuyBurn's swap ratio.
+     */
+    event ParamsSet(uint24 validRangeWidth, uint24 sellRatio, uint24 buyRatio);
+
+    // -------------------------------------------------------------
+    //                           ENUMS
+    // -------------------------------------------------------------
+    enum PairTokenType {
+        STABLE,
         SUSDE,
         SFRAX,
         SDAI
     }
 
-    /* ========== ROLES ========== */
-    /// @notice Returns the identifier for the SETTER_ROLE
-    /// @dev This role allows calling set functions to modifying certain parameters of the contract
+    // -------------------------------------------------------------
+    //                            ROLES
+    // -------------------------------------------------------------
+    /// @notice Returns the identifier for the SETTER_ROLE.
     function SETTER_ROLE() external view returns (bytes32);
 
-    /// @notice Returns the identifier for the AMO_ROLE
-    /// @dev This role allows calling mintAndSellBoost(), addLiquidity(), mintSellFarm() and unfarmBuyBurn();
-    /// actions related to the AMO (Asset Management Operations)
-    function AMO_ROLE() external view returns (bytes32);
-
-    /// @notice Returns the identifier for the PAUSER_ROLE
-    /// @dev This role allows calling pause(), the pausing of the contract's critical functions
+    /// @notice Returns the identifier for the PAUSER_ROLE.
     function PAUSER_ROLE() external view returns (bytes32);
 
-    /// @notice Returns the identifier for the UNPAUSER_ROLE
-    /// @dev This role allows calling unpause(), the unpausing of the contract's critical functions
+    /// @notice Returns the identifier for the UNPAUSER_ROLE.
     function UNPAUSER_ROLE() external view returns (bytes32);
 
-    /// @notice Returns the identifier for the WITHDRAWER_ROLE
-    /// @dev This role allows calling withdrawERC20() and withdrawERC721() for withdrawing tokens from the contract
+    /// @notice Returns the identifier for the WITHDRAWER_ROLE.
     function WITHDRAWER_ROLE() external view returns (bytes32);
 
-    /* ========== VARIABLES ========== */
-    /// @notice Returns the address of the BOOST token
-    function boost() external view returns (address);
+    // -------------------------------------------------------------
+    //                        STATE VARIABLES
+    // -------------------------------------------------------------
+    /// @notice Address of the ION token.
+    function ionAddress() external view returns (address);
 
-    /// @notice Returns the address of the USD token
-    function usd() external view returns (address);
+    /// @notice Address of the pair token.
+    function pairTokenAddress() external view returns (address);
 
-    /// @notice Returns the address of the liquidity pool
-    function pool() external view returns (address);
+    /// @notice Address of the liquidity pool.
+    function poolAddress() external view returns (address);
 
-    /// @notice Returns the number of decimals used by the BOOST token
-    function boostDecimals() external view returns (uint8);
+    /// @notice Number of decimals used by the ION token.
+    function ionDecimals() external view returns (uint8);
 
-    /// @notice Returns the number of decimals used by the USD token
-    function usdDecimals() external view returns (uint8);
+    /// @notice Number of decimals used by the pair token.
+    function pairTokenDecimals() external view returns (uint8);
 
-    /// @notice Returns the address of the BOOST Minter contract
-    function boostMinter() external view returns (address);
+    /// @notice Address of the ION minter contract.
+    function ionMinterAddress() external view returns (address);
 
-    /// @notice Returns the multiplier for BOOST (in 6 decimals)
-    function boostMultiplier() external view returns (uint256);
+    /// @notice Address of the PriceManager Contract.
+    function priceManagerContractAddress() external view returns (address);
 
-    /// @notice Returns the valid range ratio for adding liquidity (in 6 decimals). Will be a few percentage points ( scaled with Factor = 6 decimals),
-    /// actual ratio is 1 +- validRangeWidth / 1e6 == factor +- validRangeWidth
+    /// @notice Type of the PairToken either USD or other Staked Stable types.
+    function pairTokenType() external view returns (PairTokenType);
+
+    /// @notice Valid range ratio for adding liquidity (6 decimals).
     function validRangeWidth() external view returns (uint24);
-
-    /// @notice Returns the valid removing liquidity ratio (in 6 decimals)
-    /// value is expected to be very close to 1
-    function validRemovingRatio() external view returns (uint24);
-
-    /// @notice Returns the BOOST lower price after sell (in 6 decimals)
-    function boostLowerPriceSell() external view returns (uint256);
-
-    /// @notice Returns the BOOST upper price after buy (in 6 decimals)
-    function boostUpperPriceBuy() external view returns (uint256);
 
     /**
      * @notice Retrieves the current premium offset used for staked pairs in target price calculations.
      * @dev This premium value is added to the preview deposit amount from the PriceManager for staked tokens
-     *      to derive the overall target price. It represents the price slippage and is expected to be lower than the pull fee.
+     *      to derive the overall target price. It represents the price slippage and is expected to be lower than
+     *      the pull fee.
      *
      * @return The current premium offset.
      */
-    function targetPricePremium() external view returns (uint256);
+    function ionTargetPricePremium() external view returns (uint256);
 
-    /* ========== FUNCTIONS ========== */
+    /// @notice Returns the sell ratio as mintSellFarm's swap ratio.
+    function sellRatio() external view returns (uint24);
+
+    /// @notice Returns the buy ratio as unfarmBuyBurn's swap ratio.
+    function buyRatio() external view returns (uint24);
+
     /**
-     * @notice Pauses the contract, disabling specific functionalities
-     * @dev Only an address with the PAUSER_ROLE can call this function
+     * @notice Checks if a user is whitelisted for bypassing the swap ratio (sellRatio and buyRatio).
+     * @param user The user address.
+     * @return True if whitelisted; false otherwise.
+     */
+    function bypassSwapRatioWhitelist(address user) external view returns (bool);
+
+    // -------------------------------------------------------------
+    //                           FUNCTIONS
+    // -------------------------------------------------------------
+    /**
+     * @notice Pauses the contract.
+     * @dev Only accounts with PAUSER_ROLE can invoke this.
      */
     function pause() external;
 
     /**
-     * @notice Unpauses the contract, re-enabling specific functionalities
-     * @dev Only an address with the UNPAUSER_ROLE can call this function
+     * @notice Unpauses the contract.
+     * @dev Only accounts with UNPAUSER_ROLE can invoke this.
      */
     function unpause() external;
 
     /**
-     * @notice This function mints BOOST tokens and sells them for USD
-     * @dev Can only be called by an account with the AMO_ROLE when the contract is not paused
-     * @param boostAmount The amount of BOOST tokens to be minted and sold
-     * @return boostAmountIn The BOOST amount that sent to the pool for the swap
-     * @return usdAmountOut The USD amount that received from the swap
+     * @notice Sets the premium offset used in target price calculations.
+     * @param targetPricePremium_ The new premium offset.
      */
-    function mintAndSellBoost(uint256 boostAmount) external returns (uint256 boostAmountIn, uint256 usdAmountOut);
+    function setIonTargetPricePremium(uint256 targetPricePremium_) external;
 
     /**
-     * @notice This function adds liquidity to the BOOST-USD pool
-     * @dev Can only be called by an account with the AMO_ROLE when the contract is not paused
-     * @param usdAmount The amount of USD to be added as liquidity
-     * @param minBoostSpend The minimum amount of BOOST that must be added to the pool
-     * @param minUsdSpend The minimum amount of USD that must be added to the pool
-     * @return boostSpent The BOOST amount that is spent in add liquidity
-     * @return usdSpent The USD amount that is spent in add liquidity
-     * @return liquidity The liquidity Amount that received from add liquidity
+     * @notice Sets various parameters for AMO operations.
+     * @param validRangeWidth_ The valid range width for liquidity addition.
+     * @param sellRatio_ The sell ratio as mintSellFarm's swap ratio.
+     * @param buyRatio_ The buy ratio as unfarmBuyBurn's swap ratio.
      */
-    function addLiquidity(
-        uint256 usdAmount,
-        uint256 minBoostSpend,
-        uint256 minUsdSpend
-    ) external returns (uint256 boostSpent, uint256 usdSpent, uint256 liquidity);
+    function setParams(uint24 validRangeWidth_, uint24 sellRatio_, uint24 buyRatio_) external;
 
     /**
-     * @notice This function rebalances the BOOST-USD pool by Calling mintAndSellBoost() and addLiquidity()
-     * @dev Can only be called by an account with the AMO_ROLE when the contract is not paused
-     * @param boostAmount The amount of BOOST tokens to be minted and sold
-     * @param minBoostSpend The minimum amount of BOOST that must be added to the pool
-     * @param minUsdSpend The minimum amount of USD that must be added to the pool
-     * @return boostAmountIn The BOOST amount that sent to the pool for the swap
-     * @return usdAmountOut The USD amount that received from the swap
-     * @return boostSpent The BOOST amount that is spent in add liquidity
-     * @return usdSpent The USD amount that is spent in add liquidity
-     * @return liquidity The liquidity Amount that received from add liquidity
+     * @notice Adds liquidity to the ION-PairToken pool, based on the contract's PairToken balance.
+     * @return liquidity The liquidity tokens received.
      */
-    function mintSellFarm(
-        uint256 boostAmount,
-        uint256 minBoostSpend,
-        uint256 minUsdSpend
-    )
-        external
-        returns (uint256 boostAmountIn, uint256 usdAmountOut, uint256 boostSpent, uint256 usdSpent, uint256 liquidity);
+    function addLiquidity() external returns (uint256 liquidity);
 
     /**
-     * @notice This function rebalances the BOOST-USD pool by removing liquidity, buying and burning BOOST tokens
-     * @dev Can only be called by an account with the AMO_ROLE when the contract is not paused
-     * @param liquidity The amount of liquidity tokens to be removed from the pool
-     * @param minBoostRemove The minimum amount of BOOST tokens that must be removed from the pool
-     * @param minUsdRemove The minimum amount of USD tokens that must be removed from the pool
-     * @return boostRemoved The BOOST amount that received from remove liquidity
-     * @return usdRemoved The USD amount that received from remove liquidity
-     * @return usdAmountIn The USD amount that sent to the pool for the swap
-     * @return boostAmountOut The BOOST amount that received from the swap
+     * @notice Mints, sells, and farms ION tokens when ION is over peg.
+     * @return liquidity The liquidity tokens received.
+     * @return postOperationIonPrice The new average ION price after the operation.
      */
-    function unfarmBuyBurn(
-        uint256 liquidity,
-        uint256 minBoostRemove,
-        uint256 minUsdRemove
-    ) external returns (uint256 boostRemoved, uint256 usdRemoved, uint256 usdAmountIn, uint256 boostAmountOut);
+    function mintSellFarm() external returns (uint256 liquidity, uint256 postOperationIonPrice);
 
     /**
-     * @notice Mints BOOST tokens and sells them for USD
-     * @return liquidity The liquidity Amount that received from add liquidity
-     * @return newBoostPrice The BOOST new price after mintSellFarm()
+     * @notice Unfarms liquidity, buys, and burns ION tokens when ION is under peg.
+     * @return liquidity The liquidity tokens affected.
+     * @return postOperationIonPrice The new average ION price after the operation.
      */
-    function mintSellFarm() external returns (uint256 liquidity, uint256 newBoostPrice);
+    function unfarmBuyBurn() external returns (uint256 liquidity, uint256 postOperationIonPrice);
 
     /**
-     * @notice Unfarms liquidity, buys BOOST tokens with USD, and burns them
-     * @return liquidity The liquidity Amount that unfarmed from add liquidity
-     * @return newBoostPrice The BOOST new price after unfarmBuyBurn()
-     */
-    function unfarmBuyBurn() external returns (uint256 liquidity, uint256 newBoostPrice);
-
-    /**
-     * @notice Withdraws ERC20 tokens from the contract
-     * @dev Can only be called by an account with the WITHDRAWER_ROLE
-     * @param token The address of the ERC20 token contract
-     * @param amount The amount of tokens to withdraw
-     * @param recipient The address to receive the tokens
+     * @notice Withdraws ERC20 tokens from the contract.
+     * @param token The ERC20 token address.
+     * @param amount The amount to withdraw.
+     * @param recipient The address to receive the tokens.
      */
     function withdrawERC20(address token, uint256 amount, address recipient) external;
 
     /**
-     * @notice This view function returns the current BOOST price with PRICE_DECIMALS = 6
-     * @return price the current BOOST price
+     * @notice Retrieves the current ION price.
+     * @return price The current ION price (using 6 decimals).
      */
-    function boostPrice() external view returns (uint256 price);
+    function ionPriceInPairToken() external view returns (uint256 price);
 
     /**
-     * @notice Retrieves the target price for Boost based on the paired token type.
+     * @notice Retrieves the target price for ION based on the paired token type.
      * @dev The target price is determined as follows:
-     *      - For a STABLE paired token, the target price is set to a fixed base unit (1 × 10^PRICE_DECIMALS).
+     *      - For a STABLE pair token, the target price is set to a fixed base unit (1 × 10^PRICE_DECIMALS).
      *      - For staked pairs (SUSDE, SFRAX, SDAI), the target price is calculated by querying the corresponding
      *        preview deposit function from the PriceManager using the base unit, and then adding a price offset
      *        (targetPricePremium). This premium represents a slippage adjustment and must be set lower than the pull fee.
      *
-     * @return price The computed target price.
+     * @return The computed target price.
      */
-    function targetPrice() external view returns (uint256 price);
+    function ionTargetPriceInPairToken() external view returns (uint256);
 }

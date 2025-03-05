@@ -5,58 +5,45 @@ import "./MasterAMO.sol";
 import {IGauge} from "./interfaces/v2/IGauge.sol";
 import {ISolidlyRouter} from "./interfaces/v2/ISolidlyRouter.sol";
 import {IPair} from "./interfaces/v2/IPair.sol";
-import {IV2AMO} from "./interfaces/v2/IV2AMO.sol";
+import {IV2AMO} from "./interfaces/IV2AMO.sol";
 import {IVRouter} from "./interfaces/v2/IVRouter.sol";
 import {IPoolFactory} from "./interfaces/v2/IPoolFactory.sol";
 import {IPairFactory} from "./interfaces/v2/IPairFactory.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import {IIon} from "./interfaces/IIon.sol";
 
+/**
+* @title V2AMO Contract
+* @notice Implements Automated Market Operations (AMO) for V2 pools protocols.
+* @dev Inherits from MasterAMO and implements the IV2AMO interface. All errors, events and public state variable
+        documentation are declared in the interface.
+*/
 contract V2AMO is IV2AMO, MasterAMO {
     using SafeERC20 for IERC20;
+    using Math for uint256;
 
-    /* ========== ERRORS ========== */
-    error TokenNotWhitelisted(address token);
-    error UsdAmountOutMismatch(uint256 routerOutput, uint256 balanceChange);
-    error LpAmountOutMismatch(uint256 routerOutput, uint256 balanceChange);
-    error InvalidReserveRatio(uint256 ratio);
-
-    /* ========== EVENTS ========== */
-    event AddLiquidityAndDeposit(uint256 boostSpent, uint256 usdSpent, uint256 liquidity, uint256 indexed tokenId);
-    event UnfarmBuyBurn(uint256 boostRemoved, uint256 usdRemoved, uint256 liquidity, uint256 boostAmountOut);
-
-    event GetReward(address[] tokens, uint256[] amounts);
-
-    event PoolFeeSet(uint256 poolFee);
-    event VaultSet(address rewardVault);
-    event TokenIdSet(uint256 tokenId, bool useTokenId);
-    event ParamsSet(
-        uint256 boostMultiplier,
-        uint24 validRangeWidth,
-        uint24 validRemovingRatio,
-        uint256 boostLowerPriceSell,
-        uint256 boostUpperPriceBuy,
-        uint256 boostSellRatio,
-        uint256 usdBuyRatio
-    );
-    event RewardTokensSet(address[] tokens, bool isWhitelisted);
-
-    /* ========== ROLES ========== */
+    // -------------------------------------------------------------
+    //                             ROLES
+    // -------------------------------------------------------------
     /// @inheritdoc IV2AMO
     bytes32 public constant override REWARD_COLLECTOR_ROLE = keccak256("REWARD_COLLECTOR_ROLE");
 
-    /* ========== VARIABLES ========== */
+    // -------------------------------------------------------------
+    //                         STATE VARIABLES
+    // -------------------------------------------------------------
+
+    ////// MUTABLE //////
     /// @inheritdoc IV2AMO
-    bool public override stable;
+    bool public override isStablePool;
     /// @inheritdoc IV2AMO
     PoolType public override poolType;
     /// @inheritdoc IV2AMO
-    address public override factory;
+    address public override factoryAddress;
     /// @inheritdoc IV2AMO
-    address public override router;
+    address public override routerAddress;
     /// @inheritdoc IV2AMO
-    address public override gauge;
-
+    address public override gaugeAddress;
     /// @inheritdoc IV2AMO
     uint256 public override poolFee;
     /// @inheritdoc IV2AMO
@@ -64,86 +51,112 @@ contract V2AMO is IV2AMO, MasterAMO {
     /// @inheritdoc IV2AMO
     mapping(address => bool) public override whitelistedRewardTokens;
     /// @inheritdoc IV2AMO
-    uint256 public override boostSellRatio;
-    /// @inheritdoc IV2AMO
-    uint256 public override usdBuyRatio;
-    /// @inheritdoc IV2AMO
     uint256 public override tokenId;
     /// @inheritdoc IV2AMO
     bool public override useTokenId;
 
-    /* ========== FUNCTIONS ========== */
+    // -------------------------------------------------------------
+    //                        INITIALIZATION
+    // -------------------------------------------------------------
+    /**
+     * @notice Constructor disables initializers.
+     * @dev Required for upgradeable contracts.
+     */
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
     }
 
+    /**
+     * @notice Initializes the V2AMO contract.
+     * @param admin Address with admin privileges.
+     * @param ionAddress_ Address of the ION token.
+     * @param pairTokenAddress_ Address of the Pair token.
+     * @param isStable_ True if the pool is stable; false if volatile.
+     * @param poolType_ The pool type (SOLIDLY_V2, VELO_LIKE or EQUAL_LIKE).
+     * @param ionMinterAddress_ Address of the ION minter contract.
+     * @param priceManagerAddress_ Address of the price manager contract.
+     * @param pairTokenType_ The type of the token paired with ION.
+     * @param factoryAddress_ Address of the factory (if zero, the default factory is used for VELO_LIKE pools).
+     * @param routerAddress_ Address of the router contract.
+     * @param gaugeAddress_ Address of the gauge contract.
+     * @param rewardVault_ Address of the reward vault.
+     * @param tokenId_ The token ID to be used when depositing liquidity.
+     * @param useTokenId_ Boolean indicating whether to use the token ID.
+     * @param validRangeWidth_ The valid range width for liquidity addition.
+     * @param sellRatio_ The sell ratio as mintSellFarm's swap ratio.
+     * @param buyRatio_ The buy ratio as unfarmBuyBurn's swap ratio.
+     */
     function initialize(
         address admin,
-        address boost_,
-        address usd_,
-        bool stable_,
+        address ionAddress_,
+        address pairTokenAddress_,
+        bool isStable_,
         PoolType poolType_,
-        address boostMinter_,
-        address priceManager_,
-        PairedTokenType pairedTokenType_,
-        address factory_, // newly added variable, If 0 passed default factory will be initialized
-        address router_,
-        address gauge_,
+        address ionMinterAddress_,
+        address priceManagerAddress_,
+        PairTokenType pairTokenType_,
+        address factoryAddress_,
+        address routerAddress_,
+        address gaugeAddress_,
         address rewardVault_,
         uint256 tokenId_,
         bool useTokenId_,
-        uint256 boostMultiplier_,
         uint24 validRangeWidth_,
-        uint24 validRemovingRatio_,
-        uint256 boostLowerPriceSell_,
-        uint256 boostUpperPriceBuy_,
-        uint256 boostSellRatio_,
-        uint256 usdBuyRatio_
+        uint24 sellRatio_,
+        uint24 buyRatio_
     ) public initializer {
-        if (router_ == address(0) || gauge_ == address(0)) revert ZeroAddress();
+        // Validate required addresses
+        if (routerAddress_ == address(0) || gaugeAddress_ == address(0)) revert ZeroAddress();
+
         poolType = poolType_;
-        stable = stable_;
+        isStablePool = isStable_;
         address pool_;
         uint256 poolFee_;
+        // For VELO_LIKE pools, determine factory and get pool address using the IVRouter
         if (poolType == PoolType.VELO_LIKE) {
-            // If factory is zero address, get default factory from IVRouter
-            if (factory_ == address(0)) {
-                factory = IVRouter(router_).defaultFactory();
+            if (factoryAddress_ == address(0)) {
+                factoryAddress = IVRouter(routerAddress_).defaultFactory();
             } else {
-                factory = factory_;
+                factoryAddress = factoryAddress_;
             }
-            // Get pool address using the determined factory
-            pool_ = IVRouter(router_).poolFor(usd_, boost_, stable_, factory);
-            poolFee_ = IPoolFactory(factory).getFee(pool_, stable_);
+            pool_ = IVRouter(routerAddress_).poolFor(pairTokenAddress_, ionAddress_, isStable_, factoryAddress);
+            poolFee_ = IPoolFactory(factoryAddress).getFee(pool_, isStable_);
         } else {
-            pool_ = ISolidlyRouter(router_).pairFor(usd_, boost_, stable_);
-            factory = ISolidlyRouter(router_).factory();
-            poolFee_ = IPairFactory(factory).getFee(stable_);
+            // For SOLIDLY_V2 and EQUAL_LIKE pools
+            pool_ = ISolidlyRouter(routerAddress_).pairFor(pairTokenAddress_, ionAddress_, isStable_);
+            factoryAddress = ISolidlyRouter(routerAddress_).factory();
+            poolFee_ = IPairFactory(factoryAddress).getFee(isStable_);
         }
 
-        super.initialize(admin, boost_, usd_, pool_, boostMinter_, priceManager_, pairedTokenType_);
+        // Initialize inherited variables from MasterAMO
+        super.initialize(
+            admin,
+            ionAddress_,
+            pairTokenAddress_,
+            pool_,
+            ionMinterAddress_,
+            priceManagerAddress_,
+            pairTokenType_,
+            validRangeWidth_,
+            sellRatio_,
+            buyRatio_
+        );
 
-        router = router_;
-        gauge = gauge_;
+        routerAddress = routerAddress_;
+        gaugeAddress = gaugeAddress_;
         uint256 feeScaledFactor = poolType == PoolType.EQUAL_LIKE ? 1e18 : 1e4;
         _grantRole(SETTER_ROLE, msg.sender);
-        setPoolFee((poolFee_ * FACTOR) / feeScaledFactor);
+        setPoolFee(poolFee_.mulDiv(FACTOR, feeScaledFactor));
         setVault(rewardVault_);
         setTokenId(tokenId_, useTokenId_);
-        setParams(
-            boostMultiplier_,
-            validRangeWidth_,
-            validRemovingRatio_,
-            boostLowerPriceSell_,
-            boostUpperPriceBuy_,
-            boostSellRatio_,
-            usdBuyRatio_
-        );
         _revokeRole(SETTER_ROLE, msg.sender);
     }
 
-    ////////////////////////// SETTER_ROLE ACTIONS //////////////////////////
+    // -------------------------------------------------------------
+    //                   SETTER_ROLE ACTIONS
+    // -------------------------------------------------------------
+
     /// @inheritdoc IV2AMO
     function setPoolFee(uint256 poolFee_) public override onlyRole(SETTER_ROLE) {
         poolFee = poolFee_;
@@ -165,351 +178,308 @@ contract V2AMO is IV2AMO, MasterAMO {
     }
 
     /// @inheritdoc IV2AMO
-    function setParams(
-        uint256 boostMultiplier_,
-        uint24 validRangeWidth_,
-        uint24 validRemovingRatio_,
-        uint256 boostLowerPriceSell_,
-        uint256 boostUpperPriceBuy_,
-        uint256 boostSellRatio_,
-        uint256 usdBuyRatio_
-    ) public override onlyRole(SETTER_ROLE) {
-        if (validRangeWidth_ > FACTOR || validRemovingRatio_ < FACTOR) revert InvalidRatioValue(); // validRangeWidth is a few percentage points (scaled with factor). So it needs to be lower than 1 (scaled with FACTOR)
-        // validRemovingRatio needs to be greater than 1 (we remove more BOOST than USD otherwise the pool is balanced)
-        boostMultiplier = boostMultiplier_;
-        validRangeWidth = validRangeWidth_;
-        validRemovingRatio = validRemovingRatio_;
-        boostLowerPriceSell = boostLowerPriceSell_;
-        boostUpperPriceBuy = boostUpperPriceBuy_;
-        boostSellRatio = boostSellRatio_;
-        usdBuyRatio = usdBuyRatio_;
-        emit ParamsSet(
-            boostMultiplier,
-            validRangeWidth,
-            validRemovingRatio,
-            boostLowerPriceSell,
-            boostUpperPriceBuy,
-            boostSellRatio,
-            usdBuyRatio
-        );
-    }
-
-    /// @inheritdoc IV2AMO
     function setWhitelistedTokens(address[] memory tokens, bool isWhitelisted) external override onlyRole(SETTER_ROLE) {
-        for (uint i = 0; i < tokens.length; i++) {
+        for (uint256 i = 0; i < tokens.length; i++) {
             whitelistedRewardTokens[tokens[i]] = isWhitelisted;
         }
         emit RewardTokensSet(tokens, isWhitelisted);
     }
 
-    ////////////////////////// AMO_ROLE ACTIONS //////////////////////////
-    function _mintAndSellBoost(
-        uint256 boostAmount
-    ) internal override returns (uint256 boostAmountIn, uint256 usdAmountOut) {
-        // Mint the specified amount of BOOST tokens
-        IMinter(boostMinter).protocolMint(address(this), boostAmount);
-        // get the target price of the Pair for stable pairs 1 for staked stables lower than 1
-        uint256 boostTargetPrice = targetPrice();
-        // Approve the transfer of BOOST tokens to the router
-        IERC20(boost).approve(router, boostAmount);
+    // -------------------------------------------------------------
+    //                INTERNAL HELPER VIEW FUNCTIONS
+    // -------------------------------------------------------------
 
-        uint256 boostAmountWithoutFee = boostAmount - ((boostAmount * poolFee) / FACTOR);
-        uint256 minUsdAmountOut = (toUsdAmount(boostAmountWithoutFee) * boostTargetPrice) / FACTOR;
-
-        uint256 usdBalanceBefore = balanceOfToken(usd);
-        // Execute the swap and store the amounts of tokens involved, based on the pool type
-        if (poolType == PoolType.VELO_LIKE) {
-            // For Velodrome/Aerodrome style routers (VELO_LIKE)
-            IVRouter.Route[] memory routes = new IVRouter.Route[](1);
-            routes[0] = IVRouter.Route({
-                from: boost,
-                to: usd,
-                stable: stable,
-                factory: factory // Using factory from state variable(initialized already), Its necessary for Velodrome/Aerodrome DEXs
-            });
-            uint256[] memory amounts = IVRouter(router).swapExactTokensForTokens(
-                boostAmount,
-                minUsdAmountOut,
-                routes,
-                address(this),
-                block.timestamp + 1 // deadline
-            );
-            boostAmountIn = amounts[0];
-            usdAmountOut = amounts[1];
+    /// @inheritdoc MasterAMO
+    function _validateSwap(bool ionForUsd) internal view override {
+        (uint256 ionReserve, uint256 pairTokenReserve) = getReserves();
+        uint256 currentPrice = ionPriceInPairToken();
+        uint256 targetPrice = ionTargetPriceInPairToken();
+        if (ionForUsd) {
+            // mintSellFarm
+            if (ionReserve.mulDiv(targetPrice, FACTOR) >= pairTokenReserve)
+                revert InvalidReserveRatio({ratio: pairTokenReserve.mulDiv(FACTOR, ionReserve)});
+            if (currentPrice <= ionPriceUpperBound(targetPrice)) revert PriceAlreadyInRange(currentPrice);
         } else {
-            // For standard Solidly style routers
-            ISolidlyRouter.route[] memory routes = new ISolidlyRouter.route[](1);
-            routes[0] = ISolidlyRouter.route({from: boost, to: usd, stable: stable});
-            uint256[] memory amounts = ISolidlyRouter(router).swapExactTokensForTokens(
-                boostAmount,
-                minUsdAmountOut,
-                routes,
-                address(this),
-                block.timestamp + 1 // deadline
-            );
-            boostAmountIn = amounts[0];
-            usdAmountOut = amounts[1];
+            // unfarmBuyBurn
+            if (pairTokenReserve >= ionReserve.mulDiv(targetPrice, FACTOR))
+                revert InvalidReserveRatio({ratio: pairTokenReserve.mulDiv(FACTOR, ionReserve)});
+            if (currentPrice >= ionPriceLowerBound(targetPrice)) revert PriceAlreadyInRange(currentPrice);
         }
-        uint256 usdBalanceAfter = balanceOfToken(usd);
-
-        // we check that selling BOOST yields proportionally more USD
-        if (usdAmountOut != usdBalanceAfter - usdBalanceBefore)
-            revert UsdAmountOutMismatch(usdAmountOut, usdBalanceAfter - usdBalanceBefore);
-
-        if (usdAmountOut < minUsdAmountOut) revert InsufficientOutputAmount(usdAmountOut, minUsdAmountOut);
-        uint256 price = boostPrice();
-        if (price <= priceLowerBound(boostTargetPrice)) revert PriceNotInRange(price);
-        emit MintSell(boostAmount, usdAmountOut);
     }
 
-    function _addLiquidity(
-        uint256 usdAmount,
-        uint256 minBoostSpend,
-        uint256 minUsdSpend
-    ) internal override returns (uint256 boostSpent, uint256 usdSpent, uint256 liquidity) {
-        // We only add liquidity when price is withing range (close to $1)
-        // Price needs to be in range: 1 +- validRangeRatio / 1e6 == factor +- validRangeRatio
-        // if price is too high, we need to mint and sell more before we add liquidity
-        uint256 price = boostPrice();
-        uint256 boostTargetPrice = targetPrice();
-        if (price <= priceLowerBound(boostTargetPrice) || price >= priceUpperBound(boostTargetPrice))
-            revert InvalidRatioToAddLiquidity();
+    // -------------------------------------------------------------
+    //                INTERNAL FUNCTIONS
+    // -------------------------------------------------------------
 
-        // Mint the specified amount of BOOST tokens
-        uint256 boostAmount = (toBoostAmount(usdAmount) * boostMultiplier) / FACTOR;
+    ////// MINT-SELL-FARM FUNCTIONS //////
 
-        IMinter(boostMinter).protocolMint(address(this), boostAmount);
+    /// @inheritdoc MasterAMO
+    function _mintAndSell(uint24 swapRatio) internal override {
+        // Calculating ION amount for mint and sell
+        (uint256 ionReserve, uint256 pairTokenReserve) = getReserves();
+        uint256 targetPrice = ionTargetPriceInPairToken();
+        uint256 ionAmountWithoutFee = ((Math.sqrt((pairTokenReserve * ionReserve * FACTOR) / targetPrice) -
+            ionReserve) * swapRatio) / FACTOR;
+        uint256 ionAmount = ionAmountWithoutFee.mulDiv(FACTOR, (FACTOR - poolFee));
 
-        // Approve the transfer of BOOST and USD tokens to the router
-        IERC20(boost).approve(router, boostAmount);
-        IERC20(usd).forceApprove(router, usdAmount);
+        // Mint ION tokens to this contract
+        IMinter(ionMinterAddress).protocolMint(address(this), ionAmount);
 
-        uint256 lpBalanceBefore = balanceOfToken(pool);
-        // Add liquidity to the BOOST-USD pool
-        (boostSpent, usdSpent, liquidity) = ISolidlyRouter(router).addLiquidity(
-            boost,
-            usd,
-            stable,
-            boostAmount,
-            usdAmount,
-            minBoostSpend,
-            minUsdSpend,
+        // Approve router to spend ION
+        IERC20(ionAddress).approve(routerAddress, ionAmount);
+        // Calculate minimum expected USD output based on target price
+        uint256 minPairTokenAmountOut = scaleIonToPairTokenDecimals(ionAmountWithoutFee).mulDiv(targetPrice, FACTOR);
+        uint256 preOperationPairTokenBalance = balanceOfToken(pairTokenAddress);
+
+        uint256[] memory amounts;
+        if (poolType == PoolType.VELO_LIKE) {
+            // For VELO_LIKE pools, use IVRouter for swapping
+            IVRouter.Route[] memory routes = new IVRouter.Route[](1);
+            routes[0] = IVRouter.Route({
+                from: ionAddress,
+                to: pairTokenAddress,
+                stable: isStablePool,
+                factory: factoryAddress
+            });
+            amounts = IVRouter(routerAddress).swapExactTokensForTokens(
+                ionAmount,
+                minPairTokenAmountOut,
+                routes,
+                address(this),
+                block.timestamp + 1
+            );
+        } else {
+            // For SOLIDLY_V2 pools, use the Solidly router
+            ISolidlyRouter.route[] memory routes = new ISolidlyRouter.route[](1);
+            routes[0] = ISolidlyRouter.route({from: ionAddress, to: pairTokenAddress, stable: isStablePool});
+            amounts = ISolidlyRouter(routerAddress).swapExactTokensForTokens(
+                ionAmount,
+                minPairTokenAmountOut,
+                routes,
+                address(this),
+                block.timestamp + 1
+            );
+        }
+        uint256 pairTokenAmount = amounts[1];
+
+        uint256 postOperationPairTokenBalance = balanceOfToken(pairTokenAddress);
+        if (pairTokenAmount != postOperationPairTokenBalance - preOperationPairTokenBalance)
+            revert SwapPairTokenAmountOutMismatch(
+                pairTokenAmount,
+                postOperationPairTokenBalance - preOperationPairTokenBalance
+            );
+        if (pairTokenAmount < minPairTokenAmountOut)
+            revert InsufficientOutputAmount(pairTokenAmount, minPairTokenAmountOut);
+        uint256 currentPrice = ionPriceInPairToken();
+        if (currentPrice <= ionPriceLowerBound(targetPrice)) revert PriceNotInRange(currentPrice);
+        emit MintSell(ionAmount, pairTokenAmount);
+    }
+
+    /// @inheritdoc MasterAMO
+    function _addLiquidity(uint256 pairTokenAmount) internal override returns (uint256 liquidity) {
+        uint256 ionMintAmount;
+        if (poolType == PoolType.VELO_LIKE) {
+            (ionMintAmount, , ) = IVRouter(routerAddress).quoteAddLiquidity(
+                ionAddress,
+                pairTokenAddress,
+                isStablePool,
+                factoryAddress,
+                scalePairTokenToIonDecimals(pairTokenAmount) << 16,
+                pairTokenAmount
+            );
+        } else {
+            (ionMintAmount, , ) = ISolidlyRouter(routerAddress).quoteAddLiquidity(
+                ionAddress,
+                pairTokenAddress,
+                isStablePool,
+                scalePairTokenToIonDecimals(pairTokenAmount) << 16,
+                pairTokenAmount
+            );
+        }
+        IMinter(ionMinterAddress).protocolMint(address(this), ionMintAmount);
+
+        // Approve router for ION and PairToken transfers.
+        IERC20(ionAddress).approve(routerAddress, ionMintAmount);
+        IERC20(pairTokenAddress).forceApprove(routerAddress, pairTokenAmount);
+
+        uint256 lpBalanceBefore = balanceOfToken(poolAddress);
+        // Add liquidity using the Solidly router.
+        uint256 ionSpent;
+        uint256 pairTokenSpent;
+        (ionSpent, pairTokenSpent, liquidity) = ISolidlyRouter(routerAddress).addLiquidity(
+            ionAddress,
+            pairTokenAddress,
+            isStablePool,
+            ionMintAmount,
+            pairTokenAmount,
+            1, // minIonSpend
+            1, // minPairTokenSpend
             address(this),
-            block.timestamp + 1 // deadline
+            block.timestamp + 1
         );
-        uint256 lpBalanceAfter = balanceOfToken(pool);
-
+        uint256 lpBalanceAfter = balanceOfToken(poolAddress);
         if (liquidity != lpBalanceAfter - lpBalanceBefore)
             revert LpAmountOutMismatch(liquidity, lpBalanceAfter - lpBalanceBefore);
 
-        // Revoke approval from the router
-        IERC20(boost).approve(router, 0);
-        IERC20(usd).forceApprove(router, 0);
+        // Revoke approvals for security.
+        IERC20(ionAddress).approve(routerAddress, 0);
+        IERC20(pairTokenAddress).forceApprove(routerAddress, 0);
 
-        // Approve the transfer of liquidity tokens to the gauge and deposit them
-        IERC20(pool).approve(gauge, liquidity);
+        // Deposit liquidity into the gauge.
+        IERC20(poolAddress).approve(gaugeAddress, liquidity);
         if (useTokenId) {
-            IGauge(gauge).deposit(liquidity, tokenId);
+            IGauge(gaugeAddress).deposit(liquidity, tokenId);
         } else {
-            IGauge(gauge).deposit(liquidity);
+            IGauge(gaugeAddress).deposit(liquidity);
         }
 
-        // Burn excessive boosts
-        if (boostAmount > boostSpent) IBoostStablecoin(boost).burn(boostAmount - boostSpent);
-
-        emit AddLiquidityAndDeposit(boostSpent, usdSpent, liquidity, tokenId);
+        // Burn any excessive minted BOOST.
+        if (ionMintAmount > ionSpent) IIon(ionAddress).burn(ionMintAmount - ionSpent);
+        emit AddLiquidityAndDeposit(ionSpent, pairTokenSpent, liquidity, tokenId);
     }
 
+    ////// UNFARM-BUY-BURN FUNCTIONS //////
+
+    function _calculateLiquidityToUnfarm() internal view returns (uint256 liquidity) {
+        (uint256 ionReserve, uint256 pairTokenReserve) = getReserves();
+        uint256 totalLp = IERC20(poolAddress).totalSupply();
+        uint256 sqrtResRatio = Math.sqrt(
+            (FACTOR ** 2 * pairTokenReserve) / ((ionReserve * ionTargetPriceInPairToken()) / FACTOR)
+        );
+        uint256 removalPercentage = (FACTOR * (FACTOR - sqrtResRatio)) / (FACTOR - ((poolFee * sqrtResRatio) / FACTOR));
+        liquidity = totalLp.mulDiv(removalPercentage, FACTOR);
+    }
+
+    /// @inheritdoc MasterAMO
     function _unfarmBuyBurn(
-        uint256 liquidity,
-        uint256 minBoostRemove,
-        uint256 minUsdRemove
-    )
-        internal
-        override
-        returns (uint256 boostRemoved, uint256 usdRemoved, uint256 usdAmountIn, uint256 boostAmountOut)
-    {
-        // Withdraw from gauge
-        IGauge(gauge).withdraw(liquidity);
-        IERC20(pool).approve(router, liquidity);
+        uint24 swapRatio
+    ) internal override returns (uint256 liquidity, uint256 postOperationIonPrice) {
+        liquidity = _calculateLiquidityToUnfarm();
+        liquidity = liquidity.mulDiv(swapRatio, FACTOR);
 
-        uint256 usdBalanceBefore = balanceOfToken(usd);
+        // Withdraw LP tokens from the gauge.
+        IGauge(gaugeAddress).withdraw(liquidity);
+        IERC20(poolAddress).approve(routerAddress, liquidity);
 
-        // Remove liquidity based on pool type
-        if (poolType == PoolType.VELO_LIKE) {
-            (boostRemoved, usdRemoved) = IVRouter(router).removeLiquidity(
-                boost,
-                usd,
-                stable,
-                liquidity,
-                minBoostRemove,
-                minUsdRemove,
-                address(this),
-                block.timestamp + 300
+        uint256 preOperationPairTokenBalance = balanceOfToken(pairTokenAddress);
+
+        (uint256 ionRemoved, uint256 pairTokenRemoved) = ISolidlyRouter(routerAddress).removeLiquidity(
+            ionAddress,
+            pairTokenAddress,
+            isStablePool,
+            liquidity,
+            1,
+            1,
+            address(this),
+            block.timestamp + 1
+        );
+        uint256 targetPrice = ionTargetPriceInPairToken();
+        uint256 postOperationPairTokenBalance = balanceOfToken(pairTokenAddress);
+        if (pairTokenRemoved != postOperationPairTokenBalance - preOperationPairTokenBalance)
+            revert SwapPairTokenAmountOutMismatch(
+                pairTokenRemoved,
+                postOperationPairTokenBalance - preOperationPairTokenBalance
             );
-        } else {
-            (boostRemoved, usdRemoved) = ISolidlyRouter(router).removeLiquidity(
-                boost,
-                usd,
-                stable,
-                liquidity,
-                minBoostRemove,
-                minUsdRemove,
-                address(this),
-                block.timestamp + 300
-            );
-        }
 
-        uint256 boostTargetPrice = targetPrice();
-
-        uint256 usdBalanceAfter = balanceOfToken(usd);
-
-        if (usdRemoved != usdBalanceAfter - usdBalanceBefore)
-            revert UsdAmountOutMismatch(usdRemoved, usdBalanceAfter - usdBalanceBefore);
-
-        if ((((boostRemoved * validRemovingRatio) / FACTOR) * boostTargetPrice) / FACTOR < toBoostAmount(usdRemoved))
-            revert InvalidRatioToRemoveLiquidity();
-
-        // Swap USD for BOOST based on pool type
-        IERC20(usd).forceApprove(router, usdRemoved);
-
+        // Approve router for the PairToken swap.
+        IERC20(pairTokenAddress).forceApprove(routerAddress, pairTokenRemoved);
         uint256[] memory amounts;
-        uint256 usdRemovedWithoutFee = usdRemoved - ((usdRemoved * poolFee) / FACTOR);
-        uint256 minBoostAmountOut = (toBoostAmount(usdRemovedWithoutFee) * FACTOR) / boostTargetPrice;
+        uint256 pairTokenRemovedAmountWithoutFee = pairTokenRemoved -
+            pairTokenRemoved.mulDiv(poolFee, (FACTOR - poolFee));
+        uint256 minIonSwapAmountOut = scalePairTokenToIonDecimals(pairTokenRemovedAmountWithoutFee).mulDiv(
+            FACTOR,
+            targetPrice
+        );
         if (poolType == PoolType.VELO_LIKE) {
             IVRouter.Route[] memory routes = new IVRouter.Route[](1);
-            routes[0] = IVRouter.Route({from: usd, to: boost, stable: stable, factory: factory});
-
-            amounts = IVRouter(router).swapExactTokensForTokens(
-                usdRemoved,
-                minBoostAmountOut,
+            routes[0] = IVRouter.Route({
+                from: pairTokenAddress,
+                to: ionAddress,
+                stable: isStablePool,
+                factory: factoryAddress
+            });
+            amounts = IVRouter(routerAddress).swapExactTokensForTokens(
+                pairTokenRemoved,
+                minIonSwapAmountOut,
                 routes,
                 address(this),
-                block.timestamp + 300
+                block.timestamp + 1
             );
         } else {
             ISolidlyRouter.route[] memory routes = new ISolidlyRouter.route[](1);
-            routes[0] = ISolidlyRouter.route(usd, boost, stable);
-
-            amounts = ISolidlyRouter(router).swapExactTokensForTokens(
-                usdRemoved,
-                minBoostAmountOut,
+            routes[0] = ISolidlyRouter.route(pairTokenAddress, ionAddress, isStablePool);
+            amounts = ISolidlyRouter(routerAddress).swapExactTokensForTokens(
+                pairTokenRemoved,
+                minIonSwapAmountOut,
                 routes,
                 address(this),
-                block.timestamp + 300
+                block.timestamp + 1
             );
         }
-
-        uint256 price = boostPrice();
-        if (price >= priceUpperBound(boostTargetPrice)) revert PriceNotInRange(price);
-
-        usdAmountIn = amounts[0];
-        boostAmountOut = amounts[1];
-        IBoostStablecoin(boost).burn(boostRemoved + boostAmountOut);
-
-        emit UnfarmBuyBurn(boostRemoved, usdRemoved, liquidity, boostAmountOut);
+        postOperationIonPrice = ionPriceInPairToken();
+        if (postOperationIonPrice >= ionPriceUpperBound(targetPrice)) revert PriceNotInRange(postOperationIonPrice);
+        uint256 ionAmountOut = amounts[1];
+        IIon(ionAddress).burn(ionRemoved + ionAmountOut);
+        emit UnfarmBuyBurn(ionRemoved, pairTokenRemoved, liquidity, ionAmountOut);
     }
 
-    ////////////////////////// REWARD_COLLECTOR_ROLE ACTIONS //////////////////////////
+    // -------------------------------------------------------------
+    //                     EXTERNAL FUNCTIONS
+    // -------------------------------------------------------------
+
+    ////// REWARD_COLLECTOR_ROLE ACTIONS //////
+
     /// @inheritdoc IV2AMO
     function getReward(
         address[] memory tokens,
         bool passTokens
     ) external override onlyRole(REWARD_COLLECTOR_ROLE) whenNotPaused nonReentrant {
         uint256[] memory rewardsAmounts = new uint256[](tokens.length);
-        // Collect the rewards
         if (poolType == PoolType.VELO_LIKE) {
-            IGauge(gauge).getReward(address(this));
+            IGauge(gaugeAddress).getReward(address(this));
         } else if (passTokens) {
-            IGauge(gauge).getReward(address(this), tokens);
+            IGauge(gaugeAddress).getReward(address(this), tokens);
         } else {
-            IGauge(gauge).getReward();
+            IGauge(gaugeAddress).getReward();
         }
-        // Calculate the reward amounts and transfer them to the reward vault
-        for (uint i = 0; i < tokens.length; i++) {
+        for (uint256 i = 0; i < tokens.length; i++) {
             if (!whitelistedRewardTokens[tokens[i]]) revert TokenNotWhitelisted(tokens[i]);
             rewardsAmounts[i] = IERC20(tokens[i]).balanceOf(address(this));
             IERC20(tokens[i]).safeTransfer(rewardVault, rewardsAmounts[i]);
         }
-        // Emit an event for collecting rewards
         emit GetReward(tokens, rewardsAmounts);
     }
 
-    ////////////////////////// PUBLIC FUNCTIONS //////////////////////////
-    function _mintSellFarm() internal override returns (uint256 liquidity, uint256 newBoostPrice) {
-        (uint256 boostReserve, uint256 usdReserve) = getReserves();
+    // -------------------------------------------------------------
+    //                    VIEW FUNCTIONS
+    // -------------------------------------------------------------
 
-        uint256 boostAmountIn = ((Math.sqrt((usdReserve * boostReserve * FACTOR) / targetPrice()) - boostReserve) *
-            boostSellRatio) / FACTOR;
-        boostAmountIn += (boostAmountIn * poolFee) / (FACTOR - poolFee);
-
-        (, , , , liquidity) = _mintSellFarm(
-            boostAmountIn,
-            1, // minBoostSpend
-            1 // minUsdSpend
-        );
-
-        newBoostPrice = boostPrice();
-    }
-
-    function _unfarmBuyBurn() internal override returns (uint256 liquidity, uint256 newBoostPrice) {
-        (uint256 boostReserve, uint256 usdReserve) = getReserves();
-
-        uint256 totalLp = IERC20(pool).totalSupply();
-        uint256 sqrtResRatio = Math.sqrt((FACTOR ** 2 * usdReserve) / ((boostReserve * targetPrice()) / FACTOR));
-        uint256 removalPercentage = (FACTOR * (FACTOR - sqrtResRatio)) / (FACTOR - ((poolFee * sqrtResRatio) / FACTOR));
-        liquidity = (totalLp * removalPercentage) / FACTOR;
-        liquidity = (liquidity * usdBuyRatio) / FACTOR;
-
-        _unfarmBuyBurn(
-            liquidity,
-            (liquidity * boostReserve) / totalLp, // the minBoostRemove argument
-            toUsdAmount((liquidity * usdReserve) / totalLp) // the minUsdRemove argument. Note that we recalculate minUSD to cover loss of precision
-        );
-
-        newBoostPrice = boostPrice();
-    }
-
-    function _validateSwap(bool boostForUsd) internal view override {
-        (uint256 boostReserve, uint256 usdReserve) = getReserves();
-        uint256 price = boostPrice();
-        uint256 boostTargetPrice = targetPrice();
-        if (boostForUsd) {
-            // mintSellFarm
-            if ((boostReserve * boostTargetPrice) / FACTOR >= usdReserve)
-                revert InvalidReserveRatio({ratio: (FACTOR * usdReserve) / boostReserve});
-            if (price <= priceUpperBound(boostTargetPrice)) revert PriceAlreadyInRange(price);
-        } else {
-            // unfarmBuyBurn
-            if (usdReserve >= (boostReserve * boostTargetPrice) / FACTOR)
-                revert InvalidReserveRatio({ratio: (FACTOR * usdReserve) / boostReserve});
-            if (price >= priceLowerBound(boostTargetPrice)) revert PriceAlreadyInRange(price);
-        }
-    }
-
-    ////////////////////////// VIEW FUNCTIONS //////////////////////////
     /// @inheritdoc IMasterAMO
-    function boostPrice() public view override returns (uint256 price) {
-        if (!stable) {
-            (uint256 boostReserve, uint256 usdReserve) = getReserves();
-            price = (10 ** PRICE_DECIMALS * usdReserve) / boostReserve;
+    function ionPriceInPairToken() public view override returns (uint256 price) {
+        if (!isStablePool) {
+            (uint256 ionReserve, uint256 pairTokenReserve) = getReserves();
+            price = pairTokenReserve.mulDiv(10 ** PRICE_DECIMALS, ionReserve);
         } else {
-            uint256 amountIn = 10 ** boostDecimals;
-            amountIn += (amountIn * poolFee) / FACTOR;
-            uint256 amountOut = IPair(pool).getAmountOut(amountIn, boost);
-            if (usdDecimals > PRICE_DECIMALS) price = amountOut / 10 ** (usdDecimals - PRICE_DECIMALS);
-            else price = amountOut * 10 ** (PRICE_DECIMALS - usdDecimals);
+            uint256 amountIn = 10 ** ionDecimals;
+            amountIn = amountIn.mulDiv(FACTOR, (FACTOR - poolFee));
+            uint256 amountOut = IPair(poolAddress).getAmountOut(amountIn, ionAddress);
+            if (pairTokenDecimals > PRICE_DECIMALS) {
+                price = amountOut / 10 ** (pairTokenDecimals - PRICE_DECIMALS);
+            } else {
+                price = amountOut * 10 ** (PRICE_DECIMALS - pairTokenDecimals);
+            }
         }
     }
 
-    function getReserves() public view returns (uint256 boostReserve, uint256 usdReserve) {
-        (uint256 reserve0, uint256 reserve1, ) = IPair(pool).getReserves();
-        if (boost < usd) {
-            boostReserve = reserve0;
-            usdReserve = toBoostAmount(reserve1); // scaled
+    /// @inheritdoc IV2AMO
+    function getReserves() public view override returns (uint256 ionReserve, uint256 pairTokenReserve) {
+        (uint256 reserve0, uint256 reserve1, ) = IPair(poolAddress).getReserves();
+        if (ionAddress < pairTokenAddress) {
+            ionReserve = reserve0;
+            pairTokenReserve = scalePairTokenToIonDecimals(reserve1);
         } else {
-            boostReserve = reserve1;
-            usdReserve = toBoostAmount(reserve0); // scaled
+            ionReserve = reserve1;
+            pairTokenReserve = scalePairTokenToIonDecimals(reserve0);
         }
     }
 }
