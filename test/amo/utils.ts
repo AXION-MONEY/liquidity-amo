@@ -526,20 +526,20 @@ export async function v2Swap(
 }
 
 export async function getTargetPrice(amo: V2AMO | V3AMO, log: boolean = false): Promise<bigint> {
-  const tp = await amo.ionTargetPrice();
+  const tp = await amo.ionTargetPriceInPairToken();
   if (log) console.log("Target Price: ", Number(tp) / 1e6);
   return tp;
 }
 
 export async function getCurrentPrice(amo: V2AMO | V3AMO, log: boolean = false): Promise<bigint> {
-  const cp = await amo.ionPrice();
+  const cp = await amo.ionPriceInPairToken();
   if (log) console.log("Current Price:", Number(cp) / 1e6);
   return cp;
 }
 
 export async function logPriceDiff(amo: V2AMO | V3AMO, indents: number = 2): Promise<{ tp: bigint; cp: bigint }> {
-  const tp = await amo.ionTargetPrice();
-  const cp = await amo.ionPrice();
+  const tp = await amo.ionTargetPriceInPairToken();
+  const cp = await amo.ionPriceInPairToken();
   let diff;
   let word;
   if (cp > tp) {

@@ -192,8 +192,8 @@ contract V2AMO is IV2AMO, MasterAMO {
     /// @inheritdoc MasterAMO
     function _validateSwap(bool ionForUsd) internal view override {
         (uint256 ionReserve, uint256 pairTokenReserve) = getReserves();
-        uint256 currentPrice = ionPrice();
-        uint256 targetPrice = ionTargetPrice();
+        uint256 currentPrice = ionPriceInPairToken();
+        uint256 targetPrice = ionTargetPriceInPairToken();
         if (ionForUsd) {
             // mintSellFarm
             if (ionReserve.mulDiv(targetPrice, FACTOR) >= pairTokenReserve)
@@ -217,13 +217,14 @@ contract V2AMO is IV2AMO, MasterAMO {
     function _mintAndSell(uint24 swapRatio) internal override {
         // Calculating ION amount for mint and sell
         (uint256 ionReserve, uint256 pairTokenReserve) = getReserves();
-        uint256 ionAmountWithoutFee = ((Math.sqrt((pairTokenReserve * ionReserve * FACTOR) / ionTargetPrice()) -
+        uint256 targetPrice = ionTargetPriceInPairToken();
+        uint256 ionAmountWithoutFee = ((Math.sqrt((pairTokenReserve * ionReserve * FACTOR) / targetPrice) -
             ionReserve) * swapRatio) / FACTOR;
         uint256 ionAmount = ionAmountWithoutFee.mulDiv(FACTOR, (FACTOR - poolFee));
 
         // Mint ION tokens to this contract
         IMinter(ionMinterAddress).protocolMint(address(this), ionAmount);
-        uint256 targetPrice = ionTargetPrice();
+
         // Approve router to spend ION
         IERC20(ionAddress).approve(routerAddress, ionAmount);
         // Calculate minimum expected USD output based on target price
@@ -269,7 +270,7 @@ contract V2AMO is IV2AMO, MasterAMO {
             );
         if (pairTokenAmount < minPairTokenAmountOut)
             revert InsufficientOutputAmount(pairTokenAmount, minPairTokenAmountOut);
-        uint256 currentPrice = ionPrice();
+        uint256 currentPrice = ionPriceInPairToken();
         if (currentPrice <= ionPriceLowerBound(targetPrice)) revert PriceNotInRange(currentPrice);
         emit MintSell(ionAmount, pairTokenAmount);
     }
@@ -342,7 +343,9 @@ contract V2AMO is IV2AMO, MasterAMO {
     function _calculateLiquidityToUnfarm() internal view returns (uint256 liquidity) {
         (uint256 ionReserve, uint256 pairTokenReserve) = getReserves();
         uint256 totalLp = IERC20(poolAddress).totalSupply();
-        uint256 sqrtResRatio = Math.sqrt((FACTOR ** 2 * pairTokenReserve) / ((ionReserve * ionTargetPrice()) / FACTOR));
+        uint256 sqrtResRatio = Math.sqrt(
+            (FACTOR ** 2 * pairTokenReserve) / ((ionReserve * ionTargetPriceInPairToken()) / FACTOR)
+        );
         uint256 removalPercentage = (FACTOR * (FACTOR - sqrtResRatio)) / (FACTOR - ((poolFee * sqrtResRatio) / FACTOR));
         liquidity = totalLp.mulDiv(removalPercentage, FACTOR);
     }
@@ -370,7 +373,7 @@ contract V2AMO is IV2AMO, MasterAMO {
             address(this),
             block.timestamp + 1
         );
-        uint256 targetPrice = ionTargetPrice();
+        uint256 targetPrice = ionTargetPriceInPairToken();
         uint256 postOperationPairTokenBalance = balanceOfToken(pairTokenAddress);
         if (pairTokenRemoved != postOperationPairTokenBalance - preOperationPairTokenBalance)
             revert SwapPairTokenAmountOutMismatch(
@@ -413,7 +416,7 @@ contract V2AMO is IV2AMO, MasterAMO {
                 block.timestamp + 1
             );
         }
-        postOperationIonPrice = ionPrice();
+        postOperationIonPrice = ionPriceInPairToken();
         if (postOperationIonPrice >= ionPriceUpperBound(targetPrice)) revert PriceNotInRange(postOperationIonPrice);
         uint256 ionAmountOut = amounts[1];
         IIon(ionAddress).burn(ionRemoved + ionAmountOut);
@@ -452,7 +455,7 @@ contract V2AMO is IV2AMO, MasterAMO {
     // -------------------------------------------------------------
 
     /// @inheritdoc IMasterAMO
-    function ionPrice() public view override returns (uint256 price) {
+    function ionPriceInPairToken() public view override returns (uint256 price) {
         if (!isStablePool) {
             (uint256 ionReserve, uint256 pairTokenReserve) = getReserves();
             price = pairTokenReserve.mulDiv(10 ** PRICE_DECIMALS, ionReserve);

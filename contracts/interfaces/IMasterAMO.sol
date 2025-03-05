@@ -195,7 +195,7 @@ interface IMasterAMO {
      * @notice Retrieves the current ION price.
      * @return price The current ION price (using 6 decimals).
      */
-    function ionPrice() external view returns (uint256 price);
+    function ionPriceInPairToken() external view returns (uint256 price);
 
     /**
      * @notice Retrieves the target price for ION based on the paired token type.
@@ -205,7 +205,7 @@ interface IMasterAMO {
      *        preview deposit function from the PriceManager using the base unit, and then adding a price offset
      *        (targetPricePremium). This premium represents a slippage adjustment and must be set lower than the pull fee.
      *
-     * @return price The computed target price.
+     * @return The computed target price.
      */
-    function ionTargetPrice() external view returns (uint256 price);
+    function ionTargetPriceInPairToken() external view returns (uint256);
 }

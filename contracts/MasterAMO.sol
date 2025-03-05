@@ -343,8 +343,8 @@ abstract contract MasterAMO is
      */
     function _mintSellFarm(uint24 swapRatio) internal returns (uint256 liquidity, uint256 postOperationIonPrice) {
         _mintAndSell(swapRatio);
-        postOperationIonPrice = ionPrice();
-        uint256 targetPrice = ionTargetPrice();
+        postOperationIonPrice = ionPriceInPairToken();
+        uint256 targetPrice = ionTargetPriceInPairToken();
         if (
             postOperationIonPrice > ionPriceLowerBound(targetPrice) &&
             postOperationIonPrice < ionPriceUpperBound(targetPrice)
@@ -374,8 +374,8 @@ abstract contract MasterAMO is
     /// @inheritdoc IMasterAMO
     function addLiquidity() external override whenNotPaused nonReentrant returns (uint256 liquidity) {
         // Only add liquidity when current Ion price is within the valid range.
-        uint256 currentPrice = ionPrice();
-        uint256 targetPrice = ionTargetPrice();
+        uint256 currentPrice = ionPriceInPairToken();
+        uint256 targetPrice = ionTargetPriceInPairToken();
         if (currentPrice <= ionPriceLowerBound(targetPrice) || currentPrice >= ionPriceUpperBound(targetPrice))
             revert InvalidRatioToAddLiquidity();
 
@@ -425,10 +425,10 @@ abstract contract MasterAMO is
     //                        VIEW FUNCTIONS
     // -------------------------------------------------------------
     /// @inheritdoc IMasterAMO
-    function ionPrice() public view virtual override returns (uint256 price);
+    function ionPriceInPairToken() public view virtual override returns (uint256 price);
 
     /// @inheritdoc IMasterAMO
-    function ionTargetPrice() public view override returns (uint256 targetPrice) {
+    function ionTargetPriceInPairToken() public view override returns (uint256) {
         uint256 baseUnit = 10 ** PRICE_DECIMALS;
         if (pairTokenType == PairTokenType.STABLE) return baseUnit;
         else if (pairTokenType == PairTokenType.SUSDE)

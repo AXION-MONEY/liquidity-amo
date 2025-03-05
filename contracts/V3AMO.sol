@@ -183,8 +183,8 @@ contract V3AMO is IV3AMO, MasterAMO {
 
     /// @inheritdoc MasterAMO
     function _validateSwap(bool ionForPairToken) internal view override {
-        uint256 currentPrice = ionPrice();
-        uint256 targetPrice = ionTargetPrice();
+        uint256 currentPrice = ionPriceInPairToken();
+        uint256 targetPrice = ionTargetPriceInPairToken();
         if (ionForPairToken) {
             if (currentPrice <= ionPriceUpperBound(targetPrice)) revert PriceAlreadyInRange(currentPrice);
         } else {
@@ -211,7 +211,7 @@ contract V3AMO is IV3AMO, MasterAMO {
         }
 
         // Retrieve the current target price for ION.
-        uint256 targetPrice = ionTargetPrice();
+        uint256 targetPrice = ionTargetPriceInPairToken();
 
         // Order the amounts so that ionDelta corresponds to ION token and pairTokenDelta to the pair token.
         (int256 ionDelta, int256 pairTokenDelta) = orderAmountsByTokenAddress(amount0Delta, amount1Delta);
@@ -266,8 +266,8 @@ contract V3AMO is IV3AMO, MasterAMO {
 
     /// @inheritdoc MasterAMO
     function _mintAndSell(uint24 swapRatio) internal override {
-        uint256 targetPrice = ionTargetPrice();
-        uint256 priceDelta = ionPrice() - targetPrice;
+        uint256 targetPrice = ionTargetPriceInPairToken();
+        uint256 priceDelta = ionPriceInPairToken() - targetPrice;
         targetPrice += priceDelta.mulDiv((FACTOR - swapRatio), FACTOR);
         (int256 amount0, int256 amount1) = IUniswapV3Pool(poolAddress).swap(
             address(this),
@@ -315,8 +315,8 @@ contract V3AMO is IV3AMO, MasterAMO {
         uint24 swapRatio
     ) internal returns (uint256 liquidity, uint160 sqrtPriceLimitX96) {
         uint256 positionLiquidity = getLiquidity();
-        uint256 targetPrice = ionTargetPrice();
-        uint256 priceDelta = targetPrice - ionPrice();
+        uint256 targetPrice = ionTargetPriceInPairToken();
+        uint256 priceDelta = targetPrice - ionPriceInPairToken();
         targetPrice -= priceDelta.mulDiv((FACTOR - swapRatio), FACTOR);
         sqrtPriceLimitX96 = toSqrtPriceX96(targetPrice);
         uint256 amountIn;
@@ -438,7 +438,7 @@ contract V3AMO is IV3AMO, MasterAMO {
         if (remainedPairTokenAfterOperation > 0) _addLiquidity(remainedPairTokenAfterOperation);
 
         IIon(ionAddress).burn(ionCollected + ionAmountOut);
-        postOperationIonPrice = ionPrice();
+        postOperationIonPrice = ionPriceInPairToken();
         emit UnfarmBuyBurn(
             ionRemoved,
             pairTokenRemoved,
@@ -541,7 +541,7 @@ contract V3AMO is IV3AMO, MasterAMO {
     //                      VIEW FUNCTIONS
     // -------------------------------------------------------------
     /// @inheritdoc IMasterAMO
-    function ionPrice() public view override returns (uint256 price) {
+    function ionPriceInPairToken() public view override returns (uint256 price) {
         uint256 sqrtPriceX96 = uint256(_getSqrtPriceX96());
         uint8 decimalsDiff = ionDecimals - pairTokenDecimals;
         uint256 sqrtDecimals;
