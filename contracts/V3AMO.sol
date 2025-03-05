@@ -13,10 +13,7 @@ import {ISolidlyV3Pool} from "./interfaces/v3/ISolidlyV3Pool.sol";
 import {ISolidlyV3Factory} from "./interfaces/v3/ISolidlyV3Factory.sol";
 import {IRewardsDistributor} from "./interfaces/v3/IRewardsDistributor.sol";
 import {IAlgebraPool} from "./interfaces/v3/IAlgebraPool.sol";
-import {IAlgebraV10Pool} from "./interfaces/v3/IAlgebraV10Pool.sol";
-import {IAlgebraV19Pool} from "./interfaces/v3/IAlgebraV19Pool.sol";
 import {IAlgebraIntegralPool} from "./interfaces/v3/IAlgebraIntegralPool.sol";
-import {IRamsesV2Pool} from "./interfaces/v3/IRamsesV2Pool.sol";
 import {IV3AMO} from "./interfaces/IV3AMO.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
@@ -176,11 +173,7 @@ contract V3AMO is IV3AMO, MasterAMO {
      */
     function _getSqrtPriceX96() internal view returns (uint160 _sqrtPriceX96) {
         bytes memory data;
-        if (
-            poolType == PoolType.ALGEBRA_V1_0 ||
-            poolType == PoolType.ALGEBRA_V1_9 ||
-            poolType == PoolType.ALGEBRA_INTEGRAL
-        ) {
+        if (poolType == PoolType.ALGEBRA_V1 || poolType == PoolType.ALGEBRA_INTEGRAL) {
             (, data) = poolAddress.staticcall(abi.encodeWithSignature("globalState()"));
         } else {
             (, data) = poolAddress.staticcall(abi.encodeWithSignature("slot0()"));
@@ -294,11 +287,7 @@ contract V3AMO is IV3AMO, MasterAMO {
         liquidity = _getLiquidityForPairTokenAmount(pairTokenAmount);
         uint256 amount0;
         uint256 amount1;
-        if (
-            poolType == PoolType.ALGEBRA_V1_0 ||
-            poolType == PoolType.ALGEBRA_V1_9 ||
-            poolType == PoolType.ALGEBRA_INTEGRAL
-        ) {
+        if (poolType == PoolType.ALGEBRA_V1 || poolType == PoolType.ALGEBRA_INTEGRAL) {
             (amount0, amount1, ) = IAlgebraPool(poolAddress).mint(
                 address(this),
                 address(this),
@@ -348,7 +337,7 @@ contract V3AMO is IV3AMO, MasterAMO {
                 sqrtPriceLimitX96: sqrtPriceLimitX96
             });
             (amountIn, , , ) = IVeloQuoterV2(quoterAddress).quoteExactOutputSingle(params);
-        } else if (poolType == PoolType.ALGEBRA_V1_0 || poolType == PoolType.ALGEBRA_V1_9) {
+        } else if (poolType == PoolType.ALGEBRA_V1) {
             (amountIn, ) = IAlgebraQuoter(quoterAddress).quoteExactOutputSingle(
                 pairTokenAddress,
                 ionAddress,
@@ -583,11 +572,7 @@ contract V3AMO is IV3AMO, MasterAMO {
     /// @inheritdoc IV3AMO
     function getLiquidity() public view override returns (uint256 liquidity) {
         bytes32 key;
-        if (
-            poolType == PoolType.ALGEBRA_V1_0 ||
-            poolType == PoolType.ALGEBRA_V1_9 ||
-            poolType == PoolType.ALGEBRA_INTEGRAL
-        ) {
+        if (poolType == PoolType.ALGEBRA_V1 || poolType == PoolType.ALGEBRA_INTEGRAL) {
             address owner = address(this);
             int24 bottomTick = tickLower;
             int24 topTick = tickUpper;

@@ -22,28 +22,6 @@ interface IAlgebraIntegralPool is IAlgebraPool {
         uint128 amount,
         bytes calldata data
     ) external returns (uint256 amount0, uint256 amount1);
-    /**
-     * @notice Returns the information about a position by the position's key
-     * @dev **important security note: caller should check reentrancy lock to prevent read-only reentrancy**
-     * @param key The position's key is a packed concatenation of the owner address, bottomTick and topTick indexes
-     * @return liquidity The amount of liquidity in the position
-     * @return innerFeeGrowth0Token Fee growth of token0 inside the tick range as of the last mint/burn/poke
-     * @return innerFeeGrowth1Token Fee growth of token1 inside the tick range as of the last mint/burn/poke
-     * @return fees0 The computed amount of token0 owed to the position as of the last mint/burn/poke
-     * @return fees1 The computed amount of token1 owed to the position as of the last mint/burn/poke
-     */
-    function positions(
-        bytes32 key
-    )
-        external
-        view
-        returns (
-            uint256 liquidity,
-            uint256 innerFeeGrowth0Token,
-            uint256 innerFeeGrowth1Token,
-            uint128 fees0,
-            uint128 fees1
-        );
 
     /// @dev updates default community fee for new pools
     /// @param newDefaultCommunityFee The new community fee, _must_ be <= MAX_COMMUNITY_FEE

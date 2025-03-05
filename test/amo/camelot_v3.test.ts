@@ -88,7 +88,7 @@ describe("CAMELOT", function () {
                 await ion.getAddress(),
                 await pairToken.getAddress(),
                 poolAddress,
-                V3PoolType.ALGEBRA_V1_9,
+                V3PoolType.ALGEBRA_V1,
                 QUOTER,
                 await minter.getAddress(),
                 await priceManager.getAddress(),

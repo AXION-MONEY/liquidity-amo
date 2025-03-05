@@ -8,17 +8,6 @@ pragma solidity >=0.5.0;
  */
 interface ISolidlyV3Pool {
     /**
-     * @notice Returns the information about a position by the position's key
-     * @param key The position's key is a hash of a preimage composed by the owner, tickLower and tickUpper.
-     * @return _liquidity The amount of liquidity in the position,
-     * tokensOwed0 the computed amount of token0 owed to the position as of the last mint/burn/poke,
-     * tokensOwed1 the computed amount of token1 owed to the position as of the last mint/burn/poke.
-     */
-    function positions(
-        bytes32 key
-    ) external view returns (uint128 _liquidity, uint128 tokensOwed0, uint128 tokensOwed1);
-
-    /**
      * @notice Returns the address of the factory that deployed the pool.
      * @return The contract address.
      */

@@ -78,8 +78,7 @@ export enum PairTokenType {
 export enum V3PoolType {
   SOLIDLY_V3,
   CL, // Aerodrome, Velodrome
-  ALGEBRA_V1_0,
-  ALGEBRA_V1_9,
+  ALGEBRA_V1,
   ALGEBRA_INTEGRAL,
   RAMSES_V2
 }

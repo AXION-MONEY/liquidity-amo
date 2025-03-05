@@ -77,8 +77,7 @@ interface IV3AMO {
     enum PoolType {
         SOLIDLY_V3,
         CL, // e.g., Aerodrome, Velodrome
-        ALGEBRA_V1_0,
-        ALGEBRA_V1_9,
+        ALGEBRA_V1,
         ALGEBRA_INTEGRAL,
         RAMSES_V2
     }
