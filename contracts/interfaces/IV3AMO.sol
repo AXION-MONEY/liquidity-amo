@@ -53,13 +53,6 @@ interface IV3AMO {
      */
     event TickBoundsSet(int24 tickLower, int24 tickUpper);
 
-    /**
-     * @notice Emitted when parameters are set.
-     * @param quoterAddress The quoter contract address.
-     * @param validRangeWidth The valid range width.
-     */
-    event ParamsSet(address quoterAddress, uint24 validRangeWidth);
-
     // -------------------------------------------------------------
     //                          ENUMS
     // -------------------------------------------------------------
