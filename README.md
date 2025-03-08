@@ -6,8 +6,8 @@ The **Liquidity AMO (Automated Market Operations)** ensures **ION price stabilit
 interacting with **multiple AMMs (Automated Market Makers) and stablecoins**. It **mints, sells, adds liquidity, removes
 liquidity, and burns ION** based on **real-time market conditions**.
 
-The AMO operates **permissionlessly**, meaning that **anyone** can trigger `mintSellFarm` & `unfarmBuyBurn` to *
-*rebalance ION’s price**. The system **cannot be manipulated** by flash loans or external actors, ensuring secure and
+The AMO operates **permissionlessly**, meaning that **anyone** can trigger `mintSellFarm` & `unfarmBuyBurn` to
+**rebalance ION’s price**. The system **cannot be manipulated** by flash loans or external actors, ensuring secure and
 optimal liquidity management.
 
 The **AMO** supports both **stablecoins** and **Staked Stable Coins (sUSDe, sDAI, ...)** pools. For staked stablecoin
