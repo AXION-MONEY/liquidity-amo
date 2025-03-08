@@ -6,8 +6,8 @@ The **Liquidity AMO (Automated Market Operations)** ensures **ION price stabilit
 interacting with **multiple AMMs (Automated Market Makers) and stablecoins**. It **mints, sells, adds liquidity, removes
 liquidity, and burns ION** based on **real-time market conditions**.
 
-The AMO operates **permissionlessly**, meaning that **anyone** can trigger `mintSellFarm` & `unfarmBuyBurn` to *
-*rebalance ION’s price**. The system **cannot be manipulated** by flash loans or external actors, ensuring secure and
+The AMO operates **permissionlessly**, meaning that **anyone** can trigger `mintSellFarm` & `unfarmBuyBurn` to
+**rebalance ION’s price**. The system **cannot be manipulated** by flash loans or external actors, ensuring secure and
 optimal liquidity management.
 
 The **AMO** supports both **stablecoins** and **Staked Stable Coins (sUSDe, sDAI, ...)** pools. For staked stablecoin
@@ -25,19 +25,21 @@ other DEXs that is use same algorithm as these DEXs can easily add and integrate
 ### CLAMM (Concentrated Liquidity)
 
 - **Uniswap V3**
-- **Solidly V3**
-- **Aerodrome**
-- **Velodrome**
-- **Algebra V1**
+- **Solidly V3 (CL)**
+- **Aerodrome CL**
+- **Velodrome CL**
+- **Algebra V1.0**
+- **Algebra V1.9**
 - **Algebra Integral**
-- **Ramses V2**
+- **Ramses V2 (CL)**
 
 ### Uniswap V2-Style AMMs
 
 - **Solidly V2**
-- **Velodrome**
 - **Aerodrome**
+- **Velodrome**
 - **Equalizer**
+- **Thena**
 
 ---
 
@@ -50,13 +52,14 @@ The AMO primarily interacts with **stablecoins & staked stable assets** to manag
 - **USDC** (Circle)
 - **DAI** (MakerDAO)
 - **FRAX** (Frax Finance)
-- **Any Other Stable Coin**
+- **Any Non-Exotic Stable Coin**
 
 ### Supported Staked Stablecoins
 
 - **sUSDe** (Ethena Staked USDe)
 - **sFRAX** (Frax Staked FRAX)
 - **sDAI** (MakerDAO Staked DAI)
+- Adding staked stable coins require a few specific steps such as building a dedicated oracle
 
 ---
 
@@ -94,7 +97,7 @@ MasterAMO is an abstract base contract that defines the shared framework for Aut
 the core logic for both mint–sell–farm (when ION is above its target) and unfarm–buy–burn (when ION is below its
 target). It also includes utility functions for:
 
-- **Token Scaling:**
+- **Token Scaling (to internal decimals and in relative price to the paired token):**
 - **Price Bounds Calculation:**
 - **Reserve and Balance Checks:**
 
@@ -112,8 +115,8 @@ target). It also includes utility functions for:
 
 #### V3AMO
 
-The V3AMO contract is specialized for concentrated liquidity AMMs (CLAMMs) such as Uniswap V3, Algebra, Ramses V2, and
-Solidly V3. It extends MasterAMO by implementing tick-based liquidity management and precise pricing logic using
+The V3AMO contract is specialized for concentrated liquidity AMMs (CLAMMs) such as Uniswap V3, Algebra, Ramses CL, and
+Solidly CL. It extends MasterAMO by implementing tick-based liquidity management and precise pricing logic using
 fixed-point arithmetic.
 
 ##### **Key Components:**
@@ -145,7 +148,7 @@ fixed-point arithmetic.
 
 ##### **Usage Example in V3AMO:**
 
-When executing a mint–sell operation:
+When executing a mint–sell-farm operation:
 
 1. The contract calls `IUniswapV3Pool.swap` with the maximum swap amount and a target sqrt price.
 2. During the swap, the pool triggers a callback (`uniswapV3SwapCallback`), which calls `_swapCallback` to validate and
@@ -161,7 +164,7 @@ tick-based liquidity but instead interacts with liquidity gauges and traditional
 
 **Math & Liquidity Operations:**
 
-- **Mint–Sell Calculation:**
+- **Mint–Sell-Farm Calculation:**
   When ION is above the target price, V2AMO mints ION tokens and sells them to acquire the paired token.
 
     - The ION minting amount is calculated using the formula:
@@ -176,7 +179,7 @@ tick-based liquidity but instead interacts with liquidity gauges and traditional
       ionAmount = (ionAmountWithoutFee × FACTOR) / (FACTOR − poolFee);
       ```
 
-- **Unfarm-Buy Burn Calculation**
+- **Unfarm-Buy-Burn Calculation**
 
   When ION is below the target price, V2AMO initiates the unfarm–buy–burn process by withdrawing a calculated amount of
   liquidity from the gauge, removing liquidity from the pool, and then swapping to buy ION (which is subsequently

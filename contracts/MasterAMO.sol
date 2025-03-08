@@ -96,8 +96,8 @@ abstract contract MasterAMO is
     uint8 internal constant PRICE_DECIMALS = 6;
     // @notice Decimals for parameter calculations.
     uint8 internal constant PARAMS_DECIMALS = 6;
-    // @notice Scaling factor.
-    uint256 internal constant FACTOR = 10 ** PARAMS_DECIMALS;
+    // @notice One (1) scaled with the internal decimal convention.
+    uint256 internal constant SCALED_UNIT = 10 ** PARAMS_DECIMALS;
     // @notice Indicates a ION → PairToken swap.
     bool internal constant SELL_ION = true;
     // @notice Indicates a PairToken → ION swap.
@@ -188,7 +188,8 @@ abstract contract MasterAMO is
         uint24 sellRatio_,
         uint24 buyRatio_
     ) public override onlyRole(SETTER_ROLE) {
-        if (validRangeWidth_ > FACTOR || sellRatio_ > FACTOR || buyRatio_ > FACTOR) revert InvalidRatioValue();
+        if (validRangeWidth_ > SCALED_UNIT || sellRatio_ > SCALED_UNIT || buyRatio_ > SCALED_UNIT)
+            revert InvalidRatioValue();
         validRangeWidth = validRangeWidth_;
         sellRatio = sellRatio_;
         buyRatio = buyRatio_;
@@ -294,7 +295,7 @@ abstract contract MasterAMO is
      * @return The lower bound price.
      */
     function ionPriceLowerBound(uint256 price) internal view returns (uint256) {
-        return price - price.mulDiv(validRangeWidth, FACTOR);
+        return price - price.mulDiv(validRangeWidth, SCALED_UNIT);
     }
 
     /**
@@ -303,7 +304,7 @@ abstract contract MasterAMO is
      * @return The upper bound price.
      */
     function ionPriceUpperBound(uint256 price) internal view returns (uint256) {
-        return price + price.mulDiv(validRangeWidth, FACTOR);
+        return price + price.mulDiv(validRangeWidth, SCALED_UNIT);
     }
 
     /**
@@ -392,7 +393,7 @@ abstract contract MasterAMO is
         validateSwap(SELL_ION)
         returns (uint256 liquidity, uint256 postOperationIonPrice)
     {
-        uint24 swapRatio = bypassSwapRatioWhitelist[msg.sender] ? uint24(FACTOR) : sellRatio;
+        uint24 swapRatio = bypassSwapRatioWhitelist[msg.sender] ? uint24(SCALED_UNIT) : sellRatio;
         (liquidity, postOperationIonPrice) = _mintSellFarm(swapRatio);
     }
 
@@ -405,7 +406,7 @@ abstract contract MasterAMO is
         validateSwap(BUY_ION)
         returns (uint256 liquidity, uint256 postOperationIonPrice)
     {
-        uint24 swapRatio = bypassSwapRatioWhitelist[msg.sender] ? uint24(FACTOR) : buyRatio;
+        uint24 swapRatio = bypassSwapRatioWhitelist[msg.sender] ? uint24(SCALED_UNIT) : buyRatio;
         (liquidity, postOperationIonPrice) = _unfarmBuyBurn(swapRatio);
     }
 

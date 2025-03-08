@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+// SPDX-License-Identifier: GPL-2.0-or-later
+pragma solidity >=0.5.0;
 
 interface IPairFactory {
     function createPair(address tokenA, address tokenB, bool stable) external returns (address pair);

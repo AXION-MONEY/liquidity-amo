@@ -227,7 +227,7 @@ contract V3AMO is IV3AMO, MasterAMO {
             // Validate that the pool has enough pair tokens and that price slippage is within allowed bounds.
             bool insufficientPairTokenBalance = balanceOfToken(pairTokenAddress) < pairTokenOutputAmount;
             bool priceSlippageExceeded = scalePairTokenToIonDecimals(pairTokenOutputAmount) <
-                ionInputAmount.mulDiv(targetPrice, FACTOR);
+                ionInputAmount.mulDiv(targetPrice, SCALED_UNIT);
             if (insufficientPairTokenBalance || priceSlippageExceeded) {
                 revert InvalidDelta();
             }
@@ -241,7 +241,7 @@ contract V3AMO is IV3AMO, MasterAMO {
             // Validate that the pool has enough ION tokens and that the input amount is within allowed price bounds.
             bool insufficientIonBalance = balanceOfToken(ionAddress) < ionOutputAmount;
             bool priceExceeded = scalePairTokenToIonDecimals(pairTokenInputAmount) >
-                ionOutputAmount.mulDiv(targetPrice, FACTOR);
+                ionOutputAmount.mulDiv(targetPrice, SCALED_UNIT);
             if (insufficientIonBalance || priceExceeded) {
                 revert InvalidDelta();
             }
@@ -268,7 +268,7 @@ contract V3AMO is IV3AMO, MasterAMO {
     function _mintAndSell(uint24 swapRatio) internal override {
         uint256 targetPrice = ionTargetPriceInPairToken();
         uint256 priceDelta = ionPriceInPairToken() - targetPrice;
-        targetPrice += priceDelta.mulDiv((FACTOR - swapRatio), FACTOR);
+        targetPrice += priceDelta.mulDiv((SCALED_UNIT - swapRatio), SCALED_UNIT);
         (int256 amount0, int256 amount1) = IUniswapV3Pool(poolAddress).swap(
             address(this),
             ionAddress < pairTokenAddress, // zeroForOne
@@ -317,7 +317,7 @@ contract V3AMO is IV3AMO, MasterAMO {
         uint256 positionLiquidity = getLiquidity();
         uint256 targetPrice = ionTargetPriceInPairToken();
         uint256 priceDelta = targetPrice - ionPriceInPairToken();
-        targetPrice -= priceDelta.mulDiv((FACTOR - swapRatio), FACTOR);
+        targetPrice -= priceDelta.mulDiv((SCALED_UNIT - swapRatio), SCALED_UNIT);
         sqrtPriceLimitX96 = toSqrtPriceX96(targetPrice);
         uint256 amountIn;
         if (poolType == PoolType.SOLIDLY_V3) {
@@ -548,7 +548,7 @@ contract V3AMO is IV3AMO, MasterAMO {
         if (decimalsDiff % 2 == 0) {
             sqrtDecimals = 10 ** (decimalsDiff / 2) * 10 ** PRICE_DECIMALS;
         } else {
-            sqrtDecimals = (10 ** (decimalsDiff / 2) * 10 ** PRICE_DECIMALS * SQRT10) / FACTOR;
+            sqrtDecimals = (10 ** (decimalsDiff / 2) * 10 ** PRICE_DECIMALS * SQRT10) / SCALED_UNIT;
         }
 
         if (ionAddress < pairTokenAddress) {
@@ -560,7 +560,7 @@ contract V3AMO is IV3AMO, MasterAMO {
 
     /// @inheritdoc IV3AMO
     function toSqrtPriceX96(uint256 price) public view override returns (uint160) {
-        if (pairTokenAddress < ionAddress) price = FACTOR ** 2 / price;
+        if (pairTokenAddress < ionAddress) price = SCALED_UNIT ** 2 / price;
         uint256 priceX96 = (price * Q96 ** 2) / 10 ** PRICE_DECIMALS;
         uint8 decimalsDiff = ionDecimals - pairTokenDecimals;
         if (ionAddress < pairTokenAddress) priceX96 /= 10 ** decimalsDiff;

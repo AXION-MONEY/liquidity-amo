@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+// SPDX-License-Identifier: GPL-2.0-or-later
+pragma solidity >=0.5.0;
 
 interface IPair {
     function getAmountOut(uint256 amountIn, address tokenIn) external view returns (uint256);

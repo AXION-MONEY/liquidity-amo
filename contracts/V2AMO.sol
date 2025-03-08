@@ -147,7 +147,7 @@ contract V2AMO is IV2AMO, MasterAMO {
         gaugeAddress = gaugeAddress_;
         uint256 feeScaledFactor = poolType == PoolType.EQUAL_LIKE ? 1e18 : 1e4;
         _grantRole(SETTER_ROLE, msg.sender);
-        setPoolFee(poolFee_.mulDiv(FACTOR, feeScaledFactor));
+        setPoolFee(poolFee_.mulDiv(SCALED_UNIT, feeScaledFactor));
         setVault(rewardVault_);
         setTokenId(tokenId_, useTokenId_);
         _revokeRole(SETTER_ROLE, msg.sender);
@@ -196,13 +196,13 @@ contract V2AMO is IV2AMO, MasterAMO {
         uint256 targetPrice = ionTargetPriceInPairToken();
         if (ionForUsd) {
             // mintSellFarm
-            if (ionReserve.mulDiv(targetPrice, FACTOR) >= pairTokenReserve)
-                revert InvalidReserveRatio({ratio: pairTokenReserve.mulDiv(FACTOR, ionReserve)});
+            if (ionReserve.mulDiv(targetPrice, SCALED_UNIT) >= pairTokenReserve)
+                revert InvalidReserveRatio({ratio: pairTokenReserve.mulDiv(SCALED_UNIT, ionReserve)});
             if (currentPrice <= ionPriceUpperBound(targetPrice)) revert PriceAlreadyInRange(currentPrice);
         } else {
             // unfarmBuyBurn
-            if (pairTokenReserve >= ionReserve.mulDiv(targetPrice, FACTOR))
-                revert InvalidReserveRatio({ratio: pairTokenReserve.mulDiv(FACTOR, ionReserve)});
+            if (pairTokenReserve >= ionReserve.mulDiv(targetPrice, SCALED_UNIT))
+                revert InvalidReserveRatio({ratio: pairTokenReserve.mulDiv(SCALED_UNIT, ionReserve)});
             if (currentPrice >= ionPriceLowerBound(targetPrice)) revert PriceAlreadyInRange(currentPrice);
         }
     }
@@ -218,9 +218,9 @@ contract V2AMO is IV2AMO, MasterAMO {
         // Calculating ION amount for mint and sell
         (uint256 ionReserve, uint256 pairTokenReserve) = getReserves();
         uint256 targetPrice = ionTargetPriceInPairToken();
-        uint256 ionAmountWithoutFee = ((Math.sqrt((pairTokenReserve * ionReserve * FACTOR) / targetPrice) -
-            ionReserve) * swapRatio) / FACTOR;
-        uint256 ionAmount = ionAmountWithoutFee.mulDiv(FACTOR, (FACTOR - poolFee));
+        uint256 ionAmountWithoutFee = ((Math.sqrt((pairTokenReserve * ionReserve * SCALED_UNIT) / targetPrice) -
+            ionReserve) * swapRatio) / SCALED_UNIT;
+        uint256 ionAmount = ionAmountWithoutFee.mulDiv(SCALED_UNIT, (SCALED_UNIT - poolFee));
 
         // Mint ION tokens to this contract
         IMinter(ionMinterAddress).protocolMint(address(this), ionAmount);
@@ -228,7 +228,10 @@ contract V2AMO is IV2AMO, MasterAMO {
         // Approve router to spend ION
         IERC20(ionAddress).approve(routerAddress, ionAmount);
         // Calculate minimum expected USD output based on target price
-        uint256 minPairTokenAmountOut = scaleIonToPairTokenDecimals(ionAmountWithoutFee).mulDiv(targetPrice, FACTOR);
+        uint256 minPairTokenAmountOut = scaleIonToPairTokenDecimals(ionAmountWithoutFee).mulDiv(
+            targetPrice,
+            SCALED_UNIT
+        );
         uint256 preOperationPairTokenBalance = balanceOfToken(pairTokenAddress);
 
         uint256[] memory amounts;
@@ -344,10 +347,11 @@ contract V2AMO is IV2AMO, MasterAMO {
         (uint256 ionReserve, uint256 pairTokenReserve) = getReserves();
         uint256 totalLp = IERC20(poolAddress).totalSupply();
         uint256 sqrtResRatio = Math.sqrt(
-            (FACTOR ** 2 * pairTokenReserve) / ((ionReserve * ionTargetPriceInPairToken()) / FACTOR)
+            (SCALED_UNIT ** 2 * pairTokenReserve) / ((ionReserve * ionTargetPriceInPairToken()) / SCALED_UNIT)
         );
-        uint256 removalPercentage = (FACTOR * (FACTOR - sqrtResRatio)) / (FACTOR - ((poolFee * sqrtResRatio) / FACTOR));
-        liquidity = totalLp.mulDiv(removalPercentage, FACTOR);
+        uint256 removalPercentage = (SCALED_UNIT * (SCALED_UNIT - sqrtResRatio)) /
+            (SCALED_UNIT - ((poolFee * sqrtResRatio) / SCALED_UNIT));
+        liquidity = totalLp.mulDiv(removalPercentage, SCALED_UNIT);
     }
 
     /// @inheritdoc MasterAMO
@@ -355,7 +359,7 @@ contract V2AMO is IV2AMO, MasterAMO {
         uint24 swapRatio
     ) internal override returns (uint256 liquidity, uint256 postOperationIonPrice) {
         liquidity = _calculateLiquidityToUnfarm();
-        liquidity = liquidity.mulDiv(swapRatio, FACTOR);
+        liquidity = liquidity.mulDiv(swapRatio, SCALED_UNIT);
 
         // Withdraw LP tokens from the gauge.
         IGauge(gaugeAddress).withdraw(liquidity);
@@ -385,9 +389,9 @@ contract V2AMO is IV2AMO, MasterAMO {
         IERC20(pairTokenAddress).forceApprove(routerAddress, pairTokenRemoved);
         uint256[] memory amounts;
         uint256 pairTokenRemovedAmountWithoutFee = pairTokenRemoved -
-            pairTokenRemoved.mulDiv(poolFee, (FACTOR - poolFee));
+            pairTokenRemoved.mulDiv(poolFee, (SCALED_UNIT - poolFee));
         uint256 minIonSwapAmountOut = scalePairTokenToIonDecimals(pairTokenRemovedAmountWithoutFee).mulDiv(
-            FACTOR,
+            SCALED_UNIT,
             targetPrice
         );
         if (poolType == PoolType.VELO_LIKE) {
@@ -461,7 +465,7 @@ contract V2AMO is IV2AMO, MasterAMO {
             price = pairTokenReserve.mulDiv(10 ** PRICE_DECIMALS, ionReserve);
         } else {
             uint256 amountIn = 10 ** ionDecimals;
-            amountIn = amountIn.mulDiv(FACTOR, (FACTOR - poolFee));
+            amountIn = amountIn.mulDiv(SCALED_UNIT, (SCALED_UNIT - poolFee));
             uint256 amountOut = IPair(poolAddress).getAmountOut(amountIn, ionAddress);
             if (pairTokenDecimals > PRICE_DECIMALS) {
                 price = amountOut / 10 ** (pairTokenDecimals - PRICE_DECIMALS);
