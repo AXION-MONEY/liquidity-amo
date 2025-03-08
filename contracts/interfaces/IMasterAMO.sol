@@ -193,12 +193,12 @@ interface IMasterAMO {
 
     /**
      * @notice Retrieves the current ION price.
-     * @return price The current ION price (using 6 decimals).
+     * @return price The current ION price divided by the oracle price of the paired token (using 6 decimals).
      */
     function ionPriceInPairToken() external view returns (uint256 price);
 
     /**
-     * @notice Retrieves the target price for ION based on the paired token type.
+     * @notice Retrieves the target price for ION relative to the oracle price of the paired token.
      * @dev The target price is determined as follows:
      *      - For a STABLE pair token, the target price is set to a fixed base unit (1 × 10^PRICE_DECIMALS).
      *      - For staked pairs (SUSDE, SFRAX, SDAI), the target price is calculated by querying the corresponding
