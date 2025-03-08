@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity ^0.8.0;
 
 import {IUniswapV3Pool} from "../interfaces/v3/IUniswapV3Pool.sol";
 import {IMinter} from "../interfaces/IMinter.sol";
