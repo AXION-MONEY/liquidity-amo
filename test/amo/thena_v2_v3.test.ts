@@ -51,7 +51,6 @@ describe("THENA", function () {
 
   // V3 consts
   const POOL_FACTORY = "0x306F06C147f064A010530292A1EB6737c3e378e4"; // AlgebraFactory
-  const QUOTER = "0xeA68020D6A9532EeC42D4dB0f92B83580c39b2cA"; // Quoter
 
   let admin: SignerWithAddress;
   let user: SignerWithAddress;
@@ -97,7 +96,6 @@ describe("THENA", function () {
                 await pairToken.getAddress(),
                 poolAddress,
                 V3PoolType.ALGEBRA_V1,
-                QUOTER,
                 await minter.getAddress(),
                 await priceManager.getAddress(),
                 pairedTokenType,

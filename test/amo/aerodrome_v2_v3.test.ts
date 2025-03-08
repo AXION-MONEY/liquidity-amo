@@ -51,7 +51,6 @@ describe("AERODROME", function () {
 
   // V3 consts
   const AERO_POOL_FACTORY = "0x5e7BB104d84c7CB9B682AaC2F3d509f5F406809A";
-  const AERO_QUOTER = "0x254cF9E1E6e233aa1AC962CB9B05b2cfeAaE15b0";
 
   let admin: SignerWithAddress;
   let user: SignerWithAddress;
@@ -97,7 +96,6 @@ describe("AERODROME", function () {
                 await pairToken.getAddress(),
                 poolAddress,
                 V3PoolType.CL,
-                AERO_QUOTER,
                 await minter.getAddress(),
                 await priceManager.getAddress(),
                 pairedTokenType,

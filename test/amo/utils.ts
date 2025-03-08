@@ -296,7 +296,6 @@ export async function deployV3AMO(
   pairTokenAddress: string,
   poolAddress: string,
   poolType: V3PoolType,
-  quoterAddress: string,
   minterAddress: string,
   priceManagerAddress: string,
   pairedTokenType: number,
@@ -312,7 +311,6 @@ export async function deployV3AMO(
     pairTokenAddress,
     poolAddress,
     poolType,
-    quoterAddress,
     ethers.ZeroAddress, // poolCustomDeployer
     minterAddress,
     priceManagerAddress,

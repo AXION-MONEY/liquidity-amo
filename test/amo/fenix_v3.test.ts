@@ -44,7 +44,6 @@ describe("FENIX", function () {
 
   // V3 consts
   const POOL_FACTORY = "0x7a44CD060afC1B6F4c80A2B9b37f4473E74E25Df"; // AlgebraFactory
-  const QUOTER = "0x94Ca5B835186A37A99776780BF976fAB81D84ED8"; // QuoterV2
   const POOLS_CREATOR = "0x0d24BE6fa556a2fa18054A7787ed2c76dEbFf458";
   const ALGEBRA_FACTORY_OWNER = "0x0907fb24626a06e383BD289A0e9C8560b8cCC4b5";
 
@@ -99,7 +98,6 @@ describe("FENIX", function () {
                 await pairToken.getAddress(),
                 poolAddress,
                 V3PoolType.ALGEBRA_INTEGRAL,
-                QUOTER,
                 await minter.getAddress(),
                 await priceManager.getAddress(),
                 pairedTokenType,

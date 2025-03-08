@@ -61,7 +61,8 @@ interface IV3AMO {
      */
     enum SwapType {
         SELL,
-        BUY
+        BUY,
+        QUOTE
     }
 
     /**
@@ -88,11 +89,6 @@ interface IV3AMO {
      *         returns the zero address for other pools.
      */
     function poolCustomDeployer() external view returns (address);
-
-    /**
-     * @notice Returns the quoter contract address.
-     */
-    function quoterAddress() external view returns (address);
 
     /**
      * @notice Returns the lower tick of the liquidity position.

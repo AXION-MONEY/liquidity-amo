@@ -44,7 +44,6 @@ describe("CAMELOT", function () {
 
   // V3 consts
   const POOL_FACTORY = "0x1a3c9B1d2F0529D97f2afC5136Cc23e58f1FD35B"; // AlgebraFactory
-  const QUOTER = "0x0Fc73040b26E9bC8514fA028D998E73A254Fa76E"; // Quoter
 
   let admin: SignerWithAddress;
   let user: SignerWithAddress;
@@ -89,7 +88,6 @@ describe("CAMELOT", function () {
                 await pairToken.getAddress(),
                 poolAddress,
                 V3PoolType.ALGEBRA_V1,
-                QUOTER,
                 await minter.getAddress(),
                 await priceManager.getAddress(),
                 pairedTokenType,
