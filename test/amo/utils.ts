@@ -255,13 +255,17 @@ export async function deployV2AMO(
   await gauge.waitForDeployment();
   const gaugeAddress = await gauge.getAddress();
   const stable = false;
+  let factoryAddress;
   if ([V2PoolType.SOLIDLY_V2, V2PoolType.EQUAL_LIKE].includes(poolType)) {
     const router = await ethers.getContractAt("ISolidlyRouter", routerAddress);
+    factoryAddress = await router.factory();
     if ((await router.pairFor(ionAddress, pairTokenAddress, stable)) === ethers.ZeroAddress) {
-      const factoryAddress = await router.factory();
       const factory = await ethers.getContractAt("IPairFactory", factoryAddress);
       await factory.createPair(ionAddress, pairTokenAddress, stable);
     }
+  } else {
+    const router = await ethers.getContractAt("IVRouter", routerAddress);
+    factoryAddress = await router.defaultFactory();
   }
   const args = [
     admin.address,
@@ -272,7 +276,7 @@ export async function deployV2AMO(
     minterAddress,
     priceManagerAddress,
     pairedTokenType,
-    ethers.ZeroAddress,
+    factoryAddress,
     routerAddress,
     gaugeAddress,
     admin.address, // rewardVault

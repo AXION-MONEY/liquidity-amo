@@ -98,22 +98,19 @@ abstract contract MasterAMO is
     uint8 internal constant PARAMS_DECIMALS = 6;
     // @notice One (1) scaled with the internal decimal convention.
     uint256 internal constant SCALED_UNIT = 10 ** PARAMS_DECIMALS;
-    // @notice Indicates a ION → PairToken swap.
-    bool internal constant SELL_ION = true;
-    // @notice Indicates a PairToken → ION swap.
-    bool internal constant BUY_ION = false;
 
     // -------------------------------------------------------------
     //                           MODIFIERS
     // -------------------------------------------------------------
-    // FIXME: split validate swap for buy and sell
-    /**
-     * @dev Modifier to validate swap parameters.
-     * @param ionForPairToken A boolean indicating the swap direction: true for Ion → PairToken,
-     *        false for PairToken → Ion.
-     */
-    modifier validateSwap(bool ionForPairToken) {
-        _validateSwap(ionForPairToken);
+    /// @dev Modifier to validate mintSellFarm.
+    modifier validateSell() {
+        _validateSell();
+        _;
+    }
+
+    /// @dev Modifier to validate unfarmBuyBurn.
+    modifier validateBuy() {
+        _validateBuy();
         _;
     }
 
@@ -308,11 +305,19 @@ abstract contract MasterAMO is
         return price + price.mulDiv(validRangeWidth, SCALED_UNIT);
     }
 
-    /**
-     * @notice Internal function to validate swap parameters.
-     * @param ionForPairToken Swap direction: true for ION → pairToken, false for pairToken → ION.
-     */
-    function _validateSwap(bool ionForPairToken) internal view virtual;
+    /// @notice Internal function to validate mintSellFarm.
+    function _validateSell() internal view virtual {
+        uint256 currentPrice = ionPriceInPairToken();
+        uint256 targetPrice = ionTargetPriceInPairToken();
+        if (currentPrice <= ionPriceUpperBound(targetPrice)) revert PriceAlreadyInRange(currentPrice, targetPrice);
+    }
+
+    /// @notice Internal function to validate unfarmBuyBurn.
+    function _validateBuy() internal view virtual {
+        uint256 currentPrice = ionPriceInPairToken();
+        uint256 targetPrice = ionTargetPriceInPairToken();
+        if (currentPrice >= ionPriceLowerBound(targetPrice)) revert PriceAlreadyInRange(currentPrice, targetPrice);
+    }
 
     // -------------------------------------------------------------
     //                   INTERNAL FUNCTIONS
@@ -323,9 +328,10 @@ abstract contract MasterAMO is
     /**
      * @notice Internal function to mint ION and sell it for pairToken.
      * @param swapRatio The swap ratio for selling ION.
+     * @return postOperationIonPrice The new average ION price after the operation.
      * @dev Must be implemented by a derived contract.
      */
-    function _mintAndSell(uint24 swapRatio) internal virtual;
+    function _mintAndSell(uint24 swapRatio) internal virtual returns (uint256 postOperationIonPrice);
 
     /**
      * @notice Internal function to add liquidity to the pool.
@@ -344,8 +350,7 @@ abstract contract MasterAMO is
      * @dev Has been Used for public functions
      */
     function _mintSellFarm(uint24 swapRatio) internal returns (uint256 liquidity, uint256 postOperationIonPrice) {
-        _mintAndSell(swapRatio);
-        postOperationIonPrice = ionPriceInPairToken();
+        postOperationIonPrice = _mintAndSell(swapRatio);
         uint256 targetPrice = ionTargetPriceInPairToken();
         if (
             postOperationIonPrice > ionPriceLowerBound(targetPrice) &&
@@ -391,7 +396,7 @@ abstract contract MasterAMO is
         override
         whenNotPaused
         nonReentrant
-        validateSwap(SELL_ION)
+        validateSell
         returns (uint256 liquidity, uint256 postOperationIonPrice)
     {
         uint24 swapRatio = bypassSwapRatioWhitelist[msg.sender] ? uint24(SCALED_UNIT) : sellRatio;
@@ -404,7 +409,7 @@ abstract contract MasterAMO is
         override
         whenNotPaused
         nonReentrant
-        validateSwap(BUY_ION)
+        validateBuy
         returns (uint256 liquidity, uint256 postOperationIonPrice)
     {
         uint24 swapRatio = bypassSwapRatioWhitelist[msg.sender] ? uint24(SCALED_UNIT) : buyRatio;

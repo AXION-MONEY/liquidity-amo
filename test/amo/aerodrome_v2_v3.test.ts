@@ -125,7 +125,7 @@ describe("AERODROME", function () {
                   } else {
                     await expect(v3amo.mintSellFarm())
                       .to.be.revertedWithCustomError(v3amo, "PriceAlreadyInRange")
-                      .withArgs(cp);
+                      .withArgs(cp, tp);
                   }
                 });
               }
@@ -143,7 +143,7 @@ describe("AERODROME", function () {
                   } else {
                     await expect(v3amo.unfarmBuyBurn())
                       .to.be.revertedWithCustomError(v3amo, "PriceAlreadyInRange")
-                      .withArgs(cp);
+                      .withArgs(cp, tp);
                   }
                 });
               }
@@ -191,8 +191,8 @@ describe("AERODROME", function () {
                     expect(newPrice).to.be.approximately(tp, delta);
                   } else {
                     await expect(v2amo.mintSellFarm())
-                      .to.be.revertedWithCustomError(v2amo, "InvalidReserveRatio")
-                      .withArgs(cp);
+                      .to.be.revertedWithCustomError(v2amo, "PriceAlreadyInRange")
+                      .withArgs(cp, tp);
                   }
                 });
               }
@@ -209,8 +209,8 @@ describe("AERODROME", function () {
                     expect(newPrice).to.be.approximately(tp, delta);
                   } else {
                     await expect(v2amo.unfarmBuyBurn())
-                      .to.be.revertedWithCustomError(v2amo, "InvalidReserveRatio")
-                      .withArgs(cp);
+                      .to.be.revertedWithCustomError(v2amo, "PriceAlreadyInRange")
+                      .withArgs(cp, tp);
                   }
                 });
               }

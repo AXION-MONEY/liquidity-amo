@@ -173,17 +173,6 @@ contract V3AMO is IV3AMO, MasterAMO {
         _sqrtPriceX96 = abi.decode(data, (uint160));
     }
 
-    /// @inheritdoc MasterAMO
-    function _validateSwap(bool ionForPairToken) internal view override {
-        uint256 currentPrice = ionPriceInPairToken();
-        uint256 targetPrice = ionTargetPriceInPairToken();
-        if (ionForPairToken) {
-            if (currentPrice <= ionPriceUpperBound(targetPrice)) revert PriceAlreadyInRange(currentPrice);
-        } else {
-            if (currentPrice >= ionPriceLowerBound(targetPrice)) revert PriceAlreadyInRange(currentPrice);
-        }
-    }
-
     // -------------------------------------------------------------
     //                   INTERNAL FUNCTIONS
     // -------------------------------------------------------------
@@ -265,7 +254,7 @@ contract V3AMO is IV3AMO, MasterAMO {
     ////// MINT-SELL-FARM FUNCTIONS //////
 
     /// @inheritdoc MasterAMO
-    function _mintAndSell(uint24 swapRatio) internal override {
+    function _mintAndSell(uint24 swapRatio) internal override returns (uint256 postOperationIonPrice) {
         uint256 targetPrice = ionTargetPriceInPairToken();
         uint256 priceDelta = ionPriceInPairToken() - targetPrice;
         targetPrice += priceDelta.mulDiv((SCALED_UNIT - swapRatio), SCALED_UNIT);
@@ -279,6 +268,7 @@ contract V3AMO is IV3AMO, MasterAMO {
         (int256 ionDelta, int256 pairTokenDelta) = orderAmountsByTokenAddress(amount0, amount1);
         uint256 ionAmountIn = uint256(ionDelta);
         uint256 pairTokenAmountOut = uint256(-pairTokenDelta);
+        postOperationIonPrice = ionPriceInPairToken();
         emit MintSell(ionAmountIn, pairTokenAmountOut);
     }
 

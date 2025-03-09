@@ -91,8 +91,8 @@ describe("EQUALIZER", function () {
                     expect(newPrice).to.be.approximately(tp, delta);
                   } else {
                     await expect(v2amo.mintSellFarm())
-                      .to.be.revertedWithCustomError(v2amo, "InvalidReserveRatio")
-                      .withArgs(cp);
+                      .to.be.revertedWithCustomError(v2amo, "PriceAlreadyInRange")
+                      .withArgs(cp, tp);
                   }
                 });
               }
@@ -109,8 +109,8 @@ describe("EQUALIZER", function () {
                     expect(newPrice).to.be.approximately(tp, delta);
                   } else {
                     await expect(v2amo.unfarmBuyBurn())
-                      .to.be.revertedWithCustomError(v2amo, "InvalidReserveRatio")
-                      .withArgs(cp);
+                      .to.be.revertedWithCustomError(v2amo, "PriceAlreadyInRange")
+                      .withArgs(cp, tp);
                   }
                 });
               }

@@ -22,11 +22,11 @@ interface IMasterAMO {
     /// @notice Reverts when adding liquidity is attempted with an invalid ratio.
     error InvalidRatioToAddLiquidity();
 
-    /// @notice Reverts when the ION price is not within an expected range.
-    error PriceNotInRange(uint256 price);
+    /// @notice Reverts when the ION price is not within the expected range.
+    error PriceNotInRange(uint256 currentPrice, uint256 targetPrice);
 
     /// @notice Reverts when an operation is attempted but the price is already within the expected range.
-    error PriceAlreadyInRange(uint256 price);
+    error PriceAlreadyInRange(uint256 currentPrice, uint256 targetPrice);
 
     /// @notice Reverts when an unsupported pair token type is used.
     error InvalidPairTokenType();

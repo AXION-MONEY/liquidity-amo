@@ -117,7 +117,7 @@ describe("CAMELOT", function () {
                   } else {
                     await expect(v3amo.mintSellFarm())
                       .to.be.revertedWithCustomError(v3amo, "PriceAlreadyInRange")
-                      .withArgs(cp);
+                      .withArgs(cp, tp);
                   }
                 });
               }
@@ -135,7 +135,7 @@ describe("CAMELOT", function () {
                   } else {
                     await expect(v3amo.unfarmBuyBurn())
                       .to.be.revertedWithCustomError(v3amo, "PriceAlreadyInRange")
-                      .withArgs(cp);
+                      .withArgs(cp, tp);
                   }
                 });
               }

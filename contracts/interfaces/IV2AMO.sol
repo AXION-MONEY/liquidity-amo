@@ -15,8 +15,6 @@ interface IV2AMO {
     error SwapPairTokenAmountOutMismatch(uint256 routerOutput, uint256 balanceChange);
     /// @notice Thrown when the LP token amount output from adding liquidity does not match the balance change.
     error LpAmountOutMismatch(uint256 routerOutput, uint256 balanceChange);
-    /// @notice Thrown when the reserve ratio is invalid.
-    error InvalidReserveRatio(uint256 ratio);
 
     // -------------------------------------------------------------
     //                         EVENTS

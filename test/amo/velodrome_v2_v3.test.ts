@@ -32,7 +32,7 @@ describe("VELODROME", function () {
     ["0.1", "10.0"]
   ];
   const swapAmounts = ["900000"];
-  let tickSpacing = 1; // Valid values for Aero: [1, 50, 100, 200, 2_000]
+  let tickSpacing = 1; // Valid values for Velo: [1, 50, 100, 200, 2_000]
   const LOG_PRICES = false;
   const initAmount = "11000000"; // 11M
   const lpAmount = "1000000"; // 1M
@@ -47,10 +47,10 @@ describe("VELODROME", function () {
   const buyRatio = ethers.parseUnits("1", 6);
 
   // V2 consts
-  const AERO_V2_ROUTER = "0xa062aE8A9c5e11aaA026fc2670B0D65cCc8B2858";
+  const VELO_V2_ROUTER = "0xa062aE8A9c5e11aaA026fc2670B0D65cCc8B2858";
 
   // V3 consts
-  const AERO_POOL_FACTORY = "0xCc0bDDB707055e04e497aB22a59c2aF4391cd12F";
+  const VELO_POOL_FACTORY = "0xCc0bDDB707055e04e497aB22a59c2aF4391cd12F";
 
   let admin: SignerWithAddress;
   let user: SignerWithAddress;
@@ -77,7 +77,7 @@ describe("VELODROME", function () {
             beforeEach(async function () {
               [ion, pairToken, minter] = await deployBaseContracts(admin, user, pairTokenDecimals, initAmount);
               const initPrice = await getInitPrice(priceManager, pairedTokenType);
-              const poolAddress = await createCLPool(AERO_POOL_FACTORY, ion, pairToken, initPrice, tickSpacing);
+              const poolAddress = await createCLPool(VELO_POOL_FACTORY, ion, pairToken, initPrice, tickSpacing);
               const factory = await ethers.getContractFactory("MockUniswapV3PoolCaller");
               poolCaller = await factory.deploy(poolAddress);
               await poolCaller.waitForDeployment();
@@ -125,7 +125,7 @@ describe("VELODROME", function () {
                   } else {
                     await expect(v3amo.mintSellFarm())
                       .to.be.revertedWithCustomError(v3amo, "PriceAlreadyInRange")
-                      .withArgs(cp);
+                      .withArgs(cp, tp);
                   }
                 });
               }
@@ -143,7 +143,7 @@ describe("VELODROME", function () {
                   } else {
                     await expect(v3amo.unfarmBuyBurn())
                       .to.be.revertedWithCustomError(v3amo, "PriceAlreadyInRange")
-                      .withArgs(cp);
+                      .withArgs(cp, tp);
                   }
                 });
               }
@@ -168,7 +168,7 @@ describe("VELODROME", function () {
                 await minter.getAddress(),
                 await priceManager.getAddress(),
                 pairedTokenType,
-                AERO_V2_ROUTER,
+                VELO_V2_ROUTER,
                 validRangeWidth,
                 sellRatio,
                 buyRatio
@@ -177,13 +177,13 @@ describe("VELODROME", function () {
               const AMO_ROLE = await minter.AMO_ROLE();
               await minter.connect(admin).grantRole(AMO_ROLE, amoAddress);
               const initPrice = await getInitPrice(priceManager, pairedTokenType);
-              await addV2Liquidity(admin, AERO_V2_ROUTER, ion, pairToken, amoAddress, lpAmount, initPrice);
+              await addV2Liquidity(admin, VELO_V2_ROUTER, ion, pairToken, amoAddress, lpAmount, initPrice);
             });
 
             describe("V2 Public mintSellFarm", () => {
               for (const swapAmount of swapAmounts) {
                 it(getTestCaseTitle(swapAmount), async function () {
-                  await v2VeloSwap(user, pairToken, ion, AERO_V2_ROUTER, swapAmount);
+                  await v2VeloSwap(user, pairToken, ion, VELO_V2_ROUTER, swapAmount);
                   const { tp, cp } = await logPriceDiff(v2amo);
                   if (Number(swapAmount) > 0) {
                     await v2amo.mintSellFarm();
@@ -191,8 +191,8 @@ describe("VELODROME", function () {
                     expect(newPrice).to.be.approximately(tp, delta);
                   } else {
                     await expect(v2amo.mintSellFarm())
-                      .to.be.revertedWithCustomError(v2amo, "InvalidReserveRatio")
-                      .withArgs(cp);
+                      .to.be.revertedWithCustomError(v2amo, "PriceAlreadyInRange")
+                      .withArgs(cp, tp);
                   }
                 });
               }
@@ -201,7 +201,7 @@ describe("VELODROME", function () {
             describe("V2 Public unfarmBuyBurn", () => {
               for (const swapAmount of swapAmounts) {
                 it(getTestCaseTitle(swapAmount, false), async function () {
-                  await v2VeloSwap(user, ion, pairToken, AERO_V2_ROUTER, swapAmount);
+                  await v2VeloSwap(user, ion, pairToken, VELO_V2_ROUTER, swapAmount);
                   const { tp, cp } = await logPriceDiff(v2amo);
                   if (Number(swapAmount) > 0) {
                     await v2amo.unfarmBuyBurn();
@@ -209,8 +209,8 @@ describe("VELODROME", function () {
                     expect(newPrice).to.be.approximately(tp, delta);
                   } else {
                     await expect(v2amo.unfarmBuyBurn())
-                      .to.be.revertedWithCustomError(v2amo, "InvalidReserveRatio")
-                      .withArgs(cp);
+                      .to.be.revertedWithCustomError(v2amo, "PriceAlreadyInRange")
+                      .withArgs(cp, tp);
                   }
                 });
               }

@@ -107,26 +107,19 @@ contract V2AMO is IV2AMO, MasterAMO {
         uint24 buyRatio_
     ) public initializer {
         // Validate required addresses
-        if (routerAddress_ == address(0) || gaugeAddress_ == address(0)) revert ZeroAddress();
+        if (factoryAddress_ == address(0) || routerAddress_ == address(0) || gaugeAddress_ == address(0))
+            revert ZeroAddress();
 
         poolType = poolType_;
         isStablePool = isStable_;
+        factoryAddress = factoryAddress_;
         address pool_;
         uint256 poolFee_;
-        // For VELO_LIKE pools, determine factory and get pool address using the IVRouter
-        // FIXME: remove if else here
         if (poolType == PoolType.VELO_LIKE) {
-            if (factoryAddress_ == address(0)) {
-                factoryAddress = IVRouter(routerAddress_).defaultFactory();
-            } else {
-                factoryAddress = factoryAddress_;
-            }
             pool_ = IVRouter(routerAddress_).poolFor(pairTokenAddress_, ionAddress_, isStable_, factoryAddress);
             poolFee_ = IPoolFactory(factoryAddress).getFee(pool_, isStable_);
         } else {
-            // For SOLIDLY_V2 and EQUAL_LIKE pools
             pool_ = ISolidlyRouter(routerAddress_).pairFor(pairTokenAddress_, ionAddress_, isStable_);
-            factoryAddress = ISolidlyRouter(routerAddress_).factory();
             poolFee_ = IPairFactory(factoryAddress).getFee(isStable_);
         }
 
@@ -187,35 +180,13 @@ contract V2AMO is IV2AMO, MasterAMO {
     }
 
     // -------------------------------------------------------------
-    //                INTERNAL HELPER VIEW FUNCTIONS
-    // -------------------------------------------------------------
-
-    /// @inheritdoc MasterAMO
-    function _validateSwap(bool ionForUsd) internal view override {
-        (uint256 ionReserve, uint256 pairTokenReserve) = getReserves();
-        uint256 currentPrice = ionPriceInPairToken();
-        uint256 targetPrice = ionTargetPriceInPairToken();
-        if (ionForUsd) {
-            // mintSellFarm
-            if (ionReserve.mulDiv(targetPrice, SCALED_UNIT) >= pairTokenReserve)
-                revert InvalidReserveRatio({ratio: pairTokenReserve.mulDiv(SCALED_UNIT, ionReserve)});
-            if (currentPrice <= ionPriceUpperBound(targetPrice)) revert PriceAlreadyInRange(currentPrice);
-        } else {
-            // unfarmBuyBurn
-            if (pairTokenReserve >= ionReserve.mulDiv(targetPrice, SCALED_UNIT))
-                revert InvalidReserveRatio({ratio: pairTokenReserve.mulDiv(SCALED_UNIT, ionReserve)});
-            if (currentPrice >= ionPriceLowerBound(targetPrice)) revert PriceAlreadyInRange(currentPrice);
-        }
-    }
-
-    // -------------------------------------------------------------
     //                INTERNAL FUNCTIONS
     // -------------------------------------------------------------
 
     ////// MINT-SELL-FARM FUNCTIONS //////
 
     /// @inheritdoc MasterAMO
-    function _mintAndSell(uint24 swapRatio) internal override {
+    function _mintAndSell(uint24 swapRatio) internal override returns (uint256 postOperationIonPrice) {
         // Calculating ION amount for mint and sell
         (uint256 ionReserve, uint256 pairTokenReserve) = getReserves();
         uint256 targetPrice = ionTargetPriceInPairToken();
@@ -274,8 +245,9 @@ contract V2AMO is IV2AMO, MasterAMO {
             );
         if (pairTokenAmount < minPairTokenAmountOut)
             revert InsufficientOutputAmount(pairTokenAmount, minPairTokenAmountOut);
-        uint256 currentPrice = ionPriceInPairToken();
-        if (currentPrice <= ionPriceLowerBound(targetPrice)) revert PriceNotInRange(currentPrice);
+        postOperationIonPrice = ionPriceInPairToken();
+        if (postOperationIonPrice <= ionPriceLowerBound(targetPrice))
+            revert PriceNotInRange(postOperationIonPrice, targetPrice);
         emit MintSell(ionAmount, pairTokenAmount);
     }
 
@@ -422,7 +394,8 @@ contract V2AMO is IV2AMO, MasterAMO {
             );
         }
         postOperationIonPrice = ionPriceInPairToken();
-        if (postOperationIonPrice >= ionPriceUpperBound(targetPrice)) revert PriceNotInRange(postOperationIonPrice);
+        if (postOperationIonPrice >= ionPriceUpperBound(targetPrice))
+            revert PriceNotInRange(postOperationIonPrice, targetPrice);
         uint256 ionAmountOut = amounts[1];
         IIon(ionAddress).burn(ionRemoved + ionAmountOut);
         emit UnfarmBuyBurn(ionRemoved, pairTokenRemoved, liquidity, ionAmountOut);
