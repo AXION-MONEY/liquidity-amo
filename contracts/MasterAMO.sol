@@ -106,6 +106,7 @@ abstract contract MasterAMO is
     // -------------------------------------------------------------
     //                           MODIFIERS
     // -------------------------------------------------------------
+    // FIXME: split validate swap for buy and sell
     /**
      * @dev Modifier to validate swap parameters.
      * @param ionForPairToken A boolean indicating the swap direction: true for Ion → PairToken,

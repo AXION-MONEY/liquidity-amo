@@ -114,6 +114,7 @@ contract V2AMO is IV2AMO, MasterAMO {
         address pool_;
         uint256 poolFee_;
         // For VELO_LIKE pools, determine factory and get pool address using the IVRouter
+        // FIXME: remove if else here
         if (poolType == PoolType.VELO_LIKE) {
             if (factoryAddress_ == address(0)) {
                 factoryAddress = IVRouter(routerAddress_).defaultFactory();
@@ -432,7 +433,7 @@ contract V2AMO is IV2AMO, MasterAMO {
     // -------------------------------------------------------------
 
     ////// REWARD_COLLECTOR_ROLE ACTIONS //////
-
+    // TODO: check if can make gauge logic cleaner
     /// @inheritdoc IV2AMO
     function getReward(
         address[] memory tokens,
