@@ -45,9 +45,9 @@ contract V3AMO is IV3AMO, MasterAMO {
     // -------------------------------------------------------------
     //                         INTERNAL CONSTANTS
     // -------------------------------------------------------------
-    // @notice Q96 is a fixed-point scaling factor (2^96) used in Uniswap V3 calculations to represent prices in Q64.96 format.
+    // @notice Q96 is a fixed-point scaling factor (2^96) used in Uniswap V3 calculations.
     uint256 internal constant Q96 = 2 ** 96;
-    // @notice SQRT10 is the square root of 10 scaled to 6 decimals (3.162278) used
+    // @notice SQRT10 is the square root of 10 scaled to 6 decimals (3.162278) used.
     uint24 internal constant SQRT10 = 3162278;
 
     // -------------------------------------------------------------
@@ -201,7 +201,10 @@ contract V3AMO is IV3AMO, MasterAMO {
         SwapType swapType = abi.decode(data, (SwapType));
 
         if (swapType == SwapType.QUOTE) {
+            // For a QUOTE, the pair token is used as the input.
             uint256 pairTokenInputAmount = uint256(pairTokenDelta);
+
+            // The data is decoded and reverted so the caller must catch and decode it.
             assembly ("memory-safe") {
                 let ptr := mload(0x40)
                 mstore(ptr, timestamp())
@@ -318,8 +321,10 @@ contract V3AMO is IV3AMO, MasterAMO {
                 abi.encode(SwapType.QUOTE)
             )
         {} catch (bytes memory reason) {
+            // Catch and decode the quoted data (block timestamp and pair token input amount).
             require(reason.length == 64);
             (uint256 timestamp, uint256 amountIn) = abi.decode(reason, (uint256, uint256));
+            // Timestamp is used for data validation.
             require(timestamp == block.timestamp);
             liquidity = _getLiquidityForPairTokenAmount(amountIn);
         }
