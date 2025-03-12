@@ -406,7 +406,6 @@ contract V2AMO is IV2AMO, MasterAMO {
     // -------------------------------------------------------------
 
     ////// REWARD_COLLECTOR_ROLE ACTIONS //////
-    // TODO: check if can make gauge logic cleaner
     /// @inheritdoc IV2AMO
     function getReward(
         address[] memory tokens,
