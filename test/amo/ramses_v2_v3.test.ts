@@ -53,7 +53,6 @@ describe("RAMSES", function () {
 
   // V3 consts
   const POOL_FACTORY = "0xAA2cd7477c451E703f3B9Ba5663334914763edF8"; // RamsesV2Factory
-  const QUOTER = "0xAA20EFF7ad2F523590dE6c04918DaAE0904E3b20"; // QuoterV2
 
   let admin: SignerWithAddress;
   let user: SignerWithAddress;
@@ -99,7 +98,6 @@ describe("RAMSES", function () {
                 await pairToken.getAddress(),
                 poolAddress,
                 V3PoolType.RAMSES_V2,
-                QUOTER,
                 await minter.getAddress(),
                 await priceManager.getAddress(),
                 pairedTokenType,
@@ -129,7 +127,7 @@ describe("RAMSES", function () {
                   } else {
                     await expect(v3amo.mintSellFarm())
                       .to.be.revertedWithCustomError(v3amo, "PriceAlreadyInRange")
-                      .withArgs(cp);
+                      .withArgs(cp, tp);
                   }
                 });
               }
@@ -147,7 +145,7 @@ describe("RAMSES", function () {
                   } else {
                     await expect(v3amo.unfarmBuyBurn())
                       .to.be.revertedWithCustomError(v3amo, "PriceAlreadyInRange")
-                      .withArgs(cp);
+                      .withArgs(cp, tp);
                   }
                 });
               }
@@ -196,8 +194,8 @@ describe("RAMSES", function () {
                     expect(newPrice).to.be.approximately(tp, v2Delta);
                   } else {
                     await expect(v2amo.mintSellFarm())
-                      .to.be.revertedWithCustomError(v2amo, "InvalidReserveRatio")
-                      .withArgs(cp);
+                      .to.be.revertedWithCustomError(v2amo, "PriceAlreadyInRange")
+                      .withArgs(cp, tp);
                   }
                 });
               }
@@ -214,8 +212,8 @@ describe("RAMSES", function () {
                     expect(newPrice).to.be.approximately(tp, v2Delta);
                   } else {
                     await expect(v2amo.unfarmBuyBurn())
-                      .to.be.revertedWithCustomError(v2amo, "InvalidReserveRatio")
-                      .withArgs(cp);
+                      .to.be.revertedWithCustomError(v2amo, "PriceAlreadyInRange")
+                      .withArgs(cp, tp);
                   }
                 });
               }

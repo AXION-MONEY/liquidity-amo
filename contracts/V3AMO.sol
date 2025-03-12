@@ -5,9 +5,6 @@ import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import "@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol";
 import "./MasterAMO.sol";
-import {IQuoterV2} from "./interfaces/v3/quoter/IQuoterV2.sol";
-import {IVeloQuoterV2} from "./interfaces/v3/quoter/IVeloQuoterV2.sol";
-import {IAlgebraQuoter} from "./interfaces/v3/quoter/IAlgebraQuoter.sol";
 import {IUniswapV3Pool} from "./interfaces/v3/IUniswapV3Pool.sol";
 import {ISolidlyV3Pool} from "./interfaces/v3/ISolidlyV3Pool.sol";
 import {ISolidlyV3Factory} from "./interfaces/v3/ISolidlyV3Factory.sol";
@@ -38,8 +35,6 @@ contract V3AMO is IV3AMO, MasterAMO {
     PoolType public override poolType;
     /// @inheritdoc IV3AMO
     address public override poolCustomDeployer;
-    /// @inheritdoc IV3AMO
-    address public override quoterAddress;
 
     ////// MUTABLE //////
     /// @inheritdoc IV3AMO
@@ -50,9 +45,9 @@ contract V3AMO is IV3AMO, MasterAMO {
     // -------------------------------------------------------------
     //                         INTERNAL CONSTANTS
     // -------------------------------------------------------------
-    // @notice Q96 is a fixed-point scaling factor (2^96) used in Uniswap V3 calculations to represent prices in Q64.96 format.
+    // @notice Q96 is a fixed-point scaling factor (2^96) used in Uniswap V3 calculations.
     uint256 internal constant Q96 = 2 ** 96;
-    // @notice SQRT10 is the square root of 10 scaled to 6 decimals (3.162278) used
+    // @notice SQRT10 is the square root of 10 scaled to 6 decimals (3.162278) used.
     uint24 internal constant SQRT10 = 3162278;
 
     // -------------------------------------------------------------
@@ -74,7 +69,6 @@ contract V3AMO is IV3AMO, MasterAMO {
      * @param pairTokenAddress_ Address of the pair token.
      * @param poolAddress_ Address of the liquidity pool.
      * @param poolType_ The type of pool.
-     * @param quoterAddress_ Address of the quoter contract.
      * @param poolCustomDeployer_ Address of the custom deployer for Algebra integral pools.
      * @param ionMinterAddress_ Address of the ION minter contract.
      * @param priceManagerAddress_ Address of the price manager contract.
@@ -91,7 +85,6 @@ contract V3AMO is IV3AMO, MasterAMO {
         address pairTokenAddress_,
         address poolAddress_,
         PoolType poolType_,
-        address quoterAddress_,
         address poolCustomDeployer_,
         address ionMinterAddress_,
         address priceManagerAddress_,
@@ -116,7 +109,6 @@ contract V3AMO is IV3AMO, MasterAMO {
         );
         poolType = poolType_;
         poolCustomDeployer = poolCustomDeployer_;
-        quoterAddress = quoterAddress_;
 
         _grantRole(SETTER_ROLE, msg.sender);
         setTickBounds(tickLower_, tickUpper_);
@@ -181,17 +173,6 @@ contract V3AMO is IV3AMO, MasterAMO {
         _sqrtPriceX96 = abi.decode(data, (uint160));
     }
 
-    /// @inheritdoc MasterAMO
-    function _validateSwap(bool ionForPairToken) internal view override {
-        uint256 currentPrice = ionPriceInPairToken();
-        uint256 targetPrice = ionTargetPriceInPairToken();
-        if (ionForPairToken) {
-            if (currentPrice <= ionPriceUpperBound(targetPrice)) revert PriceAlreadyInRange(currentPrice);
-        } else {
-            if (currentPrice >= ionPriceLowerBound(targetPrice)) revert PriceAlreadyInRange(currentPrice);
-        }
-    }
-
     // -------------------------------------------------------------
     //                   INTERNAL FUNCTIONS
     // -------------------------------------------------------------
@@ -219,7 +200,18 @@ contract V3AMO is IV3AMO, MasterAMO {
         // Decode the swap type from the callback data.
         SwapType swapType = abi.decode(data, (SwapType));
 
-        if (swapType == SwapType.SELL) {
+        if (swapType == SwapType.QUOTE) {
+            // For a QUOTE, the pair token is used as the input.
+            uint256 pairTokenInputAmount = uint256(pairTokenDelta);
+
+            // The data is decoded and reverted so the caller must catch and decode it.
+            assembly ("memory-safe") {
+                let ptr := mload(0x40)
+                mstore(ptr, timestamp())
+                mstore(add(ptr, 0x20), pairTokenInputAmount)
+                revert(ptr, 64)
+            }
+        } else if (swapType == SwapType.SELL) {
             // For a SELL, ION is the input token and pair token is the output.
             uint256 ionInputAmount = uint256(ionDelta);
             uint256 pairTokenOutputAmount = uint256(-pairTokenDelta);
@@ -265,7 +257,7 @@ contract V3AMO is IV3AMO, MasterAMO {
     ////// MINT-SELL-FARM FUNCTIONS //////
 
     /// @inheritdoc MasterAMO
-    function _mintAndSell(uint24 swapRatio) internal override {
+    function _mintAndSell(uint24 swapRatio) internal override returns (uint256 postOperationIonPrice) {
         uint256 targetPrice = ionTargetPriceInPairToken();
         uint256 priceDelta = ionPriceInPairToken() - targetPrice;
         targetPrice += priceDelta.mulDiv((SCALED_UNIT - swapRatio), SCALED_UNIT);
@@ -279,6 +271,7 @@ contract V3AMO is IV3AMO, MasterAMO {
         (int256 ionDelta, int256 pairTokenDelta) = orderAmountsByTokenAddress(amount0, amount1);
         uint256 ionAmountIn = uint256(ionDelta);
         uint256 pairTokenAmountOut = uint256(-pairTokenDelta);
+        postOperationIonPrice = ionPriceInPairToken();
         emit MintSell(ionAmountIn, pairTokenAmountOut);
     }
 
@@ -319,64 +312,22 @@ contract V3AMO is IV3AMO, MasterAMO {
         uint256 priceDelta = targetPrice - ionPriceInPairToken();
         targetPrice -= priceDelta.mulDiv((SCALED_UNIT - swapRatio), SCALED_UNIT);
         sqrtPriceLimitX96 = toSqrtPriceX96(targetPrice);
-        uint256 amountIn;
-        if (poolType == PoolType.SOLIDLY_V3) {
-            (int256 amount0, int256 amount1, , , ) = ISolidlyV3Pool(poolAddress).quoteSwap(
-                ionAddress > pairTokenAddress,
+        try
+            IUniswapV3Pool(poolAddress).swap(
+                address(this),
+                ionAddress > pairTokenAddress, // zeroForOne
                 type(int256).max,
-                sqrtPriceLimitX96
-            );
-            (, int256 pairTokenDelta) = orderAmountsByTokenAddress(amount0, amount1);
-            amountIn = uint256(pairTokenDelta);
-        } else if (poolType == PoolType.CL) {
-            IVeloQuoterV2.QuoteExactOutputSingleParams memory params = IVeloQuoterV2.QuoteExactOutputSingleParams({
-                tokenIn: pairTokenAddress,
-                tokenOut: ionAddress,
-                amount: uint256(type(int256).max),
-                tickSpacing: IUniswapV3Pool(poolAddress).tickSpacing(),
-                sqrtPriceLimitX96: sqrtPriceLimitX96
-            });
-            (amountIn, , , ) = IVeloQuoterV2(quoterAddress).quoteExactOutputSingle(params);
-        } else if (poolType == PoolType.ALGEBRA_V1) {
-            (amountIn, ) = IAlgebraQuoter(quoterAddress).quoteExactOutputSingle(
-                pairTokenAddress,
-                ionAddress,
-                uint256(type(int256).max),
-                sqrtPriceLimitX96
-            );
-        } else if (poolType == PoolType.ALGEBRA_INTEGRAL) {
-            (bool success, bytes memory data) = quoterAddress.call(
-                abi.encodeWithSignature(
-                    "quoteExactOutputSingle((address,address,address,uint256,uint160))",
-                    pairTokenAddress,
-                    ionAddress,
-                    poolCustomDeployer,
-                    uint256(type(int256).max),
-                    sqrtPriceLimitX96
-                )
-            );
-            if (!success)
-                (, data) = quoterAddress.call(
-                    abi.encodeWithSignature(
-                        "quoteExactOutputSingle((address,address,uint256,uint160))",
-                        pairTokenAddress,
-                        ionAddress,
-                        uint256(type(int256).max),
-                        sqrtPriceLimitX96
-                    )
-                );
-            (, amountIn) = abi.decode(data, (uint256, uint256));
-        } else {
-            IQuoterV2.QuoteExactOutputSingleParams memory params = IQuoterV2.QuoteExactOutputSingleParams({
-                tokenIn: pairTokenAddress,
-                tokenOut: ionAddress,
-                amount: uint256(type(int256).max),
-                fee: IUniswapV3Pool(poolAddress).fee(),
-                sqrtPriceLimitX96: sqrtPriceLimitX96
-            });
-            (amountIn, , , ) = IQuoterV2(quoterAddress).quoteExactOutputSingle(params);
+                sqrtPriceLimitX96,
+                abi.encode(SwapType.QUOTE)
+            )
+        {} catch (bytes memory reason) {
+            // Catch and decode the quoted data (block timestamp and pair token input amount).
+            require(reason.length == 64);
+            (uint256 timestamp, uint256 amountIn) = abi.decode(reason, (uint256, uint256));
+            // Timestamp is used for data validation.
+            require(timestamp == block.timestamp);
+            liquidity = _getLiquidityForPairTokenAmount(amountIn);
         }
-        liquidity = _getLiquidityForPairTokenAmount(amountIn);
         if (liquidity > positionLiquidity) liquidity = positionLiquidity;
     }
 

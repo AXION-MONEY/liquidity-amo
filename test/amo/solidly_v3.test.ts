@@ -45,7 +45,6 @@ describe("SOLIDLY", function () {
 
   // V3 consts
   const POOL_FACTORY = "0x777fAca731b17E8847eBF175c94DbE9d81A8f630"; // SolidlyV3Factory
-  const QUOTER = ethers.ZeroAddress;
 
   let admin: SignerWithAddress;
   let user: SignerWithAddress;
@@ -90,7 +89,6 @@ describe("SOLIDLY", function () {
                 await pairToken.getAddress(),
                 poolAddress,
                 V3PoolType.SOLIDLY_V3,
-                QUOTER,
                 await minter.getAddress(),
                 await priceManager.getAddress(),
                 pairedTokenType,
@@ -120,7 +118,7 @@ describe("SOLIDLY", function () {
                   } else {
                     await expect(v3amo.mintSellFarm())
                       .to.be.revertedWithCustomError(v3amo, "PriceAlreadyInRange")
-                      .withArgs(cp);
+                      .withArgs(cp, tp);
                   }
                 });
               }
@@ -138,7 +136,7 @@ describe("SOLIDLY", function () {
                   } else {
                     await expect(v3amo.unfarmBuyBurn())
                       .to.be.revertedWithCustomError(v3amo, "PriceAlreadyInRange")
-                      .withArgs(cp);
+                      .withArgs(cp, tp);
                   }
                 });
               }
