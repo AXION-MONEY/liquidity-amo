@@ -316,6 +316,41 @@ contract V2AMO is IV2AMO, MasterAMO {
 
     ////// UNFARM-BUY-BURN FUNCTIONS //////
 
+    /// @inheritdoc MasterAMO
+    function _removeLiquidity(
+        uint256 liquidity
+    )
+        internal
+        override
+        returns (uint256 ionRemoved, uint256 pairTokenRemoved, uint256 ionCollectedFee, uint256 pairTokenCollectedFee)
+    {
+        // Withdraw LP tokens from the gauge.
+        IGauge(gaugeAddress).withdraw(liquidity);
+        IERC20(poolAddress).approve(routerAddress, liquidity);
+
+        uint256 preOperationPairTokenBalance = balanceOfToken(pairTokenAddress);
+
+        (ionRemoved, pairTokenRemoved) = ISolidlyRouter(routerAddress).removeLiquidity(
+            ionAddress,
+            pairTokenAddress,
+            isStablePool,
+            liquidity,
+            1,
+            1,
+            address(this),
+            block.timestamp + 1
+        );
+        uint256 postOperationPairTokenBalance = balanceOfToken(pairTokenAddress);
+        if (pairTokenRemoved != postOperationPairTokenBalance - preOperationPairTokenBalance)
+            revert SwapPairTokenAmountOutMismatch(
+                pairTokenRemoved,
+                postOperationPairTokenBalance - preOperationPairTokenBalance
+            );
+        // Set collected fees to zero, as they are implicitly included in the tokens removed for V2.
+        ionCollectedFee = 0;
+        pairTokenCollectedFee = 0;
+    }
+
     function _calculateLiquidityToUnfarm() internal view returns (uint256 liquidity) {
         (uint256 ionReserve, uint256 pairTokenReserve) = getReserves();
         uint256 totalLp = IERC20(poolAddress).totalSupply();
@@ -333,36 +368,14 @@ contract V2AMO is IV2AMO, MasterAMO {
     ) internal override returns (uint256 liquidity, uint256 postOperationIonPrice) {
         liquidity = _calculateLiquidityToUnfarm();
         liquidity = liquidity.mulDiv(swapRatio, SCALED_UNIT);
-
-        // Withdraw LP tokens from the gauge.
-        IGauge(gaugeAddress).withdraw(liquidity);
-        IERC20(poolAddress).approve(routerAddress, liquidity);
-
-        uint256 preOperationPairTokenBalance = balanceOfToken(pairTokenAddress);
-
-        (uint256 ionRemoved, uint256 pairTokenRemoved) = ISolidlyRouter(routerAddress).removeLiquidity(
-            ionAddress,
-            pairTokenAddress,
-            isStablePool,
-            liquidity,
-            1,
-            1,
-            address(this),
-            block.timestamp + 1
-        );
-        uint256 targetPrice = ionTargetPriceInPairToken();
-        uint256 postOperationPairTokenBalance = balanceOfToken(pairTokenAddress);
-        if (pairTokenRemoved != postOperationPairTokenBalance - preOperationPairTokenBalance)
-            revert SwapPairTokenAmountOutMismatch(
-                pairTokenRemoved,
-                postOperationPairTokenBalance - preOperationPairTokenBalance
-            );
+        (uint256 ionRemoved, uint256 pairTokenRemoved, , ) = _removeLiquidity(liquidity);
 
         // Approve router for the PairToken swap.
         IERC20(pairTokenAddress).forceApprove(routerAddress, pairTokenRemoved);
         uint256[] memory amounts;
         uint256 pairTokenRemovedAmountWithoutFee = pairTokenRemoved -
             pairTokenRemoved.mulDiv(poolFee, (SCALED_UNIT - poolFee));
+        uint256 targetPrice = ionTargetPriceInPairToken();
         uint256 minIonSwapAmountOut = scalePairTokenToIonDecimals(pairTokenRemovedAmountWithoutFee).mulDiv(
             SCALED_UNIT,
             targetPrice

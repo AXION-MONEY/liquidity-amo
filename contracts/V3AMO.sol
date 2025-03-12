@@ -304,6 +304,53 @@ contract V3AMO is IV3AMO, MasterAMO {
 
     ////// UNFARM-BUY-BURN FUNCTIONS //////
 
+    /// @inheritdoc MasterAMO
+    function _removeLiquidity(
+        uint256 liquidity
+    )
+        internal
+        override
+        returns (uint256 ionRemoved, uint256 pairTokenRemoved, uint256 ionCollectedFee, uint256 pairTokenCollectedFee)
+    {
+        uint256 amount0FromBurn;
+        uint256 amount1FromBurn;
+        if (poolType == PoolType.ALGEBRA_INTEGRAL) {
+            (amount0FromBurn, amount1FromBurn) = IAlgebraIntegralPool(poolAddress).burn(
+                tickLower,
+                tickUpper,
+                uint128(liquidity),
+                ""
+            );
+        } else {
+            (amount0FromBurn, amount1FromBurn) = IUniswapV3Pool(poolAddress).burn(
+                tickLower,
+                tickUpper,
+                uint128(liquidity)
+            );
+        }
+        (ionRemoved, pairTokenRemoved) = orderAmountsByTokenAddress(amount0FromBurn, amount1FromBurn);
+
+        if (poolType == PoolType.SOLIDLY_V3) {
+            address feeCollector = ISolidlyV3Factory(ISolidlyV3Pool(poolAddress).factory()).feeCollector();
+            IRewardsDistributor(feeCollector).collectPoolFees(poolAddress);
+        }
+        uint128 amount0Collected;
+        uint128 amount1Collected;
+        (amount0Collected, amount1Collected) = IUniswapV3Pool(poolAddress).collect(
+            address(this),
+            tickLower,
+            tickUpper,
+            type(uint128).max,
+            type(uint128).max
+        );
+        (uint256 ionCollected, uint256 pairTokenCollected) = orderAmountsByTokenAddress(
+            amount0Collected,
+            amount1Collected
+        );
+        ionCollectedFee = ionCollected - ionRemoved;
+        pairTokenCollectedFee = pairTokenCollected - pairTokenRemoved;
+    }
+
     function _calculateLiquidityToUnfarm(
         uint24 swapRatio
     ) internal returns (uint256 liquidity, uint160 sqrtPriceLimitX96) {
@@ -337,42 +384,12 @@ contract V3AMO is IV3AMO, MasterAMO {
     ) internal override returns (uint256 liquidity, uint256 postOperationIonPrice) {
         uint160 sqrtPriceLimitX96;
         (liquidity, sqrtPriceLimitX96) = _calculateLiquidityToUnfarm(swapRatio);
-
-        uint256 amount0FromBurn;
-        uint256 amount1FromBurn;
-        if (poolType == PoolType.ALGEBRA_INTEGRAL) {
-            (amount0FromBurn, amount1FromBurn) = IAlgebraIntegralPool(poolAddress).burn(
-                tickLower,
-                tickUpper,
-                uint128(liquidity),
-                ""
-            );
-        } else {
-            (amount0FromBurn, amount1FromBurn) = IUniswapV3Pool(poolAddress).burn(
-                tickLower,
-                tickUpper,
-                uint128(liquidity)
-            );
-        }
-        (uint256 ionRemoved, uint256 pairTokenRemoved) = orderAmountsByTokenAddress(amount0FromBurn, amount1FromBurn);
-
-        if (poolType == PoolType.SOLIDLY_V3) {
-            address feeCollector = ISolidlyV3Factory(ISolidlyV3Pool(poolAddress).factory()).feeCollector();
-            IRewardsDistributor(feeCollector).collectPoolFees(poolAddress);
-        }
-        uint128 amount0Collected;
-        uint128 amount1Collected;
-        (amount0Collected, amount1Collected) = IUniswapV3Pool(poolAddress).collect(
-            address(this),
-            tickLower,
-            tickUpper,
-            type(uint128).max,
-            type(uint128).max
-        );
-        (uint256 ionCollected, uint256 pairTokenCollected) = orderAmountsByTokenAddress(
-            amount0Collected,
-            amount1Collected
-        );
+        (
+            uint256 ionRemoved,
+            uint256 pairTokenRemoved,
+            uint256 ionCollectedFee,
+            uint256 pairTokenCollectedFee
+        ) = _removeLiquidity(liquidity);
 
         (int256 amount0, int256 amount1) = IUniswapV3Pool(poolAddress).swap(
             address(this),
@@ -388,7 +405,7 @@ contract V3AMO is IV3AMO, MasterAMO {
         uint256 remainedPairTokenAfterOperation = pairTokenRemoved - pairTokenAmountIn;
         if (remainedPairTokenAfterOperation > 0) _addLiquidity(remainedPairTokenAfterOperation);
 
-        IIon(ionAddress).burn(ionCollected + ionAmountOut);
+        IIon(ionAddress).burn(ionCollectedFee + ionRemoved + ionAmountOut);
         postOperationIonPrice = ionPriceInPairToken();
         emit UnfarmBuyBurn(
             ionRemoved,
@@ -396,8 +413,8 @@ contract V3AMO is IV3AMO, MasterAMO {
             liquidity,
             pairTokenAmountIn,
             ionAmountOut,
-            ionCollected - ionRemoved,
-            pairTokenCollected - pairTokenRemoved
+            ionCollectedFee,
+            pairTokenCollectedFee
         );
     }
 
