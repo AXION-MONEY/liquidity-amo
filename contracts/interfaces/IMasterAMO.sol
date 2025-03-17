@@ -170,6 +170,26 @@ interface IMasterAMO {
     function addLiquidity() external returns (uint256 liquidity);
 
     /**
+     * @notice Removes liquidity from the ION-PairToken pool.
+     * @param liquidity The liquidity amount to remove.
+     * @param ionMinRemove The minimum ION amount to remove.
+     * @param pairTokenMinRemove The minimum PairToken amount to remove.
+     * @param recipient The address of the receiver of the removed pair tokens.
+     * @return ionRemoved The ION amount removed.
+     * @return pairTokenRemoved The PairToken amount removed.
+     * @return ionCollectedFee The ION amount part of the collected fee.
+     * @return pairTokenCollectedFee The PairToken amount part of the collected fee.
+     */
+    function removeLiquidity(
+        uint256 liquidity,
+        uint256 ionMinRemove,
+        uint256 pairTokenMinRemove,
+        address recipient
+    )
+        external
+        returns (uint256 ionRemoved, uint256 pairTokenRemoved, uint256 ionCollectedFee, uint256 pairTokenCollectedFee);
+
+    /**
      * @notice Mints, sells, and farms ION tokens when ION is over peg.
      * @return liquidity The liquidity tokens received.
      * @return postOperationIonPrice The new average ION price after the operation.

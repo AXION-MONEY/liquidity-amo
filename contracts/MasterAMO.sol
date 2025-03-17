@@ -14,6 +14,7 @@ import {IMinter} from "./interfaces/IMinter.sol";
 import {IMasterAMO} from "./interfaces/IMasterAMO.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IPriceManager} from "./price-manager/interfaces/IPriceManager.sol";
+import {IIon} from "./interfaces/IIon.sol";
 
 /**
  * @title MasterAMO Contract
@@ -364,6 +365,22 @@ abstract contract MasterAMO is
     ////// UNFARM-BUY-BURN FUNCTIONS //////
 
     /**
+     * @notice Internal function to remove liquidity from the pool.
+     * @param liquidity The liquidity amount to remove.
+     * @return ionRemoved The ION amount removed.
+     * @return pairTokenRemoved The PairToken amount removed.
+     * @return ionCollectedFee The ION amount part of the collected fee.
+     * @return pairTokenCollectedFee The PairToken amount part of the collected fee.
+     * @dev Must be implemented by a derived contract.
+     */
+    function _removeLiquidity(
+        uint256 liquidity
+    )
+        internal
+        virtual
+        returns (uint256 ionRemoved, uint256 pairTokenRemoved, uint256 ionCollectedFee, uint256 pairTokenCollectedFee);
+
+    /**
      * @notice Internal function to perform un-farming, buying, and burning when ION is under peg.
      * @param swapRatio The swap ratio for buying ION.
      * @return liquidity Liquidity tokens affected.
@@ -388,6 +405,27 @@ abstract contract MasterAMO is
 
         uint256 pairTokenBalance = IERC20(pairTokenAddress).balanceOf(address(this));
         liquidity = _addLiquidity(pairTokenBalance);
+    }
+
+    /// @inheritdoc IMasterAMO
+    function removeLiquidity(
+        uint256 liquidity,
+        uint256 ionMinRemove,
+        uint256 pairTokenMinRemove,
+        address recipient
+    )
+        external
+        override
+        onlyRole(WITHDRAWER_ROLE)
+        returns (uint256 ionRemoved, uint256 pairTokenRemoved, uint256 ionCollectedFee, uint256 pairTokenCollectedFee)
+    {
+        if (recipient == address(0)) revert ZeroAddress();
+        (ionRemoved, pairTokenRemoved, ionCollectedFee, pairTokenCollectedFee) = _removeLiquidity(liquidity);
+        if (ionRemoved < ionMinRemove) revert InsufficientOutputAmount(ionRemoved, ionMinRemove);
+        if (pairTokenRemoved < pairTokenMinRemove)
+            revert InsufficientOutputAmount(pairTokenRemoved, pairTokenMinRemove);
+        IERC20(pairTokenAddress).safeTransfer(recipient, pairTokenRemoved + pairTokenCollectedFee);
+        IIon(ionAddress).burn(ionRemoved + ionCollectedFee);
     }
 
     /// @inheritdoc IMasterAMO
