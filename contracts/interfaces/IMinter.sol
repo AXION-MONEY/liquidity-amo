@@ -52,9 +52,9 @@ interface IMinter {
     //                     STATE VARIABLE
     // -------------------------------------------------------------
     /**
-     * @notice Returns the address of the BOOST token.
+     * @notice Returns the address of the ION token.
      */
-    function boostAddress() external view returns (address);
+    function ionAddress() external view returns (address);
     /**
      * @notice Returns the address of the collateral token.
      */
@@ -64,9 +64,9 @@ interface IMinter {
      */
     function treasury() external view returns (address);
     /**
-     * @notice Returns the number of decimals used by the BOOST token.
+     * @notice Returns the number of decimals used by the ION token.
      */
-    function boostDecimals() external view returns (uint8);
+    function ionDecimals() external view returns (uint8);
     /**
      * @notice Returns the number of decimals used by the collateral token.
      */
@@ -76,11 +76,11 @@ interface IMinter {
     //                           EVENTS
     // -------------------------------------------------------------
     /**
-     * @notice Emitted when the token addresses for BOOST and collateral are updated.
-     * @param boostAddress The new BOOST token address.
+     * @notice Emitted when the token addresses for ION and collateral are updated.
+     * @param ionAddress The new ION token address.
      * @param collateralAddress The new collateral token address.
      */
-    event TokenAddressesUpdated(address indexed boostAddress, address indexed collateralAddress);
+    event TokenAddressesUpdated(address indexed ionAddress, address indexed collateralAddress);
     /**
      * @notice Emitted when the treasury address is updated.
      * @param newTreasury The new treasury address.
@@ -119,26 +119,26 @@ interface IMinter {
      */
     function unpause() external;
     /**
-     * @notice Sets the BOOST and collateral token addresses.
-     * @param boost The new BOOST token address.
-     * @param collateral The new collateral token address.
+     * @notice Sets the ION and collateral token addresses.
+     * @param ionAddress_ The new ION token address.
+     * @param collateralAddress_ The new collateral token address.
      */
-    function setTokens(address boost, address collateral) external;
+    function setTokens(address ionAddress_, address collateralAddress_) external;
     /**
      * @notice Sets the treasury address.
      * @param treasury The new treasury address.
      */
     function setTreasury(address treasury) external;
     /**
-     * @notice Mints BOOST tokens by transferring collateral and then minting BOOST.
-     * @param to The address to receive minted BOOST.
-     * @param amount The amount of BOOST to mint.
+     * @notice Mints ION tokens by transferring collateral and then minting ION.
+     * @param to The address to receive minted ION.
+     * @param amount The amount of ION to mint.
      */
     function mint(address to, uint256 amount) external;
     /**
-     * @notice Mints BOOST tokens via protocol operations.
-     * @param to The address to receive minted BOOST.
-     * @param amount The amount of BOOST to mint.
+     * @notice Mints ION tokens via protocol operations.
+     * @param to The address to receive minted ION.
+     * @param amount The amount of ION to mint.
      */
     function protocolMint(address to, uint256 amount) external;
     /**

@@ -9,17 +9,17 @@ import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 contract MockMinterCaller {
     using SafeERC20 for IERC20;
 
-    address public boostAddress;
+    address public ionAddress;
     address public collateralAddress;
     address public minterAddress;
-    uint8 public boostDecimals;
+    uint8 public ionDecimals;
     uint8 public collateralDecimals;
 
-    constructor(address minterAddress_, address boostAddress_, address collateralAddress_) {
+    constructor(address minterAddress_, address ionAddress_, address collateralAddress_) {
         minterAddress = minterAddress_;
-        boostAddress = boostAddress_;
+        ionAddress = ionAddress_;
         collateralAddress = collateralAddress_;
-        boostDecimals = IERC20Metadata(boostAddress_).decimals();
+        ionDecimals = IERC20Metadata(ionAddress_).decimals();
         collateralDecimals = IERC20Metadata(collateralAddress_).decimals();
     }
 
@@ -27,9 +27,9 @@ contract MockMinterCaller {
         IERC20(collateralAddress).safeTransferFrom(
             msg.sender,
             address(this),
-            amount / (10 ** (boostDecimals - collateralDecimals))
+            amount / (10 ** (ionDecimals - collateralDecimals))
         );
-        IERC20(collateralAddress).approve(minterAddress, amount / (10 ** (boostDecimals - collateralDecimals)));
+        IERC20(collateralAddress).approve(minterAddress, amount / (10 ** (ionDecimals - collateralDecimals)));
         IMinter(minterAddress).mint(to, amount);
     }
 

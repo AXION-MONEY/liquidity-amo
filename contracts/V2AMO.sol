@@ -309,7 +309,7 @@ contract V2AMO is IV2AMO, MasterAMO {
             IGauge(gaugeAddress).deposit(liquidity);
         }
 
-        // Burn any excessive minted BOOST.
+        // Burn any excessive minted ION.
         if (ionMintAmount > ionSpent) IIon(ionAddress).burn(ionMintAmount - ionSpent);
         emit AddLiquidityAndDeposit(ionSpent, pairTokenSpent, liquidity, tokenId);
     }

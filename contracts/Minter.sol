@@ -22,13 +22,13 @@ contract Minter is Initializable, AccessControlEnumerableUpgradeable, PausableUp
     //                         STATE VARIABLES
     // -------------------------------------------------------------
     /// @inheritdoc IMinter
-    address public override boostAddress;
+    address public override ionAddress;
     /// @inheritdoc IMinter
     address public override collateralAddress;
     /// @inheritdoc IMinter
     address public override treasury;
     /// @inheritdoc IMinter
-    uint8 public override boostDecimals;
+    uint8 public override ionDecimals;
     /// @inheritdoc IMinter
     uint8 public override collateralDecimals;
 
@@ -70,20 +70,20 @@ contract Minter is Initializable, AccessControlEnumerableUpgradeable, PausableUp
 
     /**
      * @notice Initializes the Minter contract.
-     * @param boostAddress_ The BOOST token address.
+     * @param ionAddress_ The ION token address.
      * @param collateralAddress_ The collateral token address.
      * @param treasury_ The treasury address.
      */
-    function initialize(address boostAddress_, address collateralAddress_, address treasury_) external initializer {
+    function initialize(address ionAddress_, address collateralAddress_, address treasury_) external initializer {
         __AccessControl_init();
         __Pausable_init();
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        if (boostAddress_ == address(0) || collateralAddress_ == address(0) || treasury_ == address(0))
+        if (ionAddress_ == address(0) || collateralAddress_ == address(0) || treasury_ == address(0))
             revert ZeroAddress();
-        boostAddress = boostAddress_;
+        ionAddress = ionAddress_;
         collateralAddress = collateralAddress_;
         treasury = treasury_;
-        boostDecimals = IERC20Metadata(boostAddress).decimals();
+        ionDecimals = IERC20Metadata(ionAddress).decimals();
         collateralDecimals = IERC20Metadata(collateralAddress).decimals();
     }
 
@@ -104,13 +104,13 @@ contract Minter is Initializable, AccessControlEnumerableUpgradeable, PausableUp
     //                      ADMIN FUNCTIONS
     // -------------------------------------------------------------
     /// @inheritdoc IMinter
-    function setTokens(address boost, address collateral) external override onlyRole(ADMIN_ROLE) {
-        if (boost == address(0) || collateral == address(0)) revert ZeroAddress();
-        boostAddress = boost;
-        collateralAddress = collateral;
-        boostDecimals = IERC20Metadata(boostAddress).decimals();
+    function setTokens(address ionAddress_, address collateralAddress_) external override onlyRole(ADMIN_ROLE) {
+        if (ionAddress_ == address(0) || collateralAddress_ == address(0)) revert ZeroAddress();
+        ionAddress = ionAddress_;
+        collateralAddress = collateralAddress_;
+        ionDecimals = IERC20Metadata(ionAddress).decimals();
         collateralDecimals = IERC20Metadata(collateralAddress).decimals();
-        emit TokenAddressesUpdated(boost, collateral);
+        emit TokenAddressesUpdated(ionAddress_, collateralAddress_);
     }
 
     /// @inheritdoc IMinter
@@ -128,15 +128,15 @@ contract Minter is Initializable, AccessControlEnumerableUpgradeable, PausableUp
         IERC20(collateralAddress).safeTransferFrom(
             msg.sender,
             treasury,
-            amount / (10 ** (boostDecimals - collateralDecimals))
+            amount / (10 ** (ionDecimals - collateralDecimals))
         );
-        IIon(boostAddress).mint(to, amount);
+        IIon(ionAddress).mint(to, amount);
         emit TokenMinted(msg.sender, to, amount);
     }
 
     /// @inheritdoc IMinter
     function protocolMint(address to, uint256 amount) external override whenNotPaused onlyContract onlyRole(AMO_ROLE) {
-        IIon(boostAddress).mint(to, amount);
+        IIon(ionAddress).mint(to, amount);
         emit TokenProtocolMinted(msg.sender, to, amount);
     }
 

@@ -9,7 +9,7 @@ import {IIon} from "./interfaces/IIon.sol";
 
 /**
  * @title Ion.sol
- * @notice The Boost stableCoin is upgradable and pausable. It is designed with role-based control
+ * @notice The Ion contract is upgradable and pausable. It is designed with role-based control
  *         to allow security features such as pausing in emergencies and controlled minting.
  * @dev Inherits from Initializable, ERC20BurnableUpgradeable, PausableUpgradeable, and AccessControlEnumerableUpgradeable;
  *      implements IIon.sol.

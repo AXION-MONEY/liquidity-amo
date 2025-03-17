@@ -23,7 +23,7 @@ import {
 } from "./utils";
 
 describe("THENA", function () {
-  const rpcUrl = "https://bnb.rpc.subquery.network/public";
+  const rpcUrl = "https://rpc.ankr.com/bsc";
   const forkingBlock = 46935750;
   const priceBounds = [
     [undefined, undefined], // full range
