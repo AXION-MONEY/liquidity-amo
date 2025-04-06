@@ -1,10 +1,32 @@
 # Liquidity AMO: Automated Market Operations for ION Stability & Liquidity Management
 
-## Overview
+## Overview of principles
 
-The **Liquidity AMO (Automated Market Operations)** ensures **ION price stability and deep liquidity** by dynamically
-interacting with **multiple AMMs (Automated Market Makers) and stablecoins**. It **mints, sells, adds liquidity, removes
-liquidity, and burns ION** based on **real-time market conditions**.
+1) High-level view: ION is a fit-for-Defi stablecoin. Its collateral is always available on pools which guarantees its
+   redeem-ability while being profitable. The liquidity and peg are both managed by the LiquidityAMO smart contract which
+   has a simple logic:
+   * When ION is above par, it mints ION tokens, selling them for USD, then farming the USDC with free-minted BOOST
+   * When ION is below par, it removes liquidity from the pool (both ION and USD), and buys back ION from the pool with the
+     USD
+2) There are a few complexities under the hood:
+   * When a user buys ION with USD, the Axion protocol (via the LiquidityAMO contract) mints ION for the user and sells
+     them for USD. Then it pairs the USD it receives with "Free-minted ION" (called protocol-owned ION) in the Frax
+     vocabulary and farms it. This free-minted ION is burned when liquidity is removed from the pool (it just serves to
+     farm the USD backing)
+   * USD is a generic name for a reference stable coin paired with ION in the AMO. ION can be paired with USDC and USDT
+     which have value 1, or with staked stablecoins (such as sDAI or sUSDe which fundamental value very progressively
+     increase in time)
+   * ION can be paired with multiple reference stablecoins on the same chain (each with its own pool), offering a lot of
+     trading/arbitrage opportunities
+
+## Technical overview
+
+The **Liquidity AMO (Automated Market Operations)** ensures **ION price stability and redeem-ability/liquidity**:
+
+* It **mints, sells, adds liquidity, removes liquidity, and burns ION** based on supply and demand ( pool balances in
+  uni-v2 "fully-range" pool types, or on the deviation between implied and fundamental prices in CL pools), all based on
+  **real-time market conditions**.
+* It can dynamically interact with **multiple AMMs (Automated Market Makers) and stablecoins**.
 
 The AMO operates **permissionlessly**, meaning that **anyone** can trigger `mintSellFarm` & `unfarmBuyBurn` to
 **rebalance ION’s price**. The system **cannot be manipulated** by flash loans or external actors, ensuring secure and
@@ -17,20 +39,20 @@ Mainnet and generates a signature with the necessary data.
 
 ---
 
-## Supported DEXs
+## Supported DEXes
 
-The AMO interacts with **both Concentrated Liquidity AMMs (CLAMM) and Traditional AMMs (Uniswap V2-style pools)** Any
-other DEXs that is use same algorithm as these DEXs can easily add and integrated with AMO Contract:
+LiquidityAMO interacts with **both Concentrated Liquidity AMMs (CLAMM) and Traditional AMMs (Uniswap V2-style pools)**
+Any DEX that uses same pool logic (codebase) can easily be added and integrated:
 
 ### CLAMM (Concentrated Liquidity)
 
-- **Uniswap V3**
-- **Solidly V3 (CL)**
 - **Aerodrome CL**
 - **Velodrome CL**
 - **Algebra V1.0**
 - **Algebra V1.9**
 - **Algebra Integral**
+- **Uniswap V3**
+- **Solidly V3 (CL)**
 - **Ramses V2 (CL)**
 
 ### Uniswap V2-Style AMMs
