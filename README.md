@@ -1,6 +1,6 @@
-# **Liquidity AMO: Automated Market Operations for ION Stability & Liquidity Management**
+# Liquidity AMO: Automated Market Operations for ION Stability & Liquidity Management
 
-## **Overview**
+## Overview
 
 The **Liquidity AMO (Automated Market Operations)** ensures **ION price stability and deep liquidity** by dynamically
 interacting with **multiple AMMs (Automated Market Makers) and stablecoins**. It **mints, sells, adds liquidity, removes
@@ -17,7 +17,7 @@ Mainnet and generates a signature with the necessary data.
 
 ---
 
-## **Supported DEXs**
+## Supported DEXs
 
 The AMO interacts with **both Concentrated Liquidity AMMs (CLAMM) and Traditional AMMs (Uniswap V2-style pools)** Any
 other DEXs that is use same algorithm as these DEXs can easily add and integrated with AMO Contract:
@@ -43,7 +43,7 @@ other DEXs that is use same algorithm as these DEXs can easily add and integrate
 
 ---
 
-## **Supported Pair Tokens**
+## Supported Pair Tokens
 
 The AMO primarily interacts with **stablecoins & staked stable assets** to manage ION’s liquidity:
 
@@ -71,17 +71,20 @@ The ION contract implements an ERC-20 token called "ION," which serves as the fo
 
 #### Key Contract Functions**
 
-| Function              | Description                                                                                |
-|-----------------------|--------------------------------------------------------------------------------------------|
-| `Pause() & Unpause()` | function can be delegated to a security monitoring firms for automatic responses.          |
-| `protocolMint()`      | mint new tokens (using the Minter.Sol contract) and send them to a specified address (to_) |
+| Function                | Description                                                                                |
+|-------------------------|--------------------------------------------------------------------------------------------|
+| `pause()` & `unpause()` | function can be delegated to a security monitoring firms for automatic responses.          |
+| `protocolMint()`        | mint new tokens (using the Minter.Sol contract) and send them to a specified address (to_) |
 
 #### Security & Risk Management
 
 ##### Role-Based Access Control (RBAC)
 
-- **PAUSER ROLE** can halt operations if needed.
-- **Minter Role** mint new tokens for AMO operations.
+| Role            | Description                            |
+|-----------------|----------------------------------------|
+| `MINTER_ROLE`   | Can mint new tokens for AMO operations |
+| `PAUSER_ROLE`   | Can pause the contract                 |
+| `UNPAUSER_ROLE` | CCan unpause the contract              |
 
 ##### Token Transfer Guard
 
@@ -101,7 +104,7 @@ target). It also includes utility functions for:
 - **Price Bounds Calculation:**
 - **Reserve and Balance Checks:**
 
-##### **Key Functions and Patterns:**
+##### Key Functions and Patterns:
 
 - **Swap Validation:**
   The modifier `validateSwap(bool ionForPairToken)` and the abstract `_validateSwap` function enforce that swaps occur
@@ -119,7 +122,7 @@ The V3AMO contract is specialized for concentrated liquidity AMMs (CLAMMs) such 
 Solidly CL. It extends MasterAMO by implementing tick-based liquidity management and precise pricing logic using
 fixed-point arithmetic.
 
-##### **Key Components:**
+##### Key Components:
 
 - **TickMath & Liquidity Calculations:**
   The contract uses Uniswap V3’s `TickMath` library to calculate the square root ratios at the tick boundaries (
@@ -146,7 +149,7 @@ fixed-point arithmetic.
   Similar to swap callbacks, mint callbacks (e.g., `uniswapV3MintCallback`, `algebraMintCallback`, etc.) verify the pool
   caller and then settle token transfers by minting ION or transferring the paired token.
 
-##### **Usage Example in V3AMO:**
+##### Usage Example in V3AMO:
 
 When executing a mint–sell-farm operation:
 
@@ -229,7 +232,7 @@ tick-based liquidity but instead interacts with liquidity gauges and traditional
 
     - The liquidity removal is further scaled by the `pairTokenBuyRatio`.
 
-#### **Automated Rebalancing Process**
+#### Automated Rebalancing Process
 
 1. **Fetch Market Data**
     - Retrieves **ION price** from AMM pools.
@@ -239,24 +242,20 @@ tick-based liquidity but instead interacts with liquidity gauges and traditional
     - **If ION > Target Price** → **Mint & Sell ION** → **Provide Liquidity**.
     - **If ION < Target Price** → **Remove Liquidity** → **Buy & Burn ION**.
 
-#### **Key Contract Functions**
+#### Key Contract Functions
 
 | Function                      | Description                                                                |
 |-------------------------------|----------------------------------------------------------------------------|
 | `mintSellFarm()`              | Mints & sells ION for stablecoins, then adds liquidity. (✅ Permissionless) |
 | `unfarmBuyBurn()`             | Removes liquidity, buys back ION, and burns it. (✅ Permissionless)         |
-| `addLiquidity()`              | Adds protocol-owned liquidity to pools.                                    |
+| `addLiquidity()`              | Adds protocol-owned liquidity to pools. (✅ Permissionless)                 |
 | `removeLiquidity()`           | Removes protocol-owned liquidity from pools.                               |
 | `setTickBounds()`             | Sets Uniswap V3 tick ranges for liquidity.                                 |
 | `ionPriceInPairToken()`       | Fetches the current ION price in the pairToken.                            |
 | `ionTargetPriceInPairToken()` | Computes the target price for ION in the pairToken.                        |
-| `getLiquidity()`              | Retrieves current liquidity position in AMMs.                              |
 
-#### **Security & Risk Management**
+#### Security & Risk Management
 
-- **Role-Based Access Control (RBAC)**
-    - **Admin role** can update critical parameters.
-    - **Pauser role** (Timelock Governance) can halt operations if needed.
 - **Flash Loan Resistant**
     - Liquidity rebalancing **cannot be exploited** via arbitrage or flash loans.
     - Only **authorized AMO contracts** can execute swaps & liquidity moves.
@@ -264,9 +263,19 @@ tick-based liquidity but instead interacts with liquidity gauges and traditional
     - **AMO operations can only be paused via a Timelock contract**.
     - Ensures **no centralized control over liquidity operations**.
 
+##### Role-Based Access Control (RBAC)
+
+| Role                    | Description                                                                      |
+|-------------------------|----------------------------------------------------------------------------------|
+| `SETTER_ROLE`           | Can set the contract params & Can add/remove users for bypassing the swap ratio  |
+| `PAUSER_ROLE`           | Can pause the contract                                                           |
+| `UNPAUSER_ROLE`         | Can unpause the contract                                                         |
+| `WITHDRAWER_ROLE`       | Can withdraw ERC20 tokens from the contract & Can remove liquidity from the pool |
+| `REWARD_COLLECTOR_ROLE` | Can collect rewards from the gauge (only for V2AMO)                              |
+
 ------
 
-### **Minter**
+### Minter
 
 - **Manages ION minting & burning**.
 - **Security measures**:
@@ -274,16 +283,27 @@ tick-based liquidity but instead interacts with liquidity gauges and traditional
     - **Protocol-owned minting only for liquidity rebalancing**.
     - **Timelock governance for emergency pauses**.
 
+##### Role-Based Access Control (RBAC)
+
+| Role              | Description                                                                    |
+|-------------------|--------------------------------------------------------------------------------|
+| `MINTER_ROLE`     | Can mint ION tokens by transferring collateral and then minting ION            |
+| `ADMIN_ROLE`      | Can set the contract params                                                    |
+| `AMO_ROLE`        | Can mint ION tokens via protocol operations (only be granted to AMO contracts) |
+| `PAUSER_ROLE`     | Can pause the contract                                                         |
+| `UNPAUSER_ROLE`   | Can unpause the contract                                                       |
+| `WITHDRAWER_ROLE` | Can withdraw ERC20 tokens from the contract                                    |
+
 ---
 
-### **PriceManager**
+### PriceManager
 
 - **Tracks real-time prices of staked stablecoins (sUSDe, sFRAX, sDAI)**.
 - Uses **Muon Oracle & mainnet staking contracts** for **accurate price updates**.
 - **Prevents AMO operations if price feed is unreliable**.
 - **Allows emergency manual price updates via governance role**.
 
-#### **Security & Risk Management**
+#### Security & Risk Management
 
 - **Muon Oracle & Risk Management**
     - **Muon Oracles fetch real-time data from mainnet staking contracts** (sUSDe, sFRAX, sDAI).
@@ -291,31 +311,43 @@ tick-based liquidity but instead interacts with liquidity gauges and traditional
         - If **Muon Oracle fails**, **governance can manually update price feeds**.
         - This prevents AMO from making **bad liquidity decisions** due to faulty price feeds.
 
+##### Role-Based Access Control (RBAC)
+
+| Role                 | Description                 |
+|----------------------|-----------------------------|
+| `TOKEN_UPDATER_ROLE` | Can update the asset states |
+| `SETTER_ROLE`        | Can set the contract params |
+
 ---
 
-## **💻 Running the Project**
+## 💻 Running the Project
 
-### **Install Dependencies**
+### Install Dependencies
 
 ```sh
 npm install
-
 ```
 
-### **Run Tests**
+### Run Tests
 
 ```sh
 npx hardhat test
 ```
 
-**Deploy Contracts**
+### Run Coverage
 
 ```sh
-npx hardhat run scripts/deploy.ts
+npx hardhat coverage
 ```
 
-**Start Local Blockchain Node**
+### Start Local Blockchain Node
 
 ```sh
 npx hardhat node
+```
+
+### Run prettier script to prettify the codes
+
+```sh
+./prettify.sh
 ```
