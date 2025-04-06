@@ -2,20 +2,25 @@
 
 ## Overview of principles
 
-1) High-level view: ION is a fit-for-Defi stablecoin. Its collateral is always available on pools, which guarantees its redeemability, while being profitable. The liquidity and peg are both managed by the LiquidityAMO smart contract which
+1) High-level view: ION is a fit-for-Defi stablecoin. Its collateral is always available on pools, which guarantees its
+   redeem-ability, while being profitable. The liquidity and peg are both managed by the LiquidityAMO smart contract
+   which
    has a simple logic:
-   * When ION is above par, it mints ION tokens, selling them for USD, then farming the USDC with free-minted BOOST
-   * When ION is below par, it removes liquidity from the pool (both ION and USD), and buys back ION from the pool with the
-     USD
+    * When ION is above par, it mints ION tokens, selling them for USD, then farming the USDC with free-minted BOOST
+    * When ION is below par, it removes liquidity from the pool (both ION and USD), and buys back ION from the pool with
+      the
+      USD
 2) There are a few complexities under the hood:
-   * When a user buys ION with USD, the Axion protocol (via the LiquidityAMO contract) mints ION for the user and sells
-     them for USD. Then it pairs the USD it receives with "Free-minted ION" (called protocol-owned ION) in the Frax
-     vocabulary and farms it. This free-minted ION is burned when liquidity is removed from the pool (the free-minted ION only serves to farm the USD backing)
-   * USD is a generic name for a reference stable coin paired with ION in the AMO. ION can be paired with USDC and USDT
-     which have value 1, or with staked stablecoins (such as sDAI or sUSDe which fundamental value very progressively
-     increase in time)
-   * ION can be paired with multiple reference stablecoins on the same chain (each with its own pool), offering a lot of
-     trading/arbitrage opportunities
+    * When a user buys ION with USD, the Axion protocol (via the LiquidityAMO contract) mints ION for the user and sells
+      them for USD. Then it pairs the USD it receives with "Free-minted ION" (called protocol-owned ION) in the Frax
+      vocabulary and farms it. This free-minted ION is burned when liquidity is removed from the pool (the free-minted
+      ION only serves to farm the USD backing)
+    * USD is a generic name for a reference stable coin paired with ION in the AMO. ION can be paired with USDC and USDT
+      which have value 1, or with staked stablecoins (such as sDAI or sUSDe which fundamental value very progressively
+      increase in time)
+    * ION can be paired with multiple reference stablecoins on the same chain (each with its own pool), offering a lot
+      of
+      trading/arbitrage opportunities
 
 ## Technical overview
 
@@ -58,7 +63,7 @@ Any DEX that uses same pool logic (codebase) can easily be added and integrated:
 - **Thena and Equalizer**
 - **Solidly V2**
 
-There are less variations in Uniswap v2 pools across Dexes, so we expect a larger compatibility.
+There are fewer variations in Uniswap v2 pools across Dexes, so we expect a larger compatibility.
 
 ---
 
@@ -100,11 +105,11 @@ The ION contract implements an ERC-20 token called "ION," which serves as the fo
 
 ##### Role-Based Access Control (RBAC)
 
-| Role            | Description                            |
-|-----------------|----------------------------------------|
-| `MINTER_ROLE`   | Can mint new tokens for AMO operations |
-| `PAUSER_ROLE`   | Can pause the contract                 |
-| `UNPAUSER_ROLE` | CCan unpause the contract              |
+| Role            | Description                            | Operator's type |
+|-----------------|----------------------------------------|-----------------|
+| `MINTER_ROLE`   | Can mint new tokens for AMO operations | msig            |
+| `PAUSER_ROLE`   | Can pause the contract                 | timelock        |
+| `UNPAUSER_ROLE` | CCan unpause the contract              | timelock        |
 
 ##### Token Transfer Guard
 
@@ -285,13 +290,13 @@ tick-based liquidity but instead interacts with liquidity gauges and traditional
 
 ##### Role-Based Access Control (RBAC)
 
-| Role                    | Description                                                                      |
-|-------------------------|----------------------------------------------------------------------------------|
-| `SETTER_ROLE`           | Can set the contract params & Can add/remove users for bypassing the swap ratio  |
-| `PAUSER_ROLE`           | Can pause the contract                                                           |
-| `UNPAUSER_ROLE`         | Can unpause the contract                                                         |
-| `WITHDRAWER_ROLE`       | Can withdraw ERC20 tokens from the contract & Can remove liquidity from the pool |
-| `REWARD_COLLECTOR_ROLE` | Can collect rewards from the gauge (only for V2AMO)                              |
+| Role                    | Description                                                                      | Operator's type |
+|-------------------------|----------------------------------------------------------------------------------|-----------------|
+| `SETTER_ROLE`           | Can set the contract params & Can add/remove users for bypassing the swap ratio  | msig            |
+| `PAUSER_ROLE`           | Can pause the contract                                                           | timelock        |
+| `UNPAUSER_ROLE`         | Can unpause the contract                                                         | timelock        |
+| `WITHDRAWER_ROLE`       | Can withdraw ERC20 tokens from the contract & Can remove liquidity from the pool | msig            |
+| `REWARD_COLLECTOR_ROLE` | Can collect rewards from the gauge (only for V2AMO)                              | msig            |
 
 ------
 
@@ -305,14 +310,14 @@ tick-based liquidity but instead interacts with liquidity gauges and traditional
 
 ##### Role-Based Access Control (RBAC)
 
-| Role              | Description                                                                    |
-|-------------------|--------------------------------------------------------------------------------|
-| `MINTER_ROLE`     | Can mint ION tokens by transferring collateral and then minting ION            |
-| `ADMIN_ROLE`      | Can set the contract params                                                    |
-| `AMO_ROLE`        | Can mint ION tokens via protocol operations (only be granted to AMO contracts) |
-| `PAUSER_ROLE`     | Can pause the contract                                                         |
-| `UNPAUSER_ROLE`   | Can unpause the contract                                                       |
-| `WITHDRAWER_ROLE` | Can withdraw ERC20 tokens from the contract                                    |
+| Role              | Description                                                                    | Operator's type                    |
+|-------------------|--------------------------------------------------------------------------------|------------------------------------|
+| `MINTER_ROLE`     | Can mint ION tokens by transferring collateral and then minting ION            | protocol contract (not exists yet) |
+| `ADMIN_ROLE`      | Can set the contract params                                                    | msig                               |
+| `AMO_ROLE`        | Can mint ION tokens via protocol operations (only be granted to AMO contracts) | AMO contract                       |
+| `PAUSER_ROLE`     | Can pause the contract                                                         | timelock                           |
+| `UNPAUSER_ROLE`   | Can unpause the contract                                                       | timelock                           |
+| `WITHDRAWER_ROLE` | Can withdraw ERC20 tokens from the contract                                    | msig                               |
 
 ---
 
@@ -333,10 +338,10 @@ tick-based liquidity but instead interacts with liquidity gauges and traditional
 
 ##### Role-Based Access Control (RBAC)
 
-| Role                 | Description                 |
-|----------------------|-----------------------------|
-| `TOKEN_UPDATER_ROLE` | Can update the asset states |
-| `SETTER_ROLE`        | Can set the contract params |
+| Role                 | Description                 | Operator's type |
+|----------------------|-----------------------------|-----------------|
+| `TOKEN_UPDATER_ROLE` | Can update the asset states | msig            |
+| `SETTER_ROLE`        | Can set the contract params | msig            |
 
 ---
 
