@@ -2,8 +2,7 @@
 
 ## Overview of principles
 
-1) High-level view: ION is a fit-for-Defi stablecoin. Its collateral is always available on pools which guarantees its
-   redeem-ability while being profitable. The liquidity and peg are both managed by the LiquidityAMO smart contract which
+1) High-level view: ION is a fit-for-Defi stablecoin. Its collateral is always available on pools, which guarantees its redeemability, while being profitable. The liquidity and peg are both managed by the LiquidityAMO smart contract which
    has a simple logic:
    * When ION is above par, it mints ION tokens, selling them for USD, then farming the USDC with free-minted BOOST
    * When ION is below par, it removes liquidity from the pool (both ION and USD), and buys back ION from the pool with the
@@ -11,8 +10,7 @@
 2) There are a few complexities under the hood:
    * When a user buys ION with USD, the Axion protocol (via the LiquidityAMO contract) mints ION for the user and sells
      them for USD. Then it pairs the USD it receives with "Free-minted ION" (called protocol-owned ION) in the Frax
-     vocabulary and farms it. This free-minted ION is burned when liquidity is removed from the pool (it just serves to
-     farm the USD backing)
+     vocabulary and farms it. This free-minted ION is burned when liquidity is removed from the pool (the free-minted ION only serves to farm the USD backing)
    * USD is a generic name for a reference stable coin paired with ION in the AMO. ION can be paired with USDC and USDT
      which have value 1, or with staked stablecoins (such as sDAI or sUSDe which fundamental value very progressively
      increase in time)
@@ -46,22 +44,21 @@ Any DEX that uses same pool logic (codebase) can easily be added and integrated:
 
 ### CLAMM (Concentrated Liquidity)
 
-- **Aerodrome CL**
-- **Velodrome CL**
-- **Algebra V1.0**
-- **Algebra V1.9**
-- **Algebra Integral**
+### CLAMM (Concentrated Liquidity)
+
+- **Aerodrome CL** and **Velodrome CL**
+- **Algebra V1.0, V1.9 and Integral**
 - **Uniswap V3**
 - **Solidly V3 (CL)**
-- **Ramses V2 (CL)**
+- **Ramses CL**
 
 ### Uniswap V2-Style AMMs
 
+- **Aerodrome and Velodrome**
+- **Thena and Equalizer**
 - **Solidly V2**
-- **Aerodrome**
-- **Velodrome**
-- **Equalizer**
-- **Thena**
+
+There are less variations in Uniswap v2 pools across Dexes, so we expect a larger compatibility.
 
 ---
 
@@ -72,6 +69,7 @@ The AMO primarily interacts with **stablecoins & staked stable assets** to manag
 ### Supported Stablecoins
 
 - **USDC** (Circle)
+- **USDT** (Tether)
 - **DAI** (MakerDAO)
 - **FRAX** (Frax Finance)
 - **Any Non-Exotic Stable Coin**
@@ -81,7 +79,7 @@ The AMO primarily interacts with **stablecoins & staked stable assets** to manag
 - **sUSDe** (Ethena Staked USDe)
 - **sFRAX** (Frax Staked FRAX)
 - **sDAI** (MakerDAO Staked DAI)
-- Adding staked stable coins require a few specific steps such as building a dedicated oracle
+- Adding staked stable coins essentially requires building a dedicated oracle
 
 ---
 
