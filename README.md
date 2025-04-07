@@ -201,16 +201,10 @@ tick-based liquidity but instead interacts with liquidity gauges and traditional
   When ION is above the target price, V2AMO mints ION tokens and sells them to acquire the paired token.
 
     - The ION minting amount is calculated using the formula:
-
-      ```mathematica
-      ionAmountWithoutFee = ((√(pairTokenReserve × ionReserve × FACTOR / ionTargetPrice) − ionReserve) × ionSellRatio) / FACTOR;
-      ```
+      $$\text{ionAmountWithoutFee} = \sqrt{\frac{\text{pairTokenReserve} \times \text{ionReserve}}{\text{ionTargetPrice}}} - \text{ionReserve}$$
 
       An additional fee adjustment is added:
-
-      ```mathematica
-      ionAmount = (ionAmountWithoutFee × FACTOR) / (FACTOR − poolFee);
-      ```
+      $$\text{ionAmount} = \frac{\text{ionAmountWithoutFee}}{1 - \text{poolFee}}$$
 
 - **Unfarm-Buy-Burn Calculation**
 
@@ -221,27 +215,17 @@ tick-based liquidity but instead interacts with liquidity gauges and traditional
     * **Calculate the Square Root Ratio:**
 
       The square root ratio adjusts the reserves based on the target price:
-
-      ```mathematica
-      sqrtResRatio = sqrt((FACTOR^2 × pairTokenReserve) / ((ionReserve × ionTargetPrice) / FACTOR))
-      ```
+      $$\text{sqrtResRatio} = \sqrt{\frac{\text{pairTokenReserve}}{\text{ionReserve} \times \text{ionTargetPrice}}}$$
 
     * **Compute the Removal Percentage:**
 
       This percentage determines the fraction of total liquidity that should be withdrawn, factoring in the pool fee:
-
-      ```mathematica
-      removalPercentage = (FACTOR × (FACTOR − sqrtResRatio)) / (FACTOR − ((poolFee × sqrtResRatio) / FACTOR))
-      
-      ```
+      $$\text{removalPercentage} = \frac{1 - \text{sqrtResRatio}}{1 - (\text{poolFee} \times \text{sqrtResRatio})}$$
 
     * **Determine the Liquidity to Unfarm:**
 
       Finally, the liquidity amount is calculated as a proportion of the total LP token supply:
-
-  ```mathematica
-  liquidity = totalLp × removalPercentage / FACTOR
-  ```
+      $$\text{liquidity} = \text{totalLp} \times \text{removalPercentage}$$
 
 - **Liquidity Addition:**
   After swapping, the contract adds liquidity by:
