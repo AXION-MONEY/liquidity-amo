@@ -94,23 +94,27 @@ The AMO primarily interacts with **stablecoins & staked stable assets** to manag
 
 The ION contract implements an ERC-20 token called "ION," which serves as the foundation of the ION stablecoin project.
 
-#### Key Contract Functions**
+#### Key Contract Functions
 
 | Function                | Description                                                                                |
 |-------------------------|--------------------------------------------------------------------------------------------|
-| `pause()` & `unpause()` | function can be delegated to a security monitoring firms for automatic responses.          |
-| `protocolMint()`        | mint new tokens (using the Minter.Sol contract) and send them to a specified address (to_) |
+| `pause()` & `unpause()` | Function can be delegated to a security monitoring firms for automatic responses.          |
+| `protocolMint()`        | Mint new tokens (using the Minter.Sol contract) and send them to a specified address (to_) |
 
 #### Security & Risk Management
 
-##### Role-Based Access Control (RBAC) for the ION stablecoin 
+##### Role-Based Access Control (RBAC) for the ION stablecoin contract
 
-| Role            | Description                            | Operator's type      |
-|-----------------|----------------------------------------|----------------------|
-| `MINTER_ROLE`   | LiquidityAMO contract mints through the minter contract | Minter contract      |
-| `PAUSER_ROLE`   | Can pause ION  contract                | Delegated to security monitoring services (EOAs) |
-| `UNPAUSER_ROLE` | Can unpause the contract               | msig         |
-| `DEFAULT_ADMIN_ROLE` | Can manage roles and upgrade the contract               | msig under timelock        |
+| Role                 | Description                                             | Operator's type                                  |
+|----------------------|---------------------------------------------------------|--------------------------------------------------|
+| `MINTER_ROLE`        | LiquidityAMO contract mints through the minter contract | Minter contract                                  |
+| `PAUSER_ROLE`        | Can pause the contract                                  | Delegated to security monitoring services (EOAs) |
+| `UNPAUSER_ROLE`      | Can unpause the contract                                | Msig                                             |
+| `DEFAULT_ADMIN_ROLE` | Can manage roles                                        | Msig                                             |
+
+#### Use ProxyAdmin for upgrading the contract
+
+The owner of the ProxyAdmin is the protocol's msig under a timelock
 
 ##### Token Transfer Guard
 
@@ -289,21 +293,26 @@ tick-based liquidity but instead interacts with liquidity gauges and traditional
     - **AMO operations can only be paused via a Timelock contract**.
     - Ensures **no centralized control over liquidity operations**.
 
-##### Role-Based Access Control (RBAC) for the liquidityAMO contract 
+##### Role-Based Access Control (RBAC) for the LiquidityAMO contract
 
-| Role                    | Description                                                                      | Operator's type |
-|-------------------------|----------------------------------------------------------------------------------|-----------------|
-| `SETTER_ROLE`           | Can set the contract params & Can add/remove users for bypassing the swap ratio  | msig            |
-| `PAUSER_ROLE`           | Can pause the contract                                                           | delegate to security monitoring services        |
-| `UNPAUSER_ROLE`         | Can unpause the contract                                                         | msig        |
-| `WITHDRAWER_ROLE`       | Can withdraw ERC20 tokens from the contract & Can remove liquidity from the pool | msig            |
-| `REWARD_COLLECTOR_ROLE` | Can collect rewards from the gauge (only for V2AMO)                              | msig            |
-| `DEFAULT_ADMIN_ROLE` | Can manage roles and upgrade the contract| msig under a timelock           |
+| Role                    | Description                                                                      | Operator's type                           |
+|-------------------------|----------------------------------------------------------------------------------|-------------------------------------------|
+| `SETTER_ROLE`           | Can set the contract params & Can add/remove users for bypassing the swap ratio  | Msig                                      |
+| `PAUSER_ROLE`           | Can pause the contract                                                           | Delegated to security monitoring services |
+| `UNPAUSER_ROLE`         | Can unpause the contract                                                         | Msig                                      |
+| `WITHDRAWER_ROLE`       | Can withdraw ERC20 tokens from the contract & Can remove liquidity from the pool | Msig                                      |
+| `REWARD_COLLECTOR_ROLE` | Can collect rewards from the gauge (only for V2AMO)                              | Msig                                      |
+| `DEFAULT_ADMIN_ROLE`    | Can manage roles                                                                 | Msig                                      |
 
+##### Use ProxyAdmin for upgrading the contract
+
+The owner of the ProxyAdmin is the protocol's msig under a timelock
 
 ------
 
 ### Minter
+
+#### Security & Risk Management
 
 - **Manages ION minting & burning**.
 - **Security measures**:
@@ -311,16 +320,21 @@ tick-based liquidity but instead interacts with liquidity gauges and traditional
     - **Protocol-owned minting only for liquidity rebalancing**.
     - **Timelock governance for emergency pauses**.
 
-##### Role-Based Access Control (RBAC) for the Minter contract 
+##### Role-Based Access Control (RBAC) for the Minter contract
 
-| Role              | Description                                                                    | Operator's type                    |
-|-------------------|--------------------------------------------------------------------------------|------------------------------------|
-| `MINTER_ROLE`     | Can mint ION tokens by transferring collateral and then minting ION            | (potentially vault contracts for a future upgrade) |
-| `ADMIN_ROLE`      | Can set the contract params                                                    | msig                               |
-| `AMO_ROLE`        | Can mint ION tokens via protocol operations (only be granted to AMO contracts) | LiquidityAMO contract                       |
-| `PAUSER_ROLE`     | Can pause the contract                                                         | delegated to security monitoring firm                           |
-| `UNPAUSER_ROLE`   | Can unpause the contract                                                       | msig                           |
-| `WITHDRAWER_ROLE` | Standard role to potentially withdraw ERC20 tokens from a contract to the msig. Not in use in current version.                        | msig                               |
+| Role                 | Description                                                                                                    | Operator's type                                    |
+|----------------------|----------------------------------------------------------------------------------------------------------------|----------------------------------------------------|
+| `MINTER_ROLE`        | Can mint ION tokens by transferring collateral and then minting ION                                            | (Potentially vault contracts for a future upgrade) |
+| `ADMIN_ROLE`         | Can set the contract params                                                                                    | Msig                                               |
+| `AMO_ROLE`           | Can mint ION tokens via protocol operations                                                                    | LiquidityAMO contract                              |
+| `PAUSER_ROLE`        | Can pause the contract                                                                                         | Delegated to security monitoring services          |
+| `UNPAUSER_ROLE`      | Can unpause the contract                                                                                       | Msig                                               |
+| `WITHDRAWER_ROLE`    | Standard role to potentially withdraw ERC20 tokens from a contract to the msig (not in use in current version) | Msig                                               |
+| `DEFAULT_ADMIN_ROLE` | Can manage roles                                                                                               | Msig                                               |
+
+##### Use ProxyAdmin for upgrading the contract
+
+The owner of the ProxyAdmin is the protocol's msig under a timelock
 
 ---
 
@@ -339,13 +353,17 @@ tick-based liquidity but instead interacts with liquidity gauges and traditional
         - If **Muon Oracle fails**, **governance can manually update price feeds**.
         - This prevents AMO from making **bad liquidity decisions** due to faulty price feeds.
 
-##### Role-Based Access Control (RBAC) for the price manager contract
+##### Role-Based Access Control (RBAC) for the PriceManager contract
 
 | Role                 | Description                 | Operator's type |
 |----------------------|-----------------------------|-----------------|
-| `TOKEN_UPDATER_ROLE` | Can update the asset states | msig            |
-| `SETTER_ROLE`        | Can set the contract params | msig            |
-| `DEFAULT_ADMIN_ROLE` | Can manage roles and upgrade the contract| msig under a timelock           |
+| `TOKEN_UPDATER_ROLE` | Can update the asset states | Msig            |
+| `SETTER_ROLE`        | Can set the contract params | Msig            |
+| `DEFAULT_ADMIN_ROLE` | Can manage roles            | Msig            |
+
+##### Use ProxyAdmin for upgrading the contract
+
+The owner of the ProxyAdmin is the protocol's msig under a timelock
 
 ---
 
