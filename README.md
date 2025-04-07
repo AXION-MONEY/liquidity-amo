@@ -201,10 +201,10 @@ tick-based liquidity but instead interacts with liquidity gauges and traditional
   When ION is above the target price, V2AMO mints ION tokens and sells them to acquire the paired token.
 
     - The ION minting amount is calculated using the formula:
-      $$\text{ionAmountWithoutFee} = \sqrt{\frac{\text{pairTokenReserve} \times \text{ionReserve}}{\text{ionTargetPrice}}} - \text{ionReserve}$$
+      - $$\text{ionAmountWithoutFee} = \sqrt{\frac{\text{pairTokenReserve} \times \text{ionReserve}}{\text{ionTargetPrice}}} - \text{ionReserve}$$
 
       An additional fee adjustment is added:
-      $$\text{ionAmount} = \frac{\text{ionAmountWithoutFee}}{1 - \text{poolFee}}$$
+      - $$\text{ionAmount} = \frac{\text{ionAmountWithoutFee}}{1 - \text{poolFee}}$$
 
 - **Unfarm-Buy-Burn Calculation**
 
@@ -215,17 +215,17 @@ tick-based liquidity but instead interacts with liquidity gauges and traditional
     * **Calculate the Square Root Ratio:**
 
       The square root ratio adjusts the reserves based on the target price:
-      $$\text{sqrtResRatio} = \sqrt{\frac{\text{pairTokenReserve}}{\text{ionReserve} \times \text{ionTargetPrice}}}$$
+      - $$\text{sqrtResRatio} = \sqrt{\frac{\text{pairTokenReserve}}{\text{ionReserve} \times \text{ionTargetPrice}}}$$
 
     * **Compute the Removal Percentage:**
 
       This percentage determines the fraction of total liquidity that should be withdrawn, factoring in the pool fee:
-      $$\text{removalPercentage} = \frac{1 - \text{sqrtResRatio}}{1 - (\text{poolFee} \times \text{sqrtResRatio})}$$
+      - $$\text{removalPercentage} = \frac{1 - \text{sqrtResRatio}}{1 - (\text{poolFee} \times \text{sqrtResRatio})}$$
 
     * **Determine the Liquidity to Unfarm:**
 
       Finally, the liquidity amount is calculated as a proportion of the total LP token supply:
-      $$\text{liquidity} = \text{totalLp} \times \text{removalPercentage}$$
+      - $$\text{liquidity} = \text{totalLp} \times \text{removalPercentage}$$
 
 - **Liquidity Addition:**
   After swapping, the contract adds liquidity by:
