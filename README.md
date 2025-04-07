@@ -103,13 +103,14 @@ The ION contract implements an ERC-20 token called "ION," which serves as the fo
 
 #### Security & Risk Management
 
-##### Role-Based Access Control (RBAC)
+##### Role-Based Access Control (RBAC) for the ION stablecoin 
 
-| Role            | Description                            | Operator's type |
-|-----------------|----------------------------------------|-----------------|
-| `MINTER_ROLE`   | Can mint new tokens for AMO operations | msig            |
-| `PAUSER_ROLE`   | Can pause the contract                 | timelock        |
-| `UNPAUSER_ROLE` | CCan unpause the contract              | timelock        |
+| Role            | Description                            | Operator's type      |
+|-----------------|----------------------------------------|----------------------|
+| `MINTER_ROLE`   | LiquidityAMO contract mints through the minter contract | Minter contract      |
+| `PAUSER_ROLE`   | Can pause ION  contract                | Delegated to security monitoring services (EOAs) |
+| `UNPAUSER_ROLE` | Can unpause the contract               | msig         |
+| `DEFAULT_ADMIN_ROLE` | Can manage roles and upgrade the contract               | msig under timelock        |
 
 ##### Token Transfer Guard
 
@@ -288,15 +289,17 @@ tick-based liquidity but instead interacts with liquidity gauges and traditional
     - **AMO operations can only be paused via a Timelock contract**.
     - Ensures **no centralized control over liquidity operations**.
 
-##### Role-Based Access Control (RBAC)
+##### Role-Based Access Control (RBAC) for the liquidityAMO contract 
 
 | Role                    | Description                                                                      | Operator's type |
 |-------------------------|----------------------------------------------------------------------------------|-----------------|
 | `SETTER_ROLE`           | Can set the contract params & Can add/remove users for bypassing the swap ratio  | msig            |
-| `PAUSER_ROLE`           | Can pause the contract                                                           | timelock        |
-| `UNPAUSER_ROLE`         | Can unpause the contract                                                         | timelock        |
+| `PAUSER_ROLE`           | Can pause the contract                                                           | delegate to security monitoring services        |
+| `UNPAUSER_ROLE`         | Can unpause the contract                                                         | msig        |
 | `WITHDRAWER_ROLE`       | Can withdraw ERC20 tokens from the contract & Can remove liquidity from the pool | msig            |
 | `REWARD_COLLECTOR_ROLE` | Can collect rewards from the gauge (only for V2AMO)                              | msig            |
+| `DEFAULT_ADMIN_ROLE` | Can manage roles and upgrade the contract| msig under a timelock           |
+
 
 ------
 
@@ -308,16 +311,16 @@ tick-based liquidity but instead interacts with liquidity gauges and traditional
     - **Protocol-owned minting only for liquidity rebalancing**.
     - **Timelock governance for emergency pauses**.
 
-##### Role-Based Access Control (RBAC)
+##### Role-Based Access Control (RBAC) for the Minter contract 
 
 | Role              | Description                                                                    | Operator's type                    |
 |-------------------|--------------------------------------------------------------------------------|------------------------------------|
-| `MINTER_ROLE`     | Can mint ION tokens by transferring collateral and then minting ION            | protocol contract (not exists yet) |
+| `MINTER_ROLE`     | Can mint ION tokens by transferring collateral and then minting ION            | (potentially vault contracts for a future upgrade) |
 | `ADMIN_ROLE`      | Can set the contract params                                                    | msig                               |
-| `AMO_ROLE`        | Can mint ION tokens via protocol operations (only be granted to AMO contracts) | AMO contract                       |
-| `PAUSER_ROLE`     | Can pause the contract                                                         | timelock                           |
-| `UNPAUSER_ROLE`   | Can unpause the contract                                                       | timelock                           |
-| `WITHDRAWER_ROLE` | Can withdraw ERC20 tokens from the contract                                    | msig                               |
+| `AMO_ROLE`        | Can mint ION tokens via protocol operations (only be granted to AMO contracts) | LiquidityAMO contract                       |
+| `PAUSER_ROLE`     | Can pause the contract                                                         | delegated to security monitoring firm                           |
+| `UNPAUSER_ROLE`   | Can unpause the contract                                                       | msig                           |
+| `WITHDRAWER_ROLE` | Standard role to potentially withdraw ERC20 tokens from a contract to the msig. Not in use in current version.                        | msig                               |
 
 ---
 
@@ -336,12 +339,13 @@ tick-based liquidity but instead interacts with liquidity gauges and traditional
         - If **Muon Oracle fails**, **governance can manually update price feeds**.
         - This prevents AMO from making **bad liquidity decisions** due to faulty price feeds.
 
-##### Role-Based Access Control (RBAC)
+##### Role-Based Access Control (RBAC) for the price manager contract
 
 | Role                 | Description                 | Operator's type |
 |----------------------|-----------------------------|-----------------|
 | `TOKEN_UPDATER_ROLE` | Can update the asset states | msig            |
 | `SETTER_ROLE`        | Can set the contract params | msig            |
+| `DEFAULT_ADMIN_ROLE` | Can manage roles and upgrade the contract| msig under a timelock           |
 
 ---
 
