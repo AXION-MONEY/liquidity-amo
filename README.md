@@ -201,10 +201,16 @@ tick-based liquidity but instead interacts with liquidity gauges and traditional
   When ION is above the target price, V2AMO mints ION tokens and sells them to acquire the paired token.
 
     - The ION minting amount is calculated using the formula:
-        - $$\text{ionAmountWithoutFee} = \sqrt{\frac{\text{pairTokenReserve} \times \text{ionReserve}}{\text{ionTargetPrice}}} - \text{ionReserve}$$
+
+      $$
+      \text{ionAmountWithoutFee} = \sqrt{\frac{\text{pairTokenReserve} \times \text{ionReserve}}{\text{ionTargetPrice}}} - \text{ionReserve}
+      $$
 
       An additional fee adjustment is added:
-        - $$\text{ionAmount} = \frac{\text{ionAmountWithoutFee}}{1 - \text{poolFee}}$$
+
+      $$
+      \text{ionAmount} = \frac{\text{ionAmountWithoutFee}}{1 - \text{poolFee}}
+      $$
 
 - **Unfarm-Buy-Burn Calculation**
 
@@ -212,20 +218,29 @@ tick-based liquidity but instead interacts with liquidity gauges and traditional
   liquidity from the gauge, removing liquidity from the pool, and then swapping to buy ION (which is subsequently
   burned). The key step is determining how much liquidity to unfarm. This is computed using the following formulas:
 
-    * **Calculate the Square Root Ratio:**
+ - **Calculate the Square Root Ratio:**
 
-      The square root ratio adjusts the reserves based on the target price:
-        - $$\text{sqrtResRatio} = \sqrt{\frac{\text{pairTokenReserve}}{\text{ionReserve} \times \text{ionTargetPrice}}}$$
+   The square root ratio adjusts the reserves based on the target price:
 
-    * **Compute the Removal Percentage:**
+$$
+\text{sqrtResRatio} = \sqrt{\frac{\text{pairTokenReserve}}{\text{ionReserve} \times \text{ionTargetPrice}}}
+$$
 
-      This percentage determines the fraction of total liquidity that should be withdrawn, factoring in the pool fee:
-        - $$\text{removalPercentage} = \frac{1 - \text{sqrtResRatio}}{1 - (\text{poolFee} \times \text{sqrtResRatio})}$$
+ - **Compute the Removal Percentage:**
 
-    * **Determine the Liquidity to Unfarm:**
+   This percentage determines the fraction of total liquidity that should be withdrawn, factoring in the pool fee:
 
-      Finally, the liquidity amount is calculated as a proportion of the total LP token supply:
-        - $$\text{liquidity} = \text{totalLp} \times \text{removalPercentage}$$
+$$
+\text{removalPercentage} = \frac{1 - \text{sqrtResRatio}}{1 - (\text{poolFee} \times \text{sqrtResRatio})}
+$$
+
+ - **Determine the Liquidity to Unfarm:**
+
+   Finally, the liquidity amount is calculated as a proportion of the total LP token supply:
+
+$$
+\text{liquidity} = \text{totalLp} \times \text{removalPercentage}
+$$
 
 - **Liquidity Addition:**
   After swapping, the contract adds liquidity by:
