@@ -49,8 +49,6 @@ Any DEX that uses same pool logic (codebase) can easily be added and integrated:
 
 ### CLAMM (Concentrated Liquidity)
 
-### CLAMM (Concentrated Liquidity)
-
 - **Aerodrome CL** and **Velodrome CL**
 - **Algebra V1.0, V1.9 and Integral**
 - **Uniswap V3**
