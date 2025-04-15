@@ -7,8 +7,6 @@ import {ISolidlyRouter} from "./interfaces/v2/ISolidlyRouter.sol";
 import {IPair} from "./interfaces/v2/IPair.sol";
 import {IV2AMO} from "./interfaces/IV2AMO.sol";
 import {IVRouter} from "./interfaces/v2/IVRouter.sol";
-import {IPoolFactory} from "./interfaces/v2/IPoolFactory.sol";
-import {IPairFactory} from "./interfaces/v2/IPairFactory.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {IIon} from "./interfaces/IIon.sol";
@@ -73,11 +71,12 @@ contract V2AMO is IV2AMO, MasterAMO {
      * @param ionAddress_ Address of the ION token.
      * @param pairTokenAddress_ Address of the Pair token.
      * @param isStable_ True if the pool is stable; false if volatile.
-     * @param poolType_ The pool type (SOLIDLY_V2, VELO_LIKE or EQUAL_LIKE).
+     * @param poolType_ The pool type (SOLIDLY_V2 or VELO_LIKE).
+     * @param poolFee_ The pool fee in decimals 6.
      * @param ionMinterAddress_ Address of the ION minter contract.
      * @param priceManagerAddress_ Address of the price manager contract.
      * @param pairTokenType_ The type of the token paired with ION.
-     * @param factoryAddress_ Address of the factory (if zero, the default factory is used for VELO_LIKE pools).
+     * @param factoryAddress_ Address of the factory.
      * @param routerAddress_ Address of the router contract.
      * @param gaugeAddress_ Address of the gauge contract.
      * @param rewardVault_ Address of the reward vault.
@@ -93,6 +92,7 @@ contract V2AMO is IV2AMO, MasterAMO {
         address pairTokenAddress_,
         bool isStable_,
         PoolType poolType_,
+        uint256 poolFee_,
         address ionMinterAddress_,
         address priceManagerAddress_,
         PairTokenType pairTokenType_,
@@ -114,13 +114,10 @@ contract V2AMO is IV2AMO, MasterAMO {
         isStablePool = isStable_;
         factoryAddress = factoryAddress_;
         address pool_;
-        uint256 poolFee_;
         if (poolType == PoolType.VELO_LIKE) {
             pool_ = IVRouter(routerAddress_).poolFor(pairTokenAddress_, ionAddress_, isStable_, factoryAddress);
-            poolFee_ = IPoolFactory(factoryAddress).getFee(pool_, isStable_);
         } else {
             pool_ = ISolidlyRouter(routerAddress_).pairFor(pairTokenAddress_, ionAddress_, isStable_);
-            poolFee_ = IPairFactory(factoryAddress).getFee(isStable_);
         }
 
         // Initialize inherited variables from MasterAMO
@@ -139,9 +136,8 @@ contract V2AMO is IV2AMO, MasterAMO {
 
         routerAddress = routerAddress_;
         gaugeAddress = gaugeAddress_;
-        uint256 feeScaledFactor = poolType == PoolType.EQUAL_LIKE ? 1e18 : 1e4;
         _grantRole(SETTER_ROLE, msg.sender);
-        setPoolFee(poolFee_.mulDiv(SCALED_UNIT, feeScaledFactor));
+        setPoolFee(poolFee_);
         setVault(rewardVault_);
         setTokenId(tokenId_, useTokenId_);
         _revokeRole(SETTER_ROLE, msg.sender);

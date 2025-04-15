@@ -78,8 +78,7 @@ interface IV2AMO {
      */
     enum PoolType {
         SOLIDLY_V2,
-        VELO_LIKE, // Aerodrome, Velodrome
-        EQUAL_LIKE // Equalizer (EQUAL on Sonic, SCALE on Base)
+        VELO_LIKE // Aerodrome, Velodrome
     }
 
     // -------------------------------------------------------------
