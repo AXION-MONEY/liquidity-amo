@@ -65,14 +65,15 @@ describe("EQUALIZER", function () {
                 admin,
                 await ion.getAddress(),
                 await pairToken.getAddress(),
-                V2PoolType.EQUAL_LIKE,
+                V2PoolType.SOLIDLY_V2,
                 await minter.getAddress(),
                 await priceManager.getAddress(),
                 pairedTokenType,
                 V2_ROUTER,
                 validRangeWidth,
                 sellRatio,
-                buyRatio
+                buyRatio,
+                BigInt(10 ** 18)
               );
               const amoAddress = await v2amo.getAddress();
               const AMO_ROLE = await minter.AMO_ROLE();
