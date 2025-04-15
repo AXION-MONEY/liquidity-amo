@@ -216,11 +216,8 @@ contract V3AMO is IV3AMO, MasterAMO {
             uint256 ionInputAmount = uint256(ionDelta);
             uint256 pairTokenOutputAmount = uint256(-pairTokenDelta);
 
-            // Validate that the pool has enough pair tokens and that price slippage is within allowed bounds.
-            bool insufficientPairTokenBalance = balanceOfToken(pairTokenAddress) < pairTokenOutputAmount;
-            bool priceSlippageExceeded = scalePairTokenToIonDecimals(pairTokenOutputAmount) <
-                ionInputAmount.mulDiv(targetPrice, SCALED_UNIT);
-            if (insufficientPairTokenBalance || priceSlippageExceeded) {
+            // Validate that the pool has enough pair tokens.
+            if (balanceOfToken(pairTokenAddress) < pairTokenOutputAmount) {
                 revert InvalidDelta();
             }
             // Mint ION tokens to the pool as part of the swap.
@@ -230,11 +227,8 @@ contract V3AMO is IV3AMO, MasterAMO {
             uint256 pairTokenInputAmount = uint256(pairTokenDelta);
             uint256 ionOutputAmount = uint256(-ionDelta);
 
-            // Validate that the pool has enough ION tokens and that the input amount is within allowed price bounds.
-            bool insufficientIonBalance = balanceOfToken(ionAddress) < ionOutputAmount;
-            bool priceExceeded = scalePairTokenToIonDecimals(pairTokenInputAmount) >
-                ionOutputAmount.mulDiv(targetPrice, SCALED_UNIT);
-            if (insufficientIonBalance || priceExceeded) {
+            // Validate that the pool has enough ION tokens.
+            if (balanceOfToken(ionAddress) < ionOutputAmount) {
                 revert InvalidDelta();
             }
             // Transfer pair tokens to the pool to complete the swap.
