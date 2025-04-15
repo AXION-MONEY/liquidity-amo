@@ -248,7 +248,8 @@ export async function deployV2AMO(
   validRangeWidth: bigint,
   sellRatio: bigint,
   buyRatio: bigint,
-  feeDivider: bigint = BigInt(10 ** 4)
+  feeDivider: bigint = BigInt(10 ** 4),
+  isSolidly: boolean = false
 ): Promise<V2AMO> {
   const GaugeFactory = await ethers.getContractFactory("MockGauge");
   const gauge = await GaugeFactory.deploy();
@@ -264,7 +265,12 @@ export async function deployV2AMO(
     if ((await router.pairFor(ionAddress, pairTokenAddress, stable)) === ethers.ZeroAddress) {
       await factory.createPair(ionAddress, pairTokenAddress, stable);
     }
-    poolFee = await factory.getFee(stable);
+    if (isSolidly) {
+      const factory = await ethers.getContractAt("IPairFactory", factoryAddress);
+      poolFee = stable ? await factory.stableFees() : await factory.volatileFees();
+    } else {
+      poolFee = await factory.getFee(stable);
+    }
   } else {
     const router = await ethers.getContractAt("IVRouter", routerAddress);
     factoryAddress = await router.defaultFactory();
