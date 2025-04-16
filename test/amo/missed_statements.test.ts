@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
-import { Ion, Minter, MockERC20, PriceManager, V2AMO } from "../../typechain-types";
+import { Ion, Minter, MockERC20, MockGauge, PriceManager, V2AMO } from "../../typechain-types";
 import {
   addV2Liquidity,
   deployBaseContracts,
@@ -161,5 +161,41 @@ describe("Missed Statements", () => {
     const newPrice2 = await getCurrentPrice(v2amo, LOG_PRICES);
     expect(newPrice2).to.be.lt(tp - (tp * validRangeWidth) / 1000000n);
     expect(await v2amo.getBypassSwapRatioMembers()).to.deep.equal([]);
+  });
+
+  describe("Staking while mintSellFarm", () => {
+    let gauge: MockGauge;
+    beforeEach(async () => {
+      gauge = await ethers.getContractAt("MockGauge", await v2amo.gaugeAddress());
+      await v2VeloSwap(user, pairToken, ion, AERO_V2_ROUTER, swapAmount);
+      await v2amo.connect(admin).addBypassSwapRatioMember(user);
+    });
+
+    it("should operate when gauge is paused and staking is disabled", async () => {
+      expect(await v2amo.useGauge()).to.be.true;
+      await gauge.pause();
+      await expect(v2amo.connect(user).mintSellFarm()).to.be.revertedWith("paused");
+      await v2amo.disableStaking(false);
+      await expect(v2amo.connect(user).mintSellFarm()).not.to.be.reverted;
+    });
+  });
+
+  describe("Staking while unfarmBuyBurn", () => {
+    let gauge: MockGauge;
+    beforeEach(async () => {
+      gauge = await ethers.getContractAt("MockGauge", await v2amo.gaugeAddress());
+      await v2VeloSwap(user, ion, pairToken, AERO_V2_ROUTER, swapAmount);
+      await v2amo.connect(admin).addBypassSwapRatioMember(user);
+    });
+
+    it("should operate when gauge is paused and staking is disabled", async () => {
+      expect(await v2amo.useGauge()).to.be.true;
+      await gauge.pause();
+      await expect(v2amo.connect(user).unfarmBuyBurn()).to.be.revertedWith("paused");
+      await gauge.unpause();
+      await v2amo.disableStaking(true);
+      await gauge.pause();
+      await expect(v2amo.connect(user).unfarmBuyBurn()).not.to.be.reverted;
+    });
   });
 });
