@@ -250,11 +250,8 @@ export async function deployV2AMO(
   sellRatio: bigint,
   buyRatio: bigint
 ): Promise<V2AMO> {
-  const GaugeFactory = await ethers.getContractFactory("MockGauge");
-  const gauge = await GaugeFactory.deploy();
-  await gauge.waitForDeployment();
-  const gaugeAddress = await gauge.getAddress();
   const stable = false;
+  let poolAddress: string;
   let factoryAddress;
   if ([V2PoolType.SOLIDLY_V2, V2PoolType.EQUAL_LIKE].includes(poolType)) {
     const router = await ethers.getContractAt("ISolidlyRouter", routerAddress);
@@ -263,10 +260,16 @@ export async function deployV2AMO(
       const factory = await ethers.getContractAt("IPairFactory", factoryAddress);
       await factory.createPair(ionAddress, pairTokenAddress, stable);
     }
+    poolAddress = await router.pairFor(ionAddress, pairTokenAddress, stable);
   } else {
     const router = await ethers.getContractAt("IVRouter", routerAddress);
     factoryAddress = await router.defaultFactory();
+    poolAddress = await router.poolFor(pairTokenAddress, ionAddress, stable, factoryAddress);
   }
+  const GaugeFactory = await ethers.getContractFactory("MockGauge");
+  const gauge = await GaugeFactory.deploy(poolAddress);
+  await gauge.waitForDeployment();
+  const gaugeAddress = await gauge.getAddress();
   const args = [
     admin.address,
     ionAddress,
@@ -291,6 +294,8 @@ export async function deployV2AMO(
     initializer: "initialize"
   });
   await amo.waitForDeployment();
+  const SETTER_ROLE = await amo.SETTER_ROLE();
+  await amo.connect(admin).grantRole(SETTER_ROLE, admin);
   return amo;
 }
 
@@ -423,7 +428,7 @@ export async function addV2Liquidity(
   routerAddress: string,
   ion: Ion,
   pairToken: MockERC20,
-  amoAddress: string,
+  amo: V2AMO,
   amount: string,
   price: bigint = ethers.parseUnits("1", 6)
 ) {
@@ -441,9 +446,11 @@ export async function addV2Liquidity(
     pairTokenAmount,
     0, // min amounts = 0 for testing
     0,
-    amoAddress,
+    await amo.getAddress(),
     ethers.MaxUint256
   );
+  // Deposit all LP tokens to the gauge
+  await amo.connect(admin).enableStaking(true);
 }
 
 export async function v3Swap(
