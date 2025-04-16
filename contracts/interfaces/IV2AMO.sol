@@ -70,6 +70,16 @@ interface IV2AMO {
      */
     event RewardTokensSet(address[] tokens, bool isWhitelisted);
 
+    /**
+     * @notice Emitted when the staking enabled.
+     */
+    event StakingEnabled();
+
+    /**
+     * @notice Emitted when the staking disabled.
+     */
+    event StakingDisabled();
+
     // -------------------------------------------------------------
     //                          ENUMS
     // -------------------------------------------------------------
@@ -143,6 +153,11 @@ interface IV2AMO {
      */
     function useTokenId() external view returns (bool);
 
+    /**
+     * @notice Returns true if the gauge staking is enabled, false if is disabled.
+     */
+    function useGauge() external view returns (bool);
+
     // -------------------------------------------------------------
     //                          FUNCTION
     // -------------------------------------------------------------
@@ -164,6 +179,18 @@ interface IV2AMO {
      * @param useTokenId_ Boolean indicating whether to use the token ID.
      */
     function setTokenId(uint256 tokenId_, bool useTokenId_) external;
+
+    /**
+     * @notice Enable using the gauge deposit/withdraw functionality for add/remove liquidity.
+     * @param depositAllToGauge Boolean indicating whether to deposit all the LP tokens to the gauge after enabling.
+     */
+    function enableStaking(bool depositAllToGauge) external;
+
+    /**
+     * @notice Disable using the gauge deposit/withdraw functionality for add/remove liquidity.
+     * @param withdrawAllFromGauge Boolean indicating whether to withdraw all the LP tokens from the gauge before disabling.
+     */
+    function disableStaking(bool withdrawAllFromGauge) external;
 
     /**
      * @notice Sets the whitelist status for an array of reward tokens.
