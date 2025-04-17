@@ -190,8 +190,10 @@ contract V2AMO is IV2AMO, MasterAMO {
         // Calculating ION amount for mint and sell
         (uint256 ionReserve, uint256 pairTokenReserve) = getReserves();
         uint256 targetPrice = ionTargetPriceInPairToken();
-        uint256 ionAmountWithoutFee = ((Math.sqrt((pairTokenReserve * ionReserve * SCALED_UNIT) / targetPrice) -
-            ionReserve) * swapRatio) / SCALED_UNIT;
+        uint256 priceDelta = ionPriceInPairToken() - targetPrice;
+        targetPrice += priceDelta.mulDiv((SCALED_UNIT - swapRatio), SCALED_UNIT);
+        uint256 ionAmountWithoutFee = Math.sqrt((pairTokenReserve * ionReserve * SCALED_UNIT) / targetPrice) -
+            ionReserve;
         uint256 ionAmount = ionAmountWithoutFee.mulDiv(SCALED_UNIT, (SCALED_UNIT - poolFee));
 
         // Mint ION tokens to this contract
@@ -351,11 +353,14 @@ contract V2AMO is IV2AMO, MasterAMO {
         pairTokenCollectedFee = 0;
     }
 
-    function _calculateLiquidityToUnfarm() internal view returns (uint256 liquidity) {
+    function _calculateLiquidityToUnfarm(uint24 swapRatio) internal view returns (uint256 liquidity) {
         (uint256 ionReserve, uint256 pairTokenReserve) = getReserves();
         uint256 totalLp = IERC20(poolAddress).totalSupply();
+        uint256 targetPrice = ionTargetPriceInPairToken();
+        uint256 priceDelta = targetPrice - ionPriceInPairToken();
+        targetPrice -= priceDelta.mulDiv((SCALED_UNIT - swapRatio), SCALED_UNIT);
         uint256 sqrtResRatio = Math.sqrt(
-            (SCALED_UNIT ** 2 * pairTokenReserve) / ((ionReserve * ionTargetPriceInPairToken()) / SCALED_UNIT)
+            (SCALED_UNIT ** 2 * pairTokenReserve) / ((ionReserve * targetPrice) / SCALED_UNIT)
         );
         uint256 removalPercentage = (SCALED_UNIT * (SCALED_UNIT - sqrtResRatio)) /
             (SCALED_UNIT - ((poolFee * sqrtResRatio) / SCALED_UNIT));
@@ -366,8 +371,7 @@ contract V2AMO is IV2AMO, MasterAMO {
     function _unfarmBuyBurn(
         uint24 swapRatio
     ) internal override returns (uint256 liquidity, uint256 postOperationIonPrice) {
-        liquidity = _calculateLiquidityToUnfarm();
-        liquidity = liquidity.mulDiv(swapRatio, SCALED_UNIT);
+        liquidity = _calculateLiquidityToUnfarm(swapRatio);
         (uint256 ionRemoved, uint256 pairTokenRemoved, , ) = _removeLiquidity(liquidity);
 
         // Approve router for the PairToken swap.
