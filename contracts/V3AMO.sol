@@ -258,9 +258,7 @@ contract V3AMO is IV3AMO, MasterAMO {
 
     /// @inheritdoc MasterAMO
     function _mintAndSell(uint24 swapRatio) internal override returns (uint256 postOperationIonPrice) {
-        uint256 targetPrice = ionTargetPriceInPairToken();
-        uint256 priceDelta = ionPriceInPairToken() - targetPrice;
-        targetPrice += priceDelta.mulDiv((SCALED_UNIT - swapRatio), SCALED_UNIT);
+        uint256 targetPrice = limitedTargetPriceForSell(swapRatio);
         (int256 amount0, int256 amount1) = IUniswapV3Pool(poolAddress).swap(
             address(this),
             ionAddress < pairTokenAddress, // zeroForOne
@@ -355,9 +353,7 @@ contract V3AMO is IV3AMO, MasterAMO {
         uint24 swapRatio
     ) internal returns (uint256 liquidity, uint160 sqrtPriceLimitX96) {
         uint256 positionLiquidity = getLiquidity();
-        uint256 targetPrice = ionTargetPriceInPairToken();
-        uint256 priceDelta = targetPrice - ionPriceInPairToken();
-        targetPrice -= priceDelta.mulDiv((SCALED_UNIT - swapRatio), SCALED_UNIT);
+        uint256 targetPrice = limitedTargetPriceForBuy(swapRatio);
         sqrtPriceLimitX96 = toSqrtPriceX96(targetPrice);
         try
             IUniswapV3Pool(poolAddress).swap(

@@ -189,9 +189,7 @@ contract V2AMO is IV2AMO, MasterAMO {
     function _mintAndSell(uint24 swapRatio) internal override returns (uint256 postOperationIonPrice) {
         // Calculating ION amount for mint and sell
         (uint256 ionReserve, uint256 pairTokenReserve) = getReserves();
-        uint256 targetPrice = ionTargetPriceInPairToken();
-        uint256 priceDelta = ionPriceInPairToken() - targetPrice;
-        targetPrice += priceDelta.mulDiv((SCALED_UNIT - swapRatio), SCALED_UNIT);
+        uint256 targetPrice = limitedTargetPriceForSell(swapRatio);
         uint256 ionAmountWithoutFee = Math.sqrt((pairTokenReserve * ionReserve * SCALED_UNIT) / targetPrice) -
             ionReserve;
         uint256 ionAmount = ionAmountWithoutFee.mulDiv(SCALED_UNIT, (SCALED_UNIT - poolFee));
@@ -356,9 +354,7 @@ contract V2AMO is IV2AMO, MasterAMO {
     function _calculateLiquidityToUnfarm(uint24 swapRatio) internal view returns (uint256 liquidity) {
         (uint256 ionReserve, uint256 pairTokenReserve) = getReserves();
         uint256 totalLp = IERC20(poolAddress).totalSupply();
-        uint256 targetPrice = ionTargetPriceInPairToken();
-        uint256 priceDelta = targetPrice - ionPriceInPairToken();
-        targetPrice -= priceDelta.mulDiv((SCALED_UNIT - swapRatio), SCALED_UNIT);
+        uint256 targetPrice = limitedTargetPriceForBuy(swapRatio);
         uint256 sqrtResRatio = Math.sqrt(
             (SCALED_UNIT ** 2 * pairTokenReserve) / ((ionReserve * targetPrice) / SCALED_UNIT)
         );
