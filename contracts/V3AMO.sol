@@ -6,9 +6,6 @@ import "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import "@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol";
 import "./MasterAMO.sol";
 import {IUniswapV3Pool} from "./interfaces/v3/IUniswapV3Pool.sol";
-import {ISolidlyV3Pool} from "./interfaces/v3/ISolidlyV3Pool.sol";
-import {ISolidlyV3Factory} from "./interfaces/v3/ISolidlyV3Factory.sol";
-import {IRewardsDistributor} from "./interfaces/v3/IRewardsDistributor.sol";
 import {IAlgebraPool} from "./interfaces/v3/IAlgebraPool.sol";
 import {IAlgebraIntegralPool} from "./interfaces/v3/IAlgebraIntegralPool.sol";
 import {IV3AMO} from "./interfaces/IV3AMO.sol";
@@ -330,10 +327,6 @@ contract V3AMO is IV3AMO, MasterAMO {
         }
         (ionRemoved, pairTokenRemoved) = orderAmountsByTokenAddress(amount0FromBurn, amount1FromBurn);
 
-        if (poolType == PoolType.SOLIDLY_V3) {
-            address feeCollector = ISolidlyV3Factory(ISolidlyV3Pool(poolAddress).factory()).feeCollector();
-            IRewardsDistributor(feeCollector).collectPoolFees(poolAddress);
-        }
         uint128 amount0Collected;
         uint128 amount1Collected;
         (amount0Collected, amount1Collected) = IUniswapV3Pool(poolAddress).collect(
