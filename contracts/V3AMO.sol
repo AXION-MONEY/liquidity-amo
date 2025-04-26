@@ -88,7 +88,7 @@ contract V3AMO is IV3AMO, MasterAMO {
         address poolCustomDeployer_,
         address ionMinterAddress_,
         address priceManagerAddress_,
-        PairTokenType pairTokenType_,
+        IPriceManager.TokenType pairTokenType_,
         int24 tickLower_,
         int24 tickUpper_,
         uint24 validRangeWidth_,

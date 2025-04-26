@@ -75,7 +75,7 @@ abstract contract MasterAMO is
     /// @inheritdoc IMasterAMO
     address public priceManagerContractAddress;
     /// @inheritdoc IMasterAMO
-    PairTokenType public pairTokenType;
+    IPriceManager.TokenType public pairTokenType;
 
     ////// MUTABLE //////
     /// @inheritdoc IMasterAMO
@@ -138,7 +138,7 @@ abstract contract MasterAMO is
         address pool_,
         address ionMinterAddress_,
         address priceManager_,
-        PairTokenType pairTokenType_,
+        IPriceManager.TokenType pairTokenType_,
         uint24 validRangeWidth_,
         uint24 sellRatio_,
         uint24 buyRatio_
@@ -474,15 +474,13 @@ abstract contract MasterAMO is
 
     /// @inheritdoc IMasterAMO
     function ionTargetPriceInPairToken() public view override returns (uint256) {
-        uint256 baseUnit = 10 ** PRICE_DECIMALS;
-        if (pairTokenType == PairTokenType.STABLE) return baseUnit;
-        else if (pairTokenType == PairTokenType.SUSDE)
-            return IPriceManager(priceManagerContractAddress).sUsdePreviewDeposit(baseUnit) + ionTargetPricePremium;
-        else if (pairTokenType == PairTokenType.SFRAX)
-            return IPriceManager(priceManagerContractAddress).sFraxPreviewDeposit(baseUnit) + ionTargetPricePremium;
-        else if (pairTokenType == PairTokenType.SDAI)
-            return IPriceManager(priceManagerContractAddress).sDaiPreviewDeposit(baseUnit) + ionTargetPricePremium;
-        else revert InvalidPairTokenType();
+        uint256 pairTokenPrice;
+        if (pairTokenType == IPriceManager.TokenType.STABLE) {
+            pairTokenPrice = IPriceManager(priceManagerContractAddress).stableTokenPrice(pairTokenAddress);
+        } else {
+            pairTokenPrice = IPriceManager(priceManagerContractAddress).stakedTokenPrice(pairTokenType);
+        }
+        return Math.mulDiv(SCALED_UNIT, SCALED_UNIT, pairTokenPrice) + ionTargetPricePremium;
     }
 
     function getBypassSwapRatioMembers() external view returns (address[] memory) {

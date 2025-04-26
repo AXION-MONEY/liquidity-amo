@@ -95,7 +95,7 @@ contract V2AMO is IV2AMO, MasterAMO {
         PoolType poolType_,
         address ionMinterAddress_,
         address priceManagerAddress_,
-        PairTokenType pairTokenType_,
+        IPriceManager.TokenType pairTokenType_,
         address factoryAddress_,
         address routerAddress_,
         address gaugeAddress_,

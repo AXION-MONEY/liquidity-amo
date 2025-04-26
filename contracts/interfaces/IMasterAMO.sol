@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import "../price-manager/interfaces/IPriceManager.sol";
+
 /**
  * @title IMasterAMO
  * @notice Interface defining core functions, roles, and events for Automated Market Operations (AMO).
@@ -28,9 +30,6 @@ interface IMasterAMO {
     /// @notice Reverts when an operation is attempted but the price is already within the expected range.
     error PriceAlreadyInRange(uint256 currentPrice, uint256 targetPrice);
 
-    /// @notice Reverts when an unsupported pair token type is used.
-    error InvalidPairTokenType();
-
     // -------------------------------------------------------------
     //                           EVENTS
     // -------------------------------------------------------------
@@ -55,16 +54,6 @@ interface IMasterAMO {
      * @param buyRatio The buy ratio as unfarmBuyBurn's swap ratio.
      */
     event ParamsSet(uint24 validRangeWidth, uint24 sellRatio, uint24 buyRatio);
-
-    // -------------------------------------------------------------
-    //                           ENUMS
-    // -------------------------------------------------------------
-    enum PairTokenType {
-        STABLE,
-        SUSDE,
-        SFRAX,
-        SDAI
-    }
 
     // -------------------------------------------------------------
     //                            ROLES
@@ -106,7 +95,7 @@ interface IMasterAMO {
     function priceManagerContractAddress() external view returns (address);
 
     /// @notice Type of the PairToken either USD or other Staked Stable types.
-    function pairTokenType() external view returns (PairTokenType);
+    function pairTokenType() external view returns (IPriceManager.TokenType);
 
     /// @notice Valid range ratio for adding liquidity (6 decimals).
     function validRangeWidth() external view returns (uint24);

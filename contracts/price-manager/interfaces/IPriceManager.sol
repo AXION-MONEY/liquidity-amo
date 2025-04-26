@@ -43,6 +43,16 @@ interface IPriceManager {
      */
     error SigTokenMismatch();
 
+    /**
+     * @notice Thrown when the stable price value is not in the valid range.
+     */
+    error InvalidPriceValue();
+
+    /**
+     * @notice Thrown when an unsupported token type is used.
+     */
+    error InvalidTokenType();
+
     // -------------------------------------------------------------
     //                           EVENTS
     // -------------------------------------------------------------
@@ -51,6 +61,13 @@ interface IPriceManager {
      * @param muonClientAddress The address of the Muon client.
      */
     event SetMuonClient(address muonClientAddress);
+
+    /**
+     * @notice Emitted when stablecoin valid price boundaries are set.
+     * @param stablePriceLower The minimum valid price value.
+     * @param stablePriceUpper The maximum valid price value.
+     */
+    event StablePriceBoundsSet(uint256 stablePriceLower, uint256 stablePriceUpper);
 
     /**
      * @notice Emitted when the sUSDe state is updated.
@@ -87,6 +104,16 @@ interface IPriceManager {
     }
 
     /**
+     * @notice Struct representing a stablecoin price data.
+     * @param price The price of the stablecoin.
+     * @param timestamp The timestamp of the price.
+     */
+    struct StablePrice {
+        uint256 price;
+        uint256 timestamp;
+    }
+
+    /**
      * @notice Struct representing a Muon signature payload.
      * @param srcBlock The block reference from which the signature was generated.
      * @param reqId The request ID.
@@ -100,6 +127,16 @@ interface IPriceManager {
         IMuonClient.SchnorrSign signature;
         bytes gatewaySignature;
         string token;
+    }
+
+    // -------------------------------------------------------------
+    //                           ENUMS
+    // -------------------------------------------------------------
+    enum TokenType {
+        STABLE,
+        SUSDE,
+        SFRAX,
+        SDAI
     }
 
     // -------------------------------------------------------------
@@ -120,6 +157,30 @@ interface IPriceManager {
      * @param _muonClientAddress The address of the Muon client.
      */
     function setMuonClient(address _muonClientAddress) external;
+
+    /**
+     * @notice Sets stablecoin valid price boundaries.
+     * @param _stablePriceLower The minimum valid price value.
+     * @param _stablePriceUpper The maximum valid price value.
+     */
+    function setStablePriceBounds(uint256 _stablePriceLower, uint256 _stablePriceUpper) external;
+
+    ////// Stablecoins SET Price Values FUNCTIONS //////
+    /**
+     * @notice Updates a stablecoin price.
+     * @dev Callable only by an account with TOKEN_UPDATER_ROLE.
+     * @param tokenAddress The stablecoin address to set the price.
+     * @param price The price.
+     */
+    function setStable(address tokenAddress, uint256 price) external;
+
+    /**
+     * @notice Updates a stablecoin price using off-chain signature verification.
+     * @param tokenAddress The stablecoin address to set the price.
+     * @param price The price.
+     * @param sig The Muon signature payload.
+     */
+    function setStableWithSig(address tokenAddress, uint256 price, MuonSig calldata sig) external;
 
     ////// SUsde SET Price Values FUNCTIONS //////
     /**
@@ -169,6 +230,20 @@ interface IPriceManager {
     // -------------------------------------------------------------
     //                       VIEW FUNCTIONS
     // -------------------------------------------------------------
+    /**
+     * @notice Returns the price of a specific stablecoin.
+     * @param token The stablecoin address.
+     * @return price The price in 6 decimals.
+     */
+    function stableTokenPrice(address token) external view returns (uint256 price);
+
+    /**
+     * @notice Returns the price of a specific staked token.
+     * @param tokenType The staked token type.
+     * @return The price in 6 decimals.
+     */
+    function stakedTokenPrice(TokenType tokenType) external view returns (uint256);
+
     /**
      * @notice Returns the underlying assets redeemable for a given amount of sUSDe shares.
      * @param shares The number of sUSDe shares.
