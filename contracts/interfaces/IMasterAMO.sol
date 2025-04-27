@@ -70,6 +70,9 @@ interface IMasterAMO {
     /// @notice Returns the identifier for the WITHDRAWER_ROLE.
     function WITHDRAWER_ROLE() external view returns (bytes32);
 
+    /// @notice Returns the identifier for the OPERATOR_ROLE.
+    function OPERATOR_ROLE() external view returns (bytes32);
+
     // -------------------------------------------------------------
     //                        STATE VARIABLES
     // -------------------------------------------------------------
@@ -115,13 +118,6 @@ interface IMasterAMO {
 
     /// @notice Returns the buy ratio as unfarmBuyBurn's swap ratio.
     function buyRatio() external view returns (uint24);
-
-    /**
-     * @notice Checks if a user is whitelisted for bypassing the swap ratio (sellRatio and buyRatio).
-     * @param user The user address.
-     * @return True if whitelisted; false otherwise.
-     */
-    function bypassSwapRatioWhitelist(address user) external view returns (bool);
 
     // -------------------------------------------------------------
     //                           FUNCTIONS

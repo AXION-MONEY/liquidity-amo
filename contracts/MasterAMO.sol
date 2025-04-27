@@ -29,6 +29,7 @@ import {IIon} from "./interfaces/IIon.sol";
  *      - SETTER_ROLE: For setting critical parameters.
  *      - PAUSER_ROLE / UNPAUSER_ROLE: For pausing and unpausing contract operations.
  *      - WITHDRAWER_ROLE: For token withdrawals.
+ *      - OPERATOR_ROLE: Bypass swap ratio limit.
  *
  *      Future upgrades may incorporate strict governance mechanisms.
  */
@@ -54,6 +55,8 @@ abstract contract MasterAMO is
     bytes32 public constant override UNPAUSER_ROLE = keccak256("UNPAUSER_ROLE");
     /// @inheritdoc IMasterAMO
     bytes32 public constant override WITHDRAWER_ROLE = keccak256("WITHDRAWER_ROLE");
+    /// @inheritdoc IMasterAMO
+    bytes32 public constant override OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
 
     // -------------------------------------------------------------
     //                        STATE VARIABLES
@@ -86,9 +89,6 @@ abstract contract MasterAMO is
     uint24 public override sellRatio;
     /// @inheritdoc IMasterAMO
     uint24 public override buyRatio;
-    /// @inheritdoc IMasterAMO
-    mapping(address => bool) public override bypassSwapRatioWhitelist;
-    EnumerableSet.AddressSet internal _bypassSwapRatioMembers;
 
     // -------------------------------------------------------------
     //                      INTERNAL CONSTANTS
@@ -193,26 +193,6 @@ abstract contract MasterAMO is
         sellRatio = sellRatio_;
         buyRatio = buyRatio_;
         emit ParamsSet(validRangeWidth, sellRatio, buyRatio);
-    }
-
-    function addBypassSwapRatioMember(address member) external onlyRole(SETTER_ROLE) returns (bool) {
-        if (!bypassSwapRatioWhitelist[member]) {
-            bypassSwapRatioWhitelist[member] = true;
-            _bypassSwapRatioMembers.add(member);
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    function removeBypassSwapRatioMember(address member) external onlyRole(SETTER_ROLE) returns (bool) {
-        if (bypassSwapRatioWhitelist[member]) {
-            bypassSwapRatioWhitelist[member] = false;
-            _bypassSwapRatioMembers.remove(member);
-            return true;
-        } else {
-            return false;
-        }
     }
 
     // -------------------------------------------------------------
@@ -437,7 +417,7 @@ abstract contract MasterAMO is
         validateSell
         returns (uint256 liquidity, uint256 postOperationIonPrice)
     {
-        uint24 swapRatio = bypassSwapRatioWhitelist[msg.sender] ? uint24(SCALED_UNIT) : sellRatio;
+        uint24 swapRatio = hasRole(OPERATOR_ROLE, msg.sender) ? uint24(SCALED_UNIT) : sellRatio;
         (liquidity, postOperationIonPrice) = _mintSellFarm(swapRatio);
     }
 
@@ -450,7 +430,7 @@ abstract contract MasterAMO is
         validateBuy
         returns (uint256 liquidity, uint256 postOperationIonPrice)
     {
-        uint24 swapRatio = bypassSwapRatioWhitelist[msg.sender] ? uint24(SCALED_UNIT) : buyRatio;
+        uint24 swapRatio = hasRole(OPERATOR_ROLE, msg.sender) ? uint24(SCALED_UNIT) : buyRatio;
         (liquidity, postOperationIonPrice) = _unfarmBuyBurn(swapRatio);
     }
 
@@ -481,9 +461,5 @@ abstract contract MasterAMO is
             pairTokenPrice = IPriceManager(priceManagerContractAddress).stakedTokenPrice(pairTokenType);
         }
         return Math.mulDiv(SCALED_UNIT, SCALED_UNIT, pairTokenPrice) + ionTargetPricePremium;
-    }
-
-    function getBypassSwapRatioMembers() external view returns (address[] memory) {
-        return _bypassSwapRatioMembers.values();
     }
 }
