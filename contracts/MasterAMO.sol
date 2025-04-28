@@ -90,6 +90,15 @@ abstract contract MasterAMO is
     /// @inheritdoc IMasterAMO
     uint24 public override buyRatio;
 
+    struct LiquidityPerPeriod {
+        uint256 addedAmount;
+        uint256 removedAmount;
+    }
+    mapping(uint256 => mapping(uint256 => LiquidityPerPeriod)) internal _liquiditiesPerPeriod;
+    uint256 public periodDuration;
+    uint24 public addLiquidityRatioLimit;
+    uint24 public removeLiquidityRatioLimit;
+
     // -------------------------------------------------------------
     //                      INTERNAL CONSTANTS
     // -------------------------------------------------------------
@@ -211,6 +220,26 @@ abstract contract MasterAMO is
     // -------------------------------------------------------------
     //                INTERNAL HELPER VIEW FUNCTIONS
     // -------------------------------------------------------------
+    function periodRemainingLiquidityForRemoving(uint256 currentLiquidity) internal view returns (uint256) {
+        LiquidityPerPeriod memory currentPeriod = _liquiditiesPerPeriod[periodDuration][
+            block.timestamp / periodDuration
+        ];
+        uint256 periodTotalLiquidity = currentLiquidity + currentPeriod.removedAmount - currentPeriod.addedAmount;
+        uint256 totalAllowed = periodTotalLiquidity.mulDiv(removeLiquidityRatioLimit, SCALED_UNIT);
+        if (totalAllowed <= currentPeriod.removedAmount) revert NoRemainingLiquidity();
+        return totalAllowed - currentPeriod.removedAmount;
+    }
+
+    function periodRemainingLiquidityForAdding(uint256 currentLiquidity) internal view returns (uint256) {
+        LiquidityPerPeriod memory currentPeriod = _liquiditiesPerPeriod[periodDuration][
+            block.timestamp / periodDuration
+        ];
+        uint256 periodTotalLiquidity = currentLiquidity + currentPeriod.removedAmount - currentPeriod.addedAmount;
+        uint256 totalAllowed = periodTotalLiquidity.mulDiv(addLiquidityRatioLimit, SCALED_UNIT);
+        if (totalAllowed <= currentPeriod.addedAmount) revert NoRemainingLiquidity();
+        return totalAllowed - currentPeriod.addedAmount;
+    }
+
     /**
      * @notice Sorts two token amounts based on token addresses.
      * @param ionAmount The Ion token amount.

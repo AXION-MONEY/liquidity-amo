@@ -60,6 +60,7 @@ interface IV3AMO {
      * @notice Enum representing swap types.
      */
     enum SwapType {
+        TRY_SELL,
         SELL,
         BUY,
         QUOTE

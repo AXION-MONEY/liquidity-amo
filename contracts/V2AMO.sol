@@ -192,6 +192,16 @@ contract V2AMO is IV2AMO, MasterAMO {
         uint256 targetPrice = ionTargetPriceInPairToken();
         uint256 ionAmountWithoutFee = ((Math.sqrt((pairTokenReserve * ionReserve * SCALED_UNIT) / targetPrice) -
             ionReserve) * swapRatio) / SCALED_UNIT;
+
+        if (!hasRole(OPERATOR_ROLE, msg.sender)) {
+            uint256 currentLiquidity = IERC20(poolAddress).totalSupply();
+            uint256 estimatedLiquidity = (ionAmountWithoutFee * currentLiquidity) / ionReserve;
+            uint256 remainingLiquidity = periodRemainingLiquidityForAdding(currentLiquidity);
+            if (estimatedLiquidity > remainingLiquidity) {
+                ionAmountWithoutFee = (ionAmountWithoutFee * remainingLiquidity) / estimatedLiquidity;
+            }
+        }
+
         uint256 ionAmount = ionAmountWithoutFee.mulDiv(SCALED_UNIT, (SCALED_UNIT - poolFee));
 
         // Mint ION tokens to this contract
@@ -297,6 +307,8 @@ contract V2AMO is IV2AMO, MasterAMO {
         if (liquidity != lpBalanceAfter - lpBalanceBefore)
             revert LpAmountOutMismatch(liquidity, lpBalanceAfter - lpBalanceBefore);
 
+        _liquiditiesPerPeriod[periodDuration][block.timestamp / periodDuration].addedAmount += liquidity;
+
         // Revoke approvals for security.
         IERC20(ionAddress).approve(routerAddress, 0);
         IERC20(pairTokenAddress).forceApprove(routerAddress, 0);
@@ -346,6 +358,9 @@ contract V2AMO is IV2AMO, MasterAMO {
                 pairTokenRemoved,
                 postOperationPairTokenBalance - preOperationPairTokenBalance
             );
+
+        _liquiditiesPerPeriod[periodDuration][block.timestamp / periodDuration].removedAmount += liquidity;
+
         // Set collected fees to zero, as they are implicitly included in the tokens removed for V2.
         ionCollectedFee = 0;
         pairTokenCollectedFee = 0;
@@ -368,6 +383,11 @@ contract V2AMO is IV2AMO, MasterAMO {
     ) internal override returns (uint256 liquidity, uint256 postOperationIonPrice) {
         liquidity = _calculateLiquidityToUnfarm();
         liquidity = liquidity.mulDiv(swapRatio, SCALED_UNIT);
+
+        if (!hasRole(OPERATOR_ROLE, msg.sender)) {
+            uint256 remainingLiquidity = periodRemainingLiquidityForRemoving(IERC20(poolAddress).totalSupply());
+            liquidity = Math.min(liquidity, remainingLiquidity);
+        }
         (uint256 ionRemoved, uint256 pairTokenRemoved, , ) = _removeLiquidity(liquidity);
 
         // Approve router for the PairToken swap.
