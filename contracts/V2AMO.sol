@@ -307,7 +307,7 @@ contract V2AMO is IV2AMO, MasterAMO {
         if (liquidity != lpBalanceAfter - lpBalanceBefore)
             revert LpAmountOutMismatch(liquidity, lpBalanceAfter - lpBalanceBefore);
 
-        _liquiditiesPerPeriod[periodDuration][block.timestamp / periodDuration].addedAmount += liquidity;
+        increaseAddedLiquidity(liquidity);
 
         // Revoke approvals for security.
         IERC20(ionAddress).approve(routerAddress, 0);
@@ -359,7 +359,7 @@ contract V2AMO is IV2AMO, MasterAMO {
                 postOperationPairTokenBalance - preOperationPairTokenBalance
             );
 
-        _liquiditiesPerPeriod[periodDuration][block.timestamp / periodDuration].removedAmount += liquidity;
+        increaseRemovedLiquidity(liquidity);
 
         // Set collected fees to zero, as they are implicitly included in the tokens removed for V2.
         ionCollectedFee = 0;

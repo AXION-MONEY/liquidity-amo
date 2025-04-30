@@ -90,11 +90,12 @@ abstract contract MasterAMO is
     /// @inheritdoc IMasterAMO
     uint24 public override buyRatio;
 
-    struct LiquidityPerPeriod {
+    struct LiquidityAtPeriod {
+        uint256 periodIndex;
         uint256 addedAmount;
         uint256 removedAmount;
     }
-    mapping(uint256 => mapping(uint256 => LiquidityPerPeriod)) internal _liquiditiesPerPeriod;
+    LiquidityAtPeriod public lastLiquidityAmounts;
     uint256 public periodDuration;
     uint24 public addLiquidityRatioLimit;
     uint24 public removeLiquidityRatioLimit;
@@ -204,6 +205,11 @@ abstract contract MasterAMO is
         emit ParamsSet(validRangeWidth, sellRatio, buyRatio);
     }
 
+    function setPeriodDuration(uint256 periodDuration_) public onlyRole(SETTER_ROLE) {
+        periodDuration = periodDuration_;
+        delete lastLiquidityAmounts;
+    }
+
     // -------------------------------------------------------------
     //                        PAUSE ACTIONS
     // -------------------------------------------------------------
@@ -220,24 +226,66 @@ abstract contract MasterAMO is
     // -------------------------------------------------------------
     //                INTERNAL HELPER VIEW FUNCTIONS
     // -------------------------------------------------------------
+    function currentPeriodIndex() internal view returns (uint256) {
+        return block.timestamp / periodDuration;
+    }
+
+    function increaseAddedLiquidity(uint256 amount) internal {
+        uint256 _currentPeriodIndex = currentPeriodIndex();
+        if (lastLiquidityAmounts.periodIndex == _currentPeriodIndex) {
+            lastLiquidityAmounts.addedAmount += amount;
+        } else {
+            lastLiquidityAmounts.addedAmount = amount;
+            lastLiquidityAmounts.removedAmount = 0;
+            lastLiquidityAmounts.periodIndex = _currentPeriodIndex;
+        }
+    }
+
+    function increaseRemovedLiquidity(uint256 amount) internal {
+        uint256 _currentPeriodIndex = currentPeriodIndex();
+        if (lastLiquidityAmounts.periodIndex == _currentPeriodIndex) {
+            lastLiquidityAmounts.removedAmount += amount;
+        } else {
+            lastLiquidityAmounts.addedAmount = 0;
+            lastLiquidityAmounts.removedAmount = amount;
+            lastLiquidityAmounts.periodIndex = _currentPeriodIndex;
+        }
+    }
+
+    function decreaseAddedLiquidity(uint256 amount) internal {
+        assert(lastLiquidityAmounts.periodIndex == currentPeriodIndex());
+        lastLiquidityAmounts.addedAmount -= amount;
+    }
+
+    function decreaseRemovedLiquidity(uint256 amount) internal {
+        assert(lastLiquidityAmounts.periodIndex == currentPeriodIndex());
+        lastLiquidityAmounts.removedAmount -= amount;
+    }
+
     function periodRemainingLiquidityForRemoving(uint256 currentLiquidity) internal view returns (uint256) {
-        LiquidityPerPeriod memory currentPeriod = _liquiditiesPerPeriod[periodDuration][
-            block.timestamp / periodDuration
-        ];
-        uint256 periodTotalLiquidity = currentLiquidity + currentPeriod.removedAmount - currentPeriod.addedAmount;
+        uint256 addedAmount;
+        uint256 removedAmount;
+        if (lastLiquidityAmounts.periodIndex == currentPeriodIndex()) {
+            addedAmount = lastLiquidityAmounts.addedAmount;
+            removedAmount = lastLiquidityAmounts.removedAmount;
+        }
+        uint256 periodTotalLiquidity = currentLiquidity + removedAmount - addedAmount;
         uint256 totalAllowed = periodTotalLiquidity.mulDiv(removeLiquidityRatioLimit, SCALED_UNIT);
-        if (totalAllowed <= currentPeriod.removedAmount) revert NoRemainingLiquidity();
-        return totalAllowed - currentPeriod.removedAmount;
+        if (totalAllowed <= removedAmount) revert NoRemainingLiquidity();
+        return totalAllowed - removedAmount;
     }
 
     function periodRemainingLiquidityForAdding(uint256 currentLiquidity) internal view returns (uint256) {
-        LiquidityPerPeriod memory currentPeriod = _liquiditiesPerPeriod[periodDuration][
-            block.timestamp / periodDuration
-        ];
-        uint256 periodTotalLiquidity = currentLiquidity + currentPeriod.removedAmount - currentPeriod.addedAmount;
+        uint256 addedAmount;
+        uint256 removedAmount;
+        if (lastLiquidityAmounts.periodIndex == currentPeriodIndex()) {
+            addedAmount = lastLiquidityAmounts.addedAmount;
+            removedAmount = lastLiquidityAmounts.removedAmount;
+        }
+        uint256 periodTotalLiquidity = currentLiquidity + removedAmount - addedAmount;
         uint256 totalAllowed = periodTotalLiquidity.mulDiv(addLiquidityRatioLimit, SCALED_UNIT);
-        if (totalAllowed <= currentPeriod.addedAmount) revert NoRemainingLiquidity();
-        return totalAllowed - currentPeriod.addedAmount;
+        if (totalAllowed <= addedAmount) revert NoRemainingLiquidity();
+        return totalAllowed - addedAmount;
     }
 
     /**

@@ -334,7 +334,7 @@ contract V3AMO is IV3AMO, MasterAMO {
             );
         }
 
-        _liquiditiesPerPeriod[periodDuration][block.timestamp / periodDuration].addedAmount += liquidity;
+        increaseAddedLiquidity(liquidity);
 
         (uint256 ionSpent, uint256 pairTokenSpent) = orderAmountsByTokenAddress(amount0, amount1);
         emit AddLiquidity(ionSpent, pairTokenSpent, liquidity);
@@ -368,7 +368,7 @@ contract V3AMO is IV3AMO, MasterAMO {
         }
         (ionRemoved, pairTokenRemoved) = orderAmountsByTokenAddress(amount0FromBurn, amount1FromBurn);
 
-        _liquiditiesPerPeriod[periodDuration][block.timestamp / periodDuration].removedAmount += liquidity;
+        increaseRemovedLiquidity(liquidity);
 
         if (poolType == PoolType.SOLIDLY_V3) {
             address feeCollector = ISolidlyV3Factory(ISolidlyV3Pool(poolAddress).factory()).feeCollector();
@@ -450,8 +450,8 @@ contract V3AMO is IV3AMO, MasterAMO {
         uint256 remainedPairTokenAfterOperation = pairTokenRemoved - pairTokenAmountIn;
         if (remainedPairTokenAfterOperation > 0) {
             uint256 addedLiquidity = _addLiquidity(remainedPairTokenAfterOperation);
-            _liquiditiesPerPeriod[periodDuration][block.timestamp / periodDuration].removedAmount -= addedLiquidity;
-            _liquiditiesPerPeriod[periodDuration][block.timestamp / periodDuration].addedAmount -= addedLiquidity;
+            decreaseRemovedLiquidity(addedLiquidity);
+            decreaseAddedLiquidity(addedLiquidity);
             liquidity -= addedLiquidity;
         }
 
