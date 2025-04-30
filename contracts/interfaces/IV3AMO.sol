@@ -15,6 +15,8 @@ interface IV3AMO {
     /// @notice Thrown when swap delta values are invalid.
     error InvalidDelta();
 
+    error InsufficientRemainingAmount();
+
     // -------------------------------------------------------------
     //                         EVENTS
     // -------------------------------------------------------------
@@ -110,12 +112,6 @@ interface IV3AMO {
      * @param tickUpper_ The upper tick.
      */
     function setTickBounds(int24 tickLower_, int24 tickUpper_) external;
-
-    /**
-     * @notice Returns the position's current liquidity.
-     * @return liquidity The amount of liquidity.
-     */
-    function getLiquidity() external view returns (uint256 liquidity);
 
     /**
      * @notice Converts a price to sqrt price in Q64.96 format.

@@ -30,7 +30,7 @@ interface IMasterAMO {
     /// @notice Reverts when an operation is attempted but the price is already within the expected range.
     error PriceAlreadyInRange(uint256 currentPrice, uint256 targetPrice);
 
-    error NoRemainingLiquidity();
+    error NoRemainingAmount();
 
     // -------------------------------------------------------------
     //                           EVENTS

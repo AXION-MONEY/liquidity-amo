@@ -90,14 +90,16 @@ abstract contract MasterAMO is
     /// @inheritdoc IMasterAMO
     uint24 public override buyRatio;
 
-    struct LiquidityAtPeriod {
+    struct AmountAtPeriod {
         uint256 periodIndex;
-        uint256 addedAmount;
-        uint256 removedAmount;
+        uint256 totalIon;
+        uint256 addedIon;
+        uint256 totalLiquidity;
+        uint256 removedLiquidity;
     }
-    LiquidityAtPeriod public lastLiquidityAmounts;
+    AmountAtPeriod public lastPeriodAmounts;
     uint256 public periodDuration;
-    uint24 public addLiquidityRatioLimit;
+    uint24 public addIonRatioLimit;
     uint24 public removeLiquidityRatioLimit;
 
     // -------------------------------------------------------------
@@ -207,7 +209,7 @@ abstract contract MasterAMO is
 
     function setPeriodDuration(uint256 periodDuration_) public onlyRole(SETTER_ROLE) {
         periodDuration = periodDuration_;
-        delete lastLiquidityAmounts;
+        delete lastPeriodAmounts;
     }
 
     // -------------------------------------------------------------
@@ -230,62 +232,76 @@ abstract contract MasterAMO is
         return block.timestamp / periodDuration;
     }
 
-    function increaseAddedLiquidity(uint256 amount) internal {
+    function increaseAddedIon(uint256 amount) internal {
         uint256 _currentPeriodIndex = currentPeriodIndex();
-        if (lastLiquidityAmounts.periodIndex == _currentPeriodIndex) {
-            lastLiquidityAmounts.addedAmount += amount;
+        if (lastPeriodAmounts.periodIndex == _currentPeriodIndex) {
+            lastPeriodAmounts.addedIon += amount;
         } else {
-            lastLiquidityAmounts.addedAmount = amount;
-            lastLiquidityAmounts.removedAmount = 0;
-            lastLiquidityAmounts.periodIndex = _currentPeriodIndex;
+            (uint256 totalIon, ) = getOwnedTokens();
+            lastPeriodAmounts = AmountAtPeriod({
+                periodIndex: _currentPeriodIndex,
+                totalIon: totalIon - amount,
+                addedIon: amount,
+                totalLiquidity: getOwnedLiquidity(),
+                removedLiquidity: 0
+            });
         }
     }
 
     function increaseRemovedLiquidity(uint256 amount) internal {
         uint256 _currentPeriodIndex = currentPeriodIndex();
-        if (lastLiquidityAmounts.periodIndex == _currentPeriodIndex) {
-            lastLiquidityAmounts.removedAmount += amount;
+        if (lastPeriodAmounts.periodIndex == _currentPeriodIndex) {
+            lastPeriodAmounts.removedLiquidity += amount;
         } else {
-            lastLiquidityAmounts.addedAmount = 0;
-            lastLiquidityAmounts.removedAmount = amount;
-            lastLiquidityAmounts.periodIndex = _currentPeriodIndex;
+            (uint256 totalIon, ) = getOwnedTokens();
+            lastPeriodAmounts = AmountAtPeriod({
+                periodIndex: _currentPeriodIndex,
+                totalIon: totalIon,
+                addedIon: 0,
+                totalLiquidity: getOwnedLiquidity() + amount,
+                removedLiquidity: amount
+            });
         }
     }
 
-    function decreaseAddedLiquidity(uint256 amount) internal {
-        assert(lastLiquidityAmounts.periodIndex == currentPeriodIndex());
-        lastLiquidityAmounts.addedAmount -= amount;
+    function decreaseAddedIon(uint256 amount) internal {
+        assert(lastPeriodAmounts.periodIndex == currentPeriodIndex());
+        lastPeriodAmounts.addedIon -= amount;
     }
 
     function decreaseRemovedLiquidity(uint256 amount) internal {
-        assert(lastLiquidityAmounts.periodIndex == currentPeriodIndex());
-        lastLiquidityAmounts.removedAmount -= amount;
+        assert(lastPeriodAmounts.periodIndex == currentPeriodIndex());
+        lastPeriodAmounts.removedLiquidity -= amount;
     }
 
-    function periodRemainingLiquidityForRemoving(uint256 currentLiquidity) internal view returns (uint256) {
-        uint256 addedAmount;
-        uint256 removedAmount;
-        if (lastLiquidityAmounts.periodIndex == currentPeriodIndex()) {
-            addedAmount = lastLiquidityAmounts.addedAmount;
-            removedAmount = lastLiquidityAmounts.removedAmount;
+    function remainingAmountForRemoving() internal view returns (uint256) {
+        uint256 totalLiquidity;
+        uint256 removedLiquidity;
+        if (lastPeriodAmounts.periodIndex == currentPeriodIndex()) {
+            totalLiquidity = lastPeriodAmounts.totalLiquidity;
+            removedLiquidity = lastPeriodAmounts.removedLiquidity;
+        } else {
+            totalLiquidity = getOwnedLiquidity();
+            removedLiquidity = 0;
         }
-        uint256 periodTotalLiquidity = currentLiquidity + removedAmount - addedAmount;
-        uint256 totalAllowed = periodTotalLiquidity.mulDiv(removeLiquidityRatioLimit, SCALED_UNIT);
-        if (totalAllowed <= removedAmount) revert NoRemainingLiquidity();
-        return totalAllowed - removedAmount;
+        uint256 totalAllowed = totalLiquidity.mulDiv(removeLiquidityRatioLimit, SCALED_UNIT);
+        if (totalAllowed <= removedLiquidity) revert NoRemainingAmount();
+        return totalAllowed - removedLiquidity;
     }
 
-    function periodRemainingLiquidityForAdding(uint256 currentLiquidity) internal view returns (uint256) {
-        uint256 addedAmount;
-        uint256 removedAmount;
-        if (lastLiquidityAmounts.periodIndex == currentPeriodIndex()) {
-            addedAmount = lastLiquidityAmounts.addedAmount;
-            removedAmount = lastLiquidityAmounts.removedAmount;
+    function remainingAmountForAdding() internal view returns (uint256) {
+        uint256 totalIon;
+        uint256 addedIon;
+        if (lastPeriodAmounts.periodIndex == currentPeriodIndex()) {
+            totalIon = lastPeriodAmounts.totalIon;
+            addedIon = lastPeriodAmounts.addedIon;
+        } else {
+            (totalIon, ) = getOwnedTokens();
+            addedIon = 0;
         }
-        uint256 periodTotalLiquidity = currentLiquidity + removedAmount - addedAmount;
-        uint256 totalAllowed = periodTotalLiquidity.mulDiv(addLiquidityRatioLimit, SCALED_UNIT);
-        if (totalAllowed <= addedAmount) revert NoRemainingLiquidity();
-        return totalAllowed - addedAmount;
+        uint256 totalAllowed = totalIon.mulDiv(addIonRatioLimit, SCALED_UNIT);
+        if (totalAllowed <= addedIon) revert NoRemainingAmount();
+        return totalAllowed - addedIon;
     }
 
     /**
@@ -526,6 +542,10 @@ abstract contract MasterAMO is
     // -------------------------------------------------------------
     //                        VIEW FUNCTIONS
     // -------------------------------------------------------------
+    function getOwnedTokens() public view virtual returns (uint256 ionOwned, uint256 pairTokenOwned);
+
+    function getOwnedLiquidity() public view virtual returns (uint256 liquidity);
+
     /// @inheritdoc IMasterAMO
     function ionPriceInPairToken() public view virtual override returns (uint256 price);
 
