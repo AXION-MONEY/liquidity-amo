@@ -15,8 +15,6 @@ interface IV3AMO {
     /// @notice Thrown when swap delta values are invalid.
     error InvalidDelta();
 
-    error InsufficientRemainingAmount();
-
     // -------------------------------------------------------------
     //                         EVENTS
     // -------------------------------------------------------------
@@ -62,7 +60,6 @@ interface IV3AMO {
      * @notice Enum representing swap types.
      */
     enum SwapType {
-        TRY_SELL,
         SELL,
         BUY,
         QUOTE

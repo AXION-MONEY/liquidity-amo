@@ -93,13 +93,13 @@ abstract contract MasterAMO is
     struct AmountAtPeriod {
         uint256 periodIndex;
         uint256 totalIon;
-        uint256 addedIon;
+        uint256 soldIon;
         uint256 totalLiquidity;
         uint256 removedLiquidity;
     }
     AmountAtPeriod public lastPeriodAmounts;
     uint256 public periodDuration;
-    uint24 public addIonRatioLimit;
+    uint24 public sellIonRatioLimit;
     uint24 public removeLiquidityRatioLimit;
 
     // -------------------------------------------------------------
@@ -232,16 +232,16 @@ abstract contract MasterAMO is
         return block.timestamp / periodDuration;
     }
 
-    function increaseAddedIon(uint256 amount) internal {
+    function increaseSoldIon(uint256 amount) internal {
         uint256 _currentPeriodIndex = currentPeriodIndex();
         if (lastPeriodAmounts.periodIndex == _currentPeriodIndex) {
-            lastPeriodAmounts.addedIon += amount;
+            lastPeriodAmounts.soldIon += amount;
         } else {
             (uint256 totalIon, ) = getOwnedTokens();
             lastPeriodAmounts = AmountAtPeriod({
                 periodIndex: _currentPeriodIndex,
-                totalIon: totalIon - amount,
-                addedIon: amount,
+                totalIon: totalIon,
+                soldIon: amount,
                 totalLiquidity: getOwnedLiquidity(),
                 removedLiquidity: 0
             });
@@ -257,16 +257,16 @@ abstract contract MasterAMO is
             lastPeriodAmounts = AmountAtPeriod({
                 periodIndex: _currentPeriodIndex,
                 totalIon: totalIon,
-                addedIon: 0,
-                totalLiquidity: getOwnedLiquidity() + amount,
+                soldIon: 0,
+                totalLiquidity: getOwnedLiquidity(),
                 removedLiquidity: amount
             });
         }
     }
 
-    function decreaseAddedIon(uint256 amount) internal {
+    function decreaseSoldIon(uint256 amount) internal {
         assert(lastPeriodAmounts.periodIndex == currentPeriodIndex());
-        lastPeriodAmounts.addedIon -= amount;
+        lastPeriodAmounts.soldIon -= amount;
     }
 
     function decreaseRemovedLiquidity(uint256 amount) internal {
@@ -274,7 +274,7 @@ abstract contract MasterAMO is
         lastPeriodAmounts.removedLiquidity -= amount;
     }
 
-    function remainingAmountForRemoving() internal view returns (uint256) {
+    function periodAllowedLiquidityToRemove() internal view returns (uint256) {
         uint256 totalLiquidity;
         uint256 removedLiquidity;
         if (lastPeriodAmounts.periodIndex == currentPeriodIndex()) {
@@ -285,23 +285,23 @@ abstract contract MasterAMO is
             removedLiquidity = 0;
         }
         uint256 totalAllowed = totalLiquidity.mulDiv(removeLiquidityRatioLimit, SCALED_UNIT);
-        if (totalAllowed <= removedLiquidity) revert NoRemainingAmount();
+        if (totalAllowed <= removedLiquidity) revert NoAllowedAmount();
         return totalAllowed - removedLiquidity;
     }
 
-    function remainingAmountForAdding() internal view returns (uint256) {
+    function periodAllowedIonToSell() internal view returns (uint256) {
         uint256 totalIon;
-        uint256 addedIon;
+        uint256 soldIon;
         if (lastPeriodAmounts.periodIndex == currentPeriodIndex()) {
             totalIon = lastPeriodAmounts.totalIon;
-            addedIon = lastPeriodAmounts.addedIon;
+            soldIon = lastPeriodAmounts.soldIon;
         } else {
             (totalIon, ) = getOwnedTokens();
-            addedIon = 0;
+            soldIon = 0;
         }
-        uint256 totalAllowed = totalIon.mulDiv(addIonRatioLimit, SCALED_UNIT);
-        if (totalAllowed <= addedIon) revert NoRemainingAmount();
-        return totalAllowed - addedIon;
+        uint256 totalAllowed = totalIon.mulDiv(sellIonRatioLimit, SCALED_UNIT);
+        if (totalAllowed <= soldIon) revert NoAllowedAmount();
+        return totalAllowed - soldIon;
     }
 
     /**

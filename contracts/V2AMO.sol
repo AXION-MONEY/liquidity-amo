@@ -192,13 +192,12 @@ contract V2AMO is IV2AMO, MasterAMO {
         uint256 targetPrice = ionTargetPriceInPairToken();
         uint256 ionAmountWithoutFee = ((Math.sqrt((pairTokenReserve * ionReserve * SCALED_UNIT) / targetPrice) -
             ionReserve) * swapRatio) / SCALED_UNIT;
+        uint256 ionAmount = ionAmountWithoutFee.mulDiv(SCALED_UNIT, (SCALED_UNIT - poolFee));
 
         if (!hasRole(OPERATOR_ROLE, msg.sender)) {
-            uint256 remainingIonAmount = remainingAmountForAdding();
-            ionAmountWithoutFee = Math.min(ionAmountWithoutFee, remainingIonAmount);
+            ionAmount = Math.min(ionAmount, periodAllowedIonToSell());
         }
-
-        uint256 ionAmount = ionAmountWithoutFee.mulDiv(SCALED_UNIT, (SCALED_UNIT - poolFee));
+        increaseSoldIon(ionAmount);
 
         // Mint ION tokens to this contract
         IMinter(ionMinterAddress).protocolMint(address(this), ionAmount);
@@ -303,8 +302,6 @@ contract V2AMO is IV2AMO, MasterAMO {
         if (liquidity != lpBalanceAfter - lpBalanceBefore)
             revert LpAmountOutMismatch(liquidity, lpBalanceAfter - lpBalanceBefore);
 
-        increaseAddedIon(ionSpent);
-
         // Revoke approvals for security.
         IERC20(ionAddress).approve(routerAddress, 0);
         IERC20(pairTokenAddress).forceApprove(routerAddress, 0);
@@ -355,8 +352,6 @@ contract V2AMO is IV2AMO, MasterAMO {
                 postOperationPairTokenBalance - preOperationPairTokenBalance
             );
 
-        increaseRemovedLiquidity(liquidity);
-
         // Set collected fees to zero, as they are implicitly included in the tokens removed for V2.
         ionCollectedFee = 0;
         pairTokenCollectedFee = 0;
@@ -381,9 +376,9 @@ contract V2AMO is IV2AMO, MasterAMO {
         liquidity = liquidity.mulDiv(swapRatio, SCALED_UNIT);
 
         if (!hasRole(OPERATOR_ROLE, msg.sender)) {
-            uint256 remainingLiquidity = remainingAmountForRemoving();
-            liquidity = Math.min(liquidity, remainingLiquidity);
+            liquidity = Math.min(liquidity, periodAllowedLiquidityToRemove());
         }
+        increaseRemovedLiquidity(liquidity);
         (uint256 ionRemoved, uint256 pairTokenRemoved, , ) = _removeLiquidity(liquidity);
 
         // Approve router for the PairToken swap.
@@ -498,6 +493,6 @@ contract V2AMO is IV2AMO, MasterAMO {
     }
 
     function getOwnedLiquidity() public view override returns (uint256 liquidity) {
-        return balanceOfToken(poolAddress);
+        return balanceOfToken(poolAddress) + balanceOfToken(gaugeAddress);
     }
 }

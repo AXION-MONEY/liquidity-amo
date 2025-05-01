@@ -226,15 +226,10 @@ contract V3AMO is IV3AMO, MasterAMO {
                 mstore(add(ptr, 0x20), pairTokenInputAmount)
                 revert(ptr, 64)
             }
-        } else if (swapType == SwapType.SELL || swapType == SwapType.TRY_SELL) {
+        } else if (swapType == SwapType.SELL) {
             // For a SELL, ION is the input token and pair token is the output.
             uint256 ionInputAmount = uint256(ionDelta);
             uint256 pairTokenOutputAmount = uint256(-pairTokenDelta);
-
-            if (swapType == SwapType.TRY_SELL) {
-                (, uint256 remainingIonAmount) = abi.decode(data, (SwapType, uint256));
-                if (ionInputAmount > remainingIonAmount) revert InsufficientRemainingAmount();
-            }
 
             // Validate that the pool has enough pair tokens and that price slippage is within allowed bounds.
             bool insufficientPairTokenBalance = balanceOfToken(pairTokenAddress) < pairTokenOutputAmount;
@@ -281,38 +276,29 @@ contract V3AMO is IV3AMO, MasterAMO {
         uint256 targetPrice = ionTargetPriceInPairToken();
         uint256 priceDelta = ionPriceInPairToken() - targetPrice;
         targetPrice += priceDelta.mulDiv((SCALED_UNIT - swapRatio), SCALED_UNIT);
-        int256 amount0;
-        int256 amount1;
-        uint256 remainingIonAmount;
-        bytes memory data;
+
+        // Ensure that the AmountAtPeriod is initialized for this period, before swapping.
+        increaseSoldIon(0);
+
+        int256 amountSpecified;
         if (hasRole(OPERATOR_ROLE, msg.sender)) {
-            data = abi.encode(SwapType.SELL);
+            amountSpecified = type(int256).max;
         } else {
-            remainingIonAmount = remainingAmountForAdding();
-            data = abi.encode(SwapType.TRY_SELL, remainingIonAmount);
+            amountSpecified = periodAllowedIonToSell().toInt256();
         }
-        try
-            IUniswapV3Pool(poolAddress).swap(
-                address(this),
-                ionAddress < pairTokenAddress, // zeroForOne
-                type(int256).max, // amountSpecified
-                toSqrtPriceX96(targetPrice),
-                data
-            )
-        returns (int256 _amount0, int256 _amount1) {
-            (amount0, amount1) = (_amount0, _amount1);
-        } catch (bytes memory) {
-            (amount0, amount1) = IUniswapV3Pool(poolAddress).swap(
-                address(this),
-                ionAddress < pairTokenAddress, // zeroForOne
-                remainingIonAmount.toInt256(),
-                toSqrtPriceX96(targetPrice),
-                abi.encode(SwapType.SELL)
-            );
-        }
+        (int256 amount0, int256 amount1) = IUniswapV3Pool(poolAddress).swap(
+            address(this),
+            ionAddress < pairTokenAddress, // zeroForOne
+            amountSpecified,
+            toSqrtPriceX96(targetPrice),
+            abi.encode(SwapType.SELL)
+        );
         (int256 ionDelta, int256 pairTokenDelta) = orderAmountsByTokenAddress(amount0, amount1);
         uint256 ionAmountIn = uint256(ionDelta);
         uint256 pairTokenAmountOut = uint256(-pairTokenDelta);
+
+        increaseSoldIon(ionAmountIn);
+
         postOperationIonPrice = ionPriceInPairToken();
         emit MintSell(ionAmountIn, pairTokenAmountOut);
     }
@@ -342,8 +328,6 @@ contract V3AMO is IV3AMO, MasterAMO {
         }
 
         (uint256 ionSpent, uint256 pairTokenSpent) = orderAmountsByTokenAddress(amount0, amount1);
-
-        increaseAddedIon(ionSpent);
 
         emit AddLiquidity(ionSpent, pairTokenSpent, liquidity);
     }
@@ -375,8 +359,6 @@ contract V3AMO is IV3AMO, MasterAMO {
             );
         }
         (ionRemoved, pairTokenRemoved) = orderAmountsByTokenAddress(amount0FromBurn, amount1FromBurn);
-
-        increaseRemovedLiquidity(liquidity);
 
         if (poolType == PoolType.SOLIDLY_V3) {
             address feeCollector = ISolidlyV3Factory(ISolidlyV3Pool(poolAddress).factory()).feeCollector();
@@ -434,9 +416,9 @@ contract V3AMO is IV3AMO, MasterAMO {
         (liquidity, sqrtPriceLimitX96) = _calculateLiquidityToUnfarm(swapRatio);
 
         if (!hasRole(OPERATOR_ROLE, msg.sender)) {
-            uint256 remainingLiquidity = remainingAmountForRemoving();
-            liquidity = Math.min(liquidity, remainingLiquidity);
+            liquidity = Math.min(liquidity, periodAllowedLiquidityToRemove());
         }
+        increaseRemovedLiquidity(liquidity);
         (
             uint256 ionRemoved,
             uint256 pairTokenRemoved,
@@ -457,9 +439,7 @@ contract V3AMO is IV3AMO, MasterAMO {
 
         uint256 remainedPairTokenAfterOperation = pairTokenRemoved - pairTokenAmountIn;
         if (remainedPairTokenAfterOperation > 0) {
-            uint256 previousAddedIon = lastPeriodAmounts.addedIon;
             uint256 addedLiquidity = _addLiquidity(remainedPairTokenAfterOperation);
-            lastPeriodAmounts.addedIon = previousAddedIon;
             decreaseRemovedLiquidity(addedLiquidity);
             liquidity -= addedLiquidity;
         }
