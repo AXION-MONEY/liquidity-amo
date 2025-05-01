@@ -499,6 +499,8 @@ abstract contract MasterAMO is
             revert InsufficientOutputAmount(pairTokenRemoved, pairTokenMinRemove);
         IERC20(pairTokenAddress).safeTransfer(recipient, pairTokenRemoved + pairTokenCollectedFee);
         IIon(ionAddress).burn(ionRemoved + ionCollectedFee);
+
+        delete lastPeriodAmounts;
     }
 
     /// @inheritdoc IMasterAMO
