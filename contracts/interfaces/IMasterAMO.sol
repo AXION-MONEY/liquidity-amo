@@ -30,7 +30,11 @@ interface IMasterAMO {
     /// @notice Reverts when an operation is attempted but the price is already within the expected range.
     error PriceAlreadyInRange(uint256 currentPrice, uint256 targetPrice);
 
+    /// @notice Reverts when there is no allowed amount left in the current period.
     error NoAllowedAmount();
+
+    /// @notice Reverts when trying to set the period duration to zero.
+    error InvalidDurationValue();
 
     // -------------------------------------------------------------
     //                           EVENTS
@@ -55,7 +59,38 @@ interface IMasterAMO {
      * @param sellRatio The sell ratio as mintSellFarm's swap ratio.
      * @param buyRatio The buy ratio as unfarmBuyBurn's swap ratio.
      */
-    event ParamsSet(uint24 validRangeWidth, uint24 sellRatio, uint24 buyRatio);
+    event ParamsSet(
+        uint24 validRangeWidth,
+        uint24 sellRatio,
+        uint24 buyRatio,
+        uint24 sellIonRatioLimit,
+        uint24 removeLiquidityRatioLimit
+    );
+
+    /**
+     * @notice Emitted when the period duration is updated.
+     * @param periodDuration The new period duration value.
+     */
+    event PeriodDurationSet(uint256 periodDuration);
+
+    // -------------------------------------------------------------
+    //                          STRUCTS
+    // -------------------------------------------------------------
+    /**
+     * @notice Stores ION and liquidity data for a specific period.
+     * @param periodIndex Index of the period this data corresponds to.
+     * @param totalIon Total amount of ION owned at the start of the period.
+     * @param soldIon Amount of ION sold during the period.
+     * @param totalLiquidity Total liquidity owned at the start of the period.
+     * @param removedLiquidity Amount of liquidity removed during the period.
+     */
+    struct AmountAtPeriod {
+        uint256 periodIndex;
+        uint256 totalIon;
+        uint256 soldIon;
+        uint256 totalLiquidity;
+        uint256 removedLiquidity;
+    }
 
     // -------------------------------------------------------------
     //                            ROLES
@@ -102,9 +137,6 @@ interface IMasterAMO {
     /// @notice Type of the PairToken either USD or other Staked Stable types.
     function pairTokenType() external view returns (IPriceManager.TokenType);
 
-    /// @notice Valid range ratio for adding liquidity (6 decimals).
-    function validRangeWidth() external view returns (uint24);
-
     /**
      * @notice Retrieves the current premium offset used for staked pairs in target price calculations.
      * @dev This premium value is added to the preview deposit amount from the PriceManager for staked tokens
@@ -115,11 +147,42 @@ interface IMasterAMO {
      */
     function ionTargetPricePremium() external view returns (uint256);
 
+    /// @notice Valid range ratio for adding liquidity (6 decimals).
+    function validRangeWidth() external view returns (uint24);
+
     /// @notice Returns the sell ratio as mintSellFarm's swap ratio.
     function sellRatio() external view returns (uint24);
 
     /// @notice Returns the buy ratio as unfarmBuyBurn's swap ratio.
     function buyRatio() external view returns (uint24);
+
+    /// @notice Returns the ratio limit for ION amount that can be sold during a period.
+    function sellIonRatioLimit() external view returns (uint24);
+
+    /// @notice Returns the ratio limit for liquidity that can be removed during a period.
+    function removeLiquidityRatioLimit() external view returns (uint24);
+
+    /**
+     * @notice Returns the ION and liquidity data from the most recent period in which an operation was performed.
+     * @return periodIndex The index of the last period.
+     * @return totalIon The total ION owned at the start of the last period.
+     * @return soldIon The amount of ION sold during the last period.
+     * @return totalLiquidity The total liquidity owned at the start of the last period.
+     * @return removedLiquidity The amount of liquidity removed during the last period.
+     */
+    function lastPeriodAmounts()
+        external
+        view
+        returns (
+            uint256 periodIndex,
+            uint256 totalIon,
+            uint256 soldIon,
+            uint256 totalLiquidity,
+            uint256 removedLiquidity
+        );
+
+    /// @notice Returns the duration of each period in seconds.
+    function periodDuration() external view returns (uint256);
 
     // -------------------------------------------------------------
     //                           FUNCTIONS
@@ -147,8 +210,23 @@ interface IMasterAMO {
      * @param validRangeWidth_ The valid range width for liquidity addition.
      * @param sellRatio_ The sell ratio as mintSellFarm's swap ratio.
      * @param buyRatio_ The buy ratio as unfarmBuyBurn's swap ratio.
+     * @param sellIonRatioLimit_ The maximum ratio of ION that can be sold in a period.
+     * @param removeLiquidityRatioLimit_ The maximum ratio of liquidity that can be removed in a period.
      */
-    function setParams(uint24 validRangeWidth_, uint24 sellRatio_, uint24 buyRatio_) external;
+    function setParams(
+        uint24 validRangeWidth_,
+        uint24 sellRatio_,
+        uint24 buyRatio_,
+        uint24 sellIonRatioLimit_,
+        uint24 removeLiquidityRatioLimit_
+    ) external;
+
+    /**
+     * @notice Sets the duration of each period for operation tracking.
+     * @dev Used to define how long a period lasts when evaluating sell/remove limits and activity.
+     * @param periodDuration_ Duration of the period in seconds.
+     */
+    function setPeriodDuration(uint256 periodDuration_) external;
 
     /**
      * @notice Adds liquidity to the ION-PairToken pool, based on the contract's PairToken balance.
@@ -197,6 +275,19 @@ interface IMasterAMO {
      * @param recipient The address to receive the tokens.
      */
     function withdrawERC20(address token, uint256 amount, address recipient) external;
+
+    /**
+     * @notice Returns the estimated amount of tokens owned within the pool based on the current liquidity held.
+     * @return ionOwned The amount of ION represented by the owned liquidity.
+     * @return pairTokenOwned The amount of the paired token represented by the owned liquidity.
+     */
+    function getOwnedTokens() external view returns (uint256 ionOwned, uint256 pairTokenOwned);
+
+    /**
+     * @notice Returns the current amount of owned liquidity.
+     * @return liquidity The amount of liquidity currently owned.
+     */
+    function getOwnedLiquidity() external view returns (uint256 liquidity);
 
     /**
      * @notice Retrieves the current ION price.

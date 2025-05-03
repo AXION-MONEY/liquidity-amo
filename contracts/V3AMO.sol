@@ -78,6 +78,9 @@ contract V3AMO is IV3AMO, MasterAMO {
      * @param validRangeWidth_ The valid range width for liquidity addition.
      * @param sellRatio_ The sell ratio as mintSellFarm's swap ratio.
      * @param buyRatio_ The buy ratio as unfarmBuyBurn's swap ratio.
+     * @param sellIonRatioLimit_ The ratio limit for Ion amount to sell.
+     * @param removeLiquidityRatioLimit_ The ratio limit for liquidity to remove.
+     * @param periodDuration_ The period duration (using for amounts limit).
      */
     function initialize(
         address admin,
@@ -93,7 +96,10 @@ contract V3AMO is IV3AMO, MasterAMO {
         int24 tickUpper_,
         uint24 validRangeWidth_,
         uint24 sellRatio_,
-        uint24 buyRatio_
+        uint24 buyRatio_,
+        uint24 sellIonRatioLimit_,
+        uint24 removeLiquidityRatioLimit_,
+        uint256 periodDuration_
     ) public initializer {
         super.initialize(
             admin,
@@ -105,7 +111,10 @@ contract V3AMO is IV3AMO, MasterAMO {
             pairTokenType_,
             validRangeWidth_,
             sellRatio_,
-            buyRatio_
+            buyRatio_,
+            sellIonRatioLimit_,
+            removeLiquidityRatioLimit_,
+            periodDuration_
         );
         poolType = poolType_;
         poolCustomDeployer = poolCustomDeployer_;
@@ -440,7 +449,7 @@ contract V3AMO is IV3AMO, MasterAMO {
         uint256 remainedPairTokenAfterOperation = pairTokenRemoved - pairTokenAmountIn;
         if (remainedPairTokenAfterOperation > 0) {
             uint256 addedLiquidity = _addLiquidity(remainedPairTokenAfterOperation);
-            decreaseRemovedLiquidity(addedLiquidity);
+            lastPeriodAmounts.removedLiquidity -= addedLiquidity;
             liquidity -= addedLiquidity;
         }
 
@@ -576,10 +585,12 @@ contract V3AMO is IV3AMO, MasterAMO {
         return sqrtPriceX96.toUint160();
     }
 
+    /// @inheritdoc IMasterAMO
     function getOwnedTokens() public view override returns (uint256 ionOwned, uint256 pairTokenOwned) {
         (ionOwned, pairTokenOwned) = _getAmountsForLiquidity(getOwnedLiquidity());
     }
 
+    /// @inheritdoc IMasterAMO
     function getOwnedLiquidity() public view override returns (uint256 liquidity) {
         bytes32 key;
         if (poolType == PoolType.ALGEBRA_V1 || poolType == PoolType.ALGEBRA_INTEGRAL) {

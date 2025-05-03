@@ -260,7 +260,10 @@ export async function deployV2AMO(
   routerAddress: string,
   validRangeWidth: bigint,
   sellRatio: bigint,
-  buyRatio: bigint
+  buyRatio: bigint,
+  sellIonRatioLimit: bigint = ethers.parseUnits("10", 6),
+  removeLiquidityRatioLimit: bigint = ethers.parseUnits("1", 6),
+  periodDuration: bigint = 1n
 ): Promise<V2AMO> {
   if (pairedTokenType === PairTokenType.STABLE) {
     const priceManager = await ethers.getContractAt("PriceManager", priceManagerAddress);
@@ -300,7 +303,10 @@ export async function deployV2AMO(
     false, // useTokenId
     validRangeWidth,
     sellRatio,
-    buyRatio
+    buyRatio,
+    sellIonRatioLimit,
+    removeLiquidityRatioLimit,
+    periodDuration
   ];
   const V2AMOFactory = await ethers.getContractFactory("V2AMO");
   const amo = await upgrades.deployProxy(V2AMOFactory, args, {
@@ -323,7 +329,10 @@ export async function deployV3AMO(
   tickUpper: number,
   validRangeWidth: bigint,
   sellRatio: bigint,
-  buyRatio: bigint
+  buyRatio: bigint,
+  sellIonRatioLimit: bigint = ethers.parseUnits("10", 6),
+  removeLiquidityRatioLimit: bigint = ethers.parseUnits("1", 6),
+  periodDuration: bigint = 1n
 ): Promise<V3AMO> {
   if (pairedTokenType === PairTokenType.STABLE) {
     const priceManager = await ethers.getContractAt("PriceManager", priceManagerAddress);
@@ -343,7 +352,10 @@ export async function deployV3AMO(
     tickUpper,
     validRangeWidth,
     sellRatio,
-    buyRatio
+    buyRatio,
+    sellIonRatioLimit,
+    removeLiquidityRatioLimit,
+    periodDuration
   ];
   const V3AMOFactory = await ethers.getContractFactory("V3AMO");
   const amo = await upgrades.deployProxy(V3AMOFactory, args, {
