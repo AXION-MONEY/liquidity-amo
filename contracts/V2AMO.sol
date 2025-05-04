@@ -86,7 +86,7 @@ contract V2AMO is IV2AMO, MasterAMO {
      * @param validRangeWidth_ The valid range width for liquidity addition.
      * @param sellRatio_ The sell ratio as mintSellFarm's swap ratio.
      * @param buyRatio_ The buy ratio as unfarmBuyBurn's swap ratio.
-     * @param sellIonRatioLimit_ The ratio limit for Ion amount to sell.
+     * @param sellIonRatioLimit_ The ratio limit for ION amount to sell.
      * @param removeLiquidityRatioLimit_ The ratio limit for liquidity to remove.
      * @param periodDuration_ The period duration (using for amounts limit).
      */
