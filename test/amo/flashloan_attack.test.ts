@@ -175,6 +175,9 @@ describe("Flashloan attack scenarios", function () {
             const priceAfterDump = await amo.ionPriceInPairToken();
             expect(priceAfterDump).to.be.lt(targetPx);
 
+            // Optionally trigger unfarmBuyBurn. it does not matter because attacker will lose too much ion
+            // await amo.connect(attacker).unfarmBuyBurn();
+
             // Attacker exits: swap all USD back to ION
             const usdBal = await usd.balanceOf(attacker.address);
             if (usdBal > 0n) {
