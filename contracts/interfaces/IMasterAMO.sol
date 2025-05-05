@@ -277,17 +277,13 @@ interface IMasterAMO {
     function withdrawERC20(address token, uint256 amount, address recipient) external;
 
     /**
-     * @notice Returns the estimated amount of tokens owned within the pool based on the current liquidity held.
+     * @notice Returns the current amount of owned liquidity and the estimated amount of tokens owned
+     *         within the pool based on the current liquidity.
+     * @return liquidityOwned The amount of liquidity currently owned.
      * @return ionOwned The amount of ION represented by the owned liquidity.
      * @return pairTokenOwned The amount of the paired token represented by the owned liquidity.
      */
-    function getOwnedTokens() external view returns (uint256 ionOwned, uint256 pairTokenOwned);
-
-    /**
-     * @notice Returns the current amount of owned liquidity.
-     * @return liquidity The amount of liquidity currently owned.
-     */
-    function getOwnedLiquidity() external view returns (uint256 liquidity);
+    function getOwnedTokens() external view returns (uint256 liquidityOwned, uint256 ionOwned, uint256 pairTokenOwned);
 
     /**
      * @notice Retrieves the current ION price.

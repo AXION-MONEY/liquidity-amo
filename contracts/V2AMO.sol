@@ -292,7 +292,7 @@ contract V2AMO is IV2AMO, MasterAMO {
         IERC20(ionAddress).approve(routerAddress, ionMintAmount);
         IERC20(pairTokenAddress).forceApprove(routerAddress, pairTokenAmount);
 
-        uint256 lpBalanceBefore = getOwnedLiquidity();
+        uint256 lpBalanceBefore = balanceOfToken(poolAddress);
         // Add liquidity using the Solidly router.
         uint256 ionSpent;
         uint256 pairTokenSpent;
@@ -307,7 +307,7 @@ contract V2AMO is IV2AMO, MasterAMO {
             address(this),
             block.timestamp + 1
         );
-        uint256 lpBalanceAfter = getOwnedLiquidity();
+        uint256 lpBalanceAfter = balanceOfToken(poolAddress);
         if (liquidity != lpBalanceAfter - lpBalanceBefore)
             revert LpAmountOutMismatch(liquidity, lpBalanceAfter - lpBalanceBefore);
 
@@ -494,16 +494,19 @@ contract V2AMO is IV2AMO, MasterAMO {
     }
 
     /// @inheritdoc IMasterAMO
-    function getOwnedTokens() public view override returns (uint256 ionOwned, uint256 pairTokenOwned) {
-        uint256 totalSupply = IERC20(poolAddress).totalSupply();
-        uint256 liquidityAmount = getOwnedLiquidity();
-        (uint256 ionReserve, uint256 pairTokenReserve) = getReserves();
-        ionOwned = (liquidityAmount * ionReserve) / totalSupply;
-        pairTokenOwned = (liquidityAmount * pairTokenReserve) / totalSupply;
-    }
+    function getOwnedTokens()
+        public
+        view
+        override
+        returns (uint256 liquidityOwned, uint256 ionOwned, uint256 pairTokenOwned)
+    {
+        uint256 totalLiquidity = IERC20(poolAddress).totalSupply();
+        liquidityOwned = balanceOfToken(poolAddress) + balanceOfToken(gaugeAddress);
 
-    /// @inheritdoc IMasterAMO
-    function getOwnedLiquidity() public view override returns (uint256 liquidity) {
-        return balanceOfToken(poolAddress) + balanceOfToken(gaugeAddress);
+        (uint256 reserve0, uint256 reserve1, ) = IPair(poolAddress).getReserves();
+        (uint256 ionReserve, uint256 pairTokenReserve) = orderAmountsByTokenAddress(reserve0, reserve1);
+
+        ionOwned = (liquidityOwned * ionReserve) / totalLiquidity;
+        pairTokenOwned = (liquidityOwned * pairTokenReserve) / totalLiquidity;
     }
 }

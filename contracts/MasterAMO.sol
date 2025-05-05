@@ -256,12 +256,12 @@ abstract contract MasterAMO is
         if (lastPeriodAmounts.periodIndex == _currentPeriodIndex) {
             lastPeriodAmounts.soldIon += amount;
         } else {
-            (uint256 totalIon, ) = getOwnedTokens();
+            (uint256 liquidityOwned, uint256 ionOwned, ) = getOwnedTokens();
             lastPeriodAmounts = AmountAtPeriod({
                 periodIndex: _currentPeriodIndex,
-                totalIon: totalIon,
+                totalIon: ionOwned,
                 soldIon: amount,
-                totalLiquidity: getOwnedLiquidity(),
+                totalLiquidity: liquidityOwned,
                 removedLiquidity: 0
             });
         }
@@ -277,12 +277,12 @@ abstract contract MasterAMO is
         if (lastPeriodAmounts.periodIndex == _currentPeriodIndex) {
             lastPeriodAmounts.removedLiquidity += amount;
         } else {
-            (uint256 totalIon, ) = getOwnedTokens();
+            (uint256 liquidityOwned, uint256 ionOwned, ) = getOwnedTokens();
             lastPeriodAmounts = AmountAtPeriod({
                 periodIndex: _currentPeriodIndex,
-                totalIon: totalIon,
+                totalIon: ionOwned,
                 soldIon: 0,
-                totalLiquidity: getOwnedLiquidity(),
+                totalLiquidity: liquidityOwned,
                 removedLiquidity: amount
             });
         }
@@ -300,7 +300,7 @@ abstract contract MasterAMO is
             totalIon = lastPeriodAmounts.totalIon;
             soldIon = lastPeriodAmounts.soldIon;
         } else {
-            (totalIon, ) = getOwnedTokens();
+            (, totalIon, ) = getOwnedTokens();
             soldIon = 0;
         }
         uint256 totalAllowed = totalIon.mulDiv(sellIonRatioLimit, SCALED_UNIT);
@@ -320,7 +320,7 @@ abstract contract MasterAMO is
             totalLiquidity = lastPeriodAmounts.totalLiquidity;
             removedLiquidity = lastPeriodAmounts.removedLiquidity;
         } else {
-            totalLiquidity = getOwnedLiquidity();
+            (totalLiquidity, , ) = getOwnedTokens();
             removedLiquidity = 0;
         }
         uint256 totalAllowed = totalLiquidity.mulDiv(removeLiquidityRatioLimit, SCALED_UNIT);
@@ -569,10 +569,11 @@ abstract contract MasterAMO is
     //                        VIEW FUNCTIONS
     // -------------------------------------------------------------
     /// @inheritdoc IMasterAMO
-    function getOwnedTokens() public view virtual returns (uint256 ionOwned, uint256 pairTokenOwned);
-
-    /// @inheritdoc IMasterAMO
-    function getOwnedLiquidity() public view virtual returns (uint256 liquidity);
+    function getOwnedTokens()
+        public
+        view
+        virtual
+        returns (uint256 liquidityOwned, uint256 ionOwned, uint256 pairTokenOwned);
 
     /// @inheritdoc IMasterAMO
     function ionPriceInPairToken() public view virtual override returns (uint256 price);

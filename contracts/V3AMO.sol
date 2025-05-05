@@ -139,19 +139,27 @@ contract V3AMO is IV3AMO, MasterAMO {
     //                INTERNAL HELPER VIEW FUNCTIONS
     // -------------------------------------------------------------
 
-    function _getAmountsForLiquidity(
-        uint256 liquidity
-    ) internal view returns (uint256 ionAmount, uint256 pairTokenAmount) {
-        uint160 sqrtRatioX96 = _getSqrtPriceX96();
-        uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(tickLower);
-        uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(tickUpper);
-        (uint256 amount0, uint256 amount1) = LiquidityAmounts.getAmountsForLiquidity(
-            sqrtRatioX96,
-            sqrtRatioAX96,
-            sqrtRatioBX96,
-            liquidity.toUint128()
-        );
-        (ionAmount, pairTokenAmount) = orderAmountsByTokenAddress(amount0, amount1);
+    /**
+     * @notice Returns the current amount of liquidity held in the position.
+     * @return liquidity The amount of liquidity owned in the position.
+     */
+    function _getPositionLiquidity() internal view returns (uint256 liquidity) {
+        bytes32 key;
+        if (poolType == PoolType.ALGEBRA_V1 || poolType == PoolType.ALGEBRA_INTEGRAL) {
+            address owner = address(this);
+            int24 bottomTick = tickLower;
+            int24 topTick = tickUpper;
+            assembly {
+                key := or(shl(24, or(shl(24, owner), and(bottomTick, 0xFFFFFF))), and(topTick, 0xFFFFFF))
+            }
+        } else if (poolType == PoolType.RAMSES_V2) {
+            uint256 index = 0;
+            key = keccak256(abi.encodePacked(address(this), index, tickLower, tickUpper));
+        } else {
+            key = keccak256(abi.encodePacked(address(this), tickLower, tickUpper));
+        }
+        (, bytes memory data) = poolAddress.staticcall(abi.encodeWithSignature("positions(bytes32)", key));
+        liquidity = poolType == PoolType.ALGEBRA_INTEGRAL ? abi.decode(data, (uint256)) : abi.decode(data, (uint128));
     }
 
     /**
@@ -393,7 +401,7 @@ contract V3AMO is IV3AMO, MasterAMO {
     function _calculateLiquidityToUnfarm(
         uint24 swapRatio
     ) internal returns (uint256 liquidity, uint160 sqrtPriceLimitX96) {
-        uint256 positionLiquidity = getOwnedLiquidity();
+        uint256 positionLiquidity = _getPositionLiquidity();
         uint256 targetPrice = ionTargetPriceInPairToken();
         uint256 priceDelta = targetPrice - ionPriceInPairToken();
         targetPrice -= priceDelta.mulDiv((SCALED_UNIT - swapRatio), SCALED_UNIT);
@@ -586,27 +594,22 @@ contract V3AMO is IV3AMO, MasterAMO {
     }
 
     /// @inheritdoc IMasterAMO
-    function getOwnedTokens() public view override returns (uint256 ionOwned, uint256 pairTokenOwned) {
-        (ionOwned, pairTokenOwned) = _getAmountsForLiquidity(getOwnedLiquidity());
-    }
-
-    /// @inheritdoc IMasterAMO
-    function getOwnedLiquidity() public view override returns (uint256 liquidity) {
-        bytes32 key;
-        if (poolType == PoolType.ALGEBRA_V1 || poolType == PoolType.ALGEBRA_INTEGRAL) {
-            address owner = address(this);
-            int24 bottomTick = tickLower;
-            int24 topTick = tickUpper;
-            assembly {
-                key := or(shl(24, or(shl(24, owner), and(bottomTick, 0xFFFFFF))), and(topTick, 0xFFFFFF))
-            }
-        } else if (poolType == PoolType.RAMSES_V2) {
-            uint256 index = 0;
-            key = keccak256(abi.encodePacked(address(this), index, tickLower, tickUpper));
-        } else {
-            key = keccak256(abi.encodePacked(address(this), tickLower, tickUpper));
-        }
-        (, bytes memory data) = poolAddress.staticcall(abi.encodeWithSignature("positions(bytes32)", key));
-        liquidity = poolType == PoolType.ALGEBRA_INTEGRAL ? abi.decode(data, (uint256)) : abi.decode(data, (uint128));
+    function getOwnedTokens()
+        public
+        view
+        override
+        returns (uint256 liquidityOwned, uint256 ionOwned, uint256 pairTokenOwned)
+    {
+        liquidityOwned = _getPositionLiquidity();
+        uint160 sqrtRatioX96 = _getSqrtPriceX96();
+        uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(tickLower);
+        uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(tickUpper);
+        (uint256 amount0, uint256 amount1) = LiquidityAmounts.getAmountsForLiquidity(
+            sqrtRatioX96,
+            sqrtRatioAX96,
+            sqrtRatioBX96,
+            liquidityOwned.toUint128()
+        );
+        (ionOwned, pairTokenOwned) = orderAmountsByTokenAddress(amount0, amount1);
     }
 }
