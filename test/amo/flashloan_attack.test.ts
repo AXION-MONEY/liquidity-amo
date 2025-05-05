@@ -29,8 +29,9 @@ const CL_FACTORY = "0x5e7BB104d84c7CB9B682AaC2F3d509f5F406809A";
 
 const tickSpacing = 1;
 const initAmount = "0";
-const lpAmount = "1000000";
-const flashLoanUSD = "6000000";
+const lpAmount = "1000000"; // 1M
+const flashLoanUSD = "6000000"; // 6M
+const flashLoanION = "6000000"; // 6M
 
 const validRangeWidth = ethers.parseUnits("0.01", 6);
 const sellIonRatioLimit = ethers.parseUnits("0.05", 6);
@@ -128,13 +129,12 @@ describe("Flashloan attack scenarios", function () {
 
         it("attacker willing to lose USD still cannot permanently distort price via flashloan", async () => {
             // Flashloan the USD
-            const initUsdAmount = ethers.parseUnits(flashLoanUSD, 6);
-            await usd.connect(admin).mint(attacker.address, initUsdAmount);
+            const flashAmt = ethers.parseUnits(flashLoanUSD, 6);
+            await usd.connect(admin).mint(attacker.address, flashAmt);
 
             // Give attacker USD to repay flashloan
-            const buffer = initUsdAmount / 10n;
-            await usd.connect(admin).mint(attacker.address, buffer);
-            const usdStart = await usd.balanceOf(attacker.address);
+            const initUsdAmount = flashAmt / 10n;
+            await usd.connect(admin).mint(attacker.address, initUsdAmount);
 
             // Pump price: swap borrowed USD for ION
             await v3Swap(attacker, pool, usd, ion, flashLoanUSD);
@@ -150,11 +150,11 @@ describe("Flashloan attack scenarios", function () {
             }
 
             // Repay flashloan
-            await usd.connect(attacker).transfer(minter.target, initUsdAmount);
+            await usd.connect(attacker).transfer(minter.target, flashAmt);
 
             // Attacker has lost USD
             const usdEnd = await usd.balanceOf(attacker.address);
-            expect(usdEnd).to.be.lt(buffer);
+            expect(usdEnd).to.be.lt(initUsdAmount);
 
             // Price should back near the target
             const afterExit = await amo.ionPriceInPairToken();
@@ -163,6 +163,69 @@ describe("Flashloan attack scenarios", function () {
         });
     });
 
+    describe("ION Flashloan", function () {
+        it("attacker cannot profit or permanently distort price via an ION flash‑loan", async () => {
+            // Flashloan the ION
+            const flashAmtION = ethers.parseUnits(flashLoanION, 18);
+            await ion.connect(admin).mint(attacker.address, flashAmtION);
 
+            // Dump price: swap ION for USD
+            await v3Swap(attacker, pool, ion, usd, flashLoanION);
+            const targetPx = await amo.ionTargetPriceInPairToken();
+            const priceAfterDump = await amo.ionPriceInPairToken();
+            expect(priceAfterDump).to.be.lt(targetPx);
+
+            // Attacker exits: swap all USD back to ION
+            const usdBal = await usd.balanceOf(attacker.address);
+            if (usdBal > 0n) {
+                const usdToSpend = usdBal / 10n ** 6n;
+                await v3Swap(attacker, pool, usd, ion, usdToSpend.toString());
+            }
+
+            // Attacker ends up with less ION than they borrowed
+            const ionEnd = await ion.balanceOf(attacker.address);
+            expect(ionEnd).to.be.lt(flashAmtION);
+
+            // Repay flashloan will revert due to insufficient balance
+            await expect(
+                ion.connect(attacker).transfer(admin.address, flashAmtION)
+            ).to.be.revertedWithCustomError(ion, "ERC20InsufficientBalance");
+        });
+
+        it("attacker willing to lose ION still cannot permanently distort price", async () => {
+            // Flashloan the ION
+            const flashAmtION = ethers.parseUnits(flashLoanION, 18);
+            await ion.connect(admin).mint(attacker.address, flashAmtION);
+
+            // Give attacker IOn to repay flashloan
+            const initIonAmount = flashAmtION / 10n;
+            await ion.connect(admin).mint(attacker.address, initIonAmount);
+
+            // Dump price: swap ION for USD
+            await v3Swap(attacker, pool, ion, usd, flashLoanION);
+            const targetPx = await amo.ionTargetPriceInPairToken();
+            const afterDump = await amo.ionPriceInPairToken();
+            expect(afterDump).to.be.lt(targetPx);
+
+            // Attacker exits: swap all USD back to ION
+            const usdBal = await usd.balanceOf(attacker.address);
+            if (usdBal > 0n) {
+                const usdToSpend = usdBal / 10n ** 6n;
+                await v3Swap(attacker, pool, usd, ion, usdToSpend.toString());
+            }
+
+            // Repay flashloan
+            await ion.connect(attacker).transfer(admin.address, flashAmtION);
+
+            // Attacker ends up with less ION than they borrowed
+            const ionEnd = await ion.balanceOf(attacker.address);
+            expect(ionEnd).to.be.lt(initIonAmount);
+
+            // Price should back near the target
+            const finalPx = await amo.ionPriceInPairToken();                  // price back near target
+            await logPriceDiff(amo, 3); // Price is 0.02% below
+            expect(finalPx).to.be.approximately(targetPx, delta);
+        });
+    });
 
 });
