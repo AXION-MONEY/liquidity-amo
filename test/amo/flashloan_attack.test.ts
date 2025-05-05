@@ -232,3 +232,54 @@ describe("Flashloan attack scenarios", function () {
     });
 
 });
+
+
+describe("Whale attack arbitrage on a price dip", function () {
+    it("attacker profits by buying low and selling after AMO buyback", async () => {
+        // fund attacker with working capital
+        const attackerCapital = ethers.parseUnits("200000", 6);   // 200 k USD
+        await usd.connect(admin).mint(attacker.address, attackerCapital);
+        const usdStart = await usd.balanceOf(attacker.address);
+
+        // whale loan the ion to dump
+        const whaleLoanION = "1000000"
+        const whaleAmtION = ethers.parseUnits(whaleLoanION, 18);
+        await ion.connect(admin).mint(attacker.address, whaleAmtION);
+        const ionStart = await ion.balanceOf(attacker.address);
+        await logPriceDiff(amo, 3);
+
+        // Dump price: swap ION for USD
+        await v3Swap(attacker, pool, ion, usd, whaleLoanION);
+        const targetPx = await amo.ionTargetPriceInPairToken();
+        const priceAfterDump = await amo.ionPriceInPairToken();
+        expect(priceAfterDump).to.be.lt(targetPx);
+
+        // Attacker buys cheap ION
+        const attackerIonBefore = await ion.balanceOf(attacker.address);
+        await v3Swap(attacker, pool, usd, ion, ethers.formatUnits(attackerCapital, 6));
+        const attackerIonAfter = await ion.balanceOf(attacker.address);
+        const ionBought = attackerIonAfter - attackerIonBefore;
+
+        // AMO buybacks to correct the price
+        await amo.connect(admin).grantRole(await amo.OPERATOR_ROLE(), admin);
+        await amo.connect(admin).unfarmBuyBurn();
+        await logPriceDiff(amo, 3);
+
+        // Sell the ION after the rebound
+        const ionToSell = await ion.balanceOf(attacker.address);
+        const ionToSellStr = (ionToSell / BigInt(1e18)).toString();
+        await v3Swap(attacker, pool, ion, usd, ionToSellStr);
+
+        // Initial USD‑equivalent value (USD balance + ION price before dump)
+        const ionStartValueUsd = (ionStart * targetPx) / (10n ** 18n);
+        const initialPortfolioUsd = usdStart + ionStartValueUsd;
+
+        // Final USD balance after the whole round‑trip
+        const usdEnd = await usd.balanceOf(attacker.address);
+
+        expect(initialPortfolioUsd).to.be.gt(
+            usdEnd,
+            "attacker made profit after the roundtrip"
+        );
+    });
+});
