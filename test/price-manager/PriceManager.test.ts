@@ -12,12 +12,14 @@ async function deployPriceManager(): Promise<[PriceManager, MuonClient]> {
   const muonClient = await MuonClientFactory.deploy(validGateway, appId, pubKey, checkGatewaySignature);
   await muonClient.waitForDeployment();
   const muonClientAddress = await muonClient.getAddress();
+  const stablePriceLower = ethers.parseUnits("0.9", 6);
+  const stablePriceUpper = ethers.parseUnits("1.1", 6);
 
   const [admin, , tokenUpdater, setter] = await ethers.getSigners();
   const PriceManagerFactory = await ethers.getContractFactory("PriceManager");
   const priceManager = await upgrades.deployProxy(
     PriceManagerFactory,
-    [admin.address, tokenUpdater.address, setter.address, muonClientAddress],
+    [admin.address, tokenUpdater.address, setter.address, muonClientAddress, stablePriceLower, stablePriceUpper],
     {
       initializer: "initialize"
     }

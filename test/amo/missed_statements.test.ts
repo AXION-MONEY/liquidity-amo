@@ -15,8 +15,8 @@ import {
 } from "./utils";
 
 describe("Missed Statements", () => {
-  const rpcUrl = "https://developer-access-mainnet.base.org";
-  const forkingBlock = 26235850;
+  const rpcUrl = "https://base.llamarpc.com";
+  const forkingBlock = 29474850;
   const swapAmount = "200000";
   const LOG_PRICES = false;
   const initAmount = "11000000"; // 11M
@@ -41,6 +41,7 @@ describe("Missed Statements", () => {
   let minter: Minter;
   let priceManager: PriceManager;
   let v2amo: V2AMO;
+  let OPERATOR_ROLE: string;
 
   beforeEach(async () => {
     [admin, user, priceManager] = await initNetwork(rpcUrl, forkingBlock);
@@ -75,6 +76,8 @@ describe("Missed Statements", () => {
     await v2amo.connect(admin).grantRole(UNPAUSER_ROLE, admin);
     await v2amo.connect(admin).grantRole(WITHDRAWER_ROLE, admin);
     await v2amo.connect(admin).grantRole(REWARD_COLLECTOR_ROLE, admin);
+
+    OPERATOR_ROLE = await v2amo.OPERATOR_ROLE();
   });
 
   it("set ION target price premium", async () => {
@@ -131,36 +134,32 @@ describe("Missed Statements", () => {
     const tp = await v2amo.ionTargetPriceInPairToken();
 
     await v2VeloSwap(user, pairToken, ion, AERO_V2_ROUTER, swapAmount);
-    await v2amo.connect(admin).addBypassSwapRatioMember(user);
+    await v2amo.connect(admin).grantRole(OPERATOR_ROLE, user);
     await v2amo.connect(user).mintSellFarm();
     const newPrice1 = await getCurrentPrice(v2amo, LOG_PRICES);
     expect(newPrice1).to.be.approximately(tp, delta);
-    expect(await v2amo.getBypassSwapRatioMembers()).to.deep.equal([user.address]);
 
     await v2VeloSwap(user, pairToken, ion, AERO_V2_ROUTER, swapAmount);
-    await v2amo.connect(admin).removeBypassSwapRatioMember(user);
+    await v2amo.connect(admin).revokeRole(OPERATOR_ROLE, user);
     await v2amo.connect(user).mintSellFarm();
     const newPrice2 = await getCurrentPrice(v2amo, LOG_PRICES);
     expect(newPrice2).to.be.gt(tp + (tp * validRangeWidth) / 1000000n);
-    expect(await v2amo.getBypassSwapRatioMembers()).to.deep.equal([]);
   });
 
   it("unfarmBuyBurn with & without swap ratio", async () => {
     const tp = await v2amo.ionTargetPriceInPairToken();
 
     await v2VeloSwap(user, ion, pairToken, AERO_V2_ROUTER, swapAmount);
-    await v2amo.connect(admin).addBypassSwapRatioMember(user);
+    await v2amo.connect(admin).grantRole(OPERATOR_ROLE, user);
     await v2amo.connect(user).unfarmBuyBurn();
     const newPrice1 = await getCurrentPrice(v2amo, LOG_PRICES);
     expect(newPrice1).to.be.approximately(tp, delta);
-    expect(await v2amo.getBypassSwapRatioMembers()).to.deep.equal([user.address]);
 
     await v2VeloSwap(user, ion, pairToken, AERO_V2_ROUTER, swapAmount);
-    await v2amo.connect(admin).removeBypassSwapRatioMember(user);
+    await v2amo.connect(admin).revokeRole(OPERATOR_ROLE, user);
     await v2amo.connect(user).unfarmBuyBurn();
     const newPrice2 = await getCurrentPrice(v2amo, LOG_PRICES);
     expect(newPrice2).to.be.lt(tp - (tp * validRangeWidth) / 1000000n);
-    expect(await v2amo.getBypassSwapRatioMembers()).to.deep.equal([]);
   });
 
   describe("Staking while mintSellFarm", () => {

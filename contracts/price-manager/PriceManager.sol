@@ -26,11 +26,20 @@ contract PriceManager is IPriceManager, Initializable, AccessControlEnumerableUp
     /// @inheritdoc IPriceManager
     bytes32 public constant SETTER_ROLE = keccak256("SETTER_ROLE");
 
+    ////// INTERNALS //////
+    // @notice One (1) scaled with the internal decimal convention.
+    uint256 internal constant SCALED_UNIT = 10 ** 6;
+
     // -------------------------------------------------------------
     //                       STATE VARIABLES
     // -------------------------------------------------------------
     /// @notice Instance of the Muon Client for signature verification.
     IMuonClient public muonClient;
+
+    /// @notice The minimum valid price value for stablecoins.
+    uint256 public stablePriceLower;
+    /// @notice The maximum valid price value for stablecoins.
+    uint256 public stablePriceUpper;
 
     /// @notice Current state of staked USDe.
     StakedUSDeLib.StakedUSDe public sUSDe;
@@ -47,6 +56,8 @@ contract PriceManager is IPriceManager, Initializable, AccessControlEnumerableUp
     /// @notice The block data corresponding to the last update of the Savings DAI pot.
     Block public sDaiLastBlock;
 
+    mapping(address => StablePrice) internal _stablePrices;
+
     // -------------------------------------------------------------
     //                      INITIALIZATION
     // -------------------------------------------------------------
@@ -56,12 +67,16 @@ contract PriceManager is IPriceManager, Initializable, AccessControlEnumerableUp
      * @param tokenUpdater The address to be granted the TOKEN_UPDATER_ROLE.
      * @param setter The address to be granted the SETTER_ROLE.
      * @param muonClientAddress The address of the Muon client contract.
+     * @param _stablePriceLower The minimum valid price value for stablecoins.
+     * @param _stablePriceUpper The maximum valid price value for stablecoins.
      */
     function initialize(
         address admin,
         address tokenUpdater,
         address setter,
-        address muonClientAddress
+        address muonClientAddress,
+        uint256 _stablePriceLower,
+        uint256 _stablePriceUpper
     ) public initializer {
         __AccessControlEnumerable_init();
 
@@ -72,6 +87,7 @@ contract PriceManager is IPriceManager, Initializable, AccessControlEnumerableUp
         // Temporarily grant SETTER_ROLE to msg.sender for initialization
         _grantRole(SETTER_ROLE, msg.sender);
         setMuonClient(muonClientAddress);
+        setStablePriceBounds(_stablePriceLower, _stablePriceUpper);
         _revokeRole(SETTER_ROLE, msg.sender);
 
         _grantRole(TOKEN_UPDATER_ROLE, tokenUpdater);
@@ -95,6 +111,20 @@ contract PriceManager is IPriceManager, Initializable, AccessControlEnumerableUp
         if (srcTimestamp <= lastTimestamp) {
             revert OldBlock(srcTimestamp, lastTimestamp);
         }
+    }
+
+    /**
+     * @notice Internal function to update the price of a stablecoin.
+     * @param tokenAddress The stablecoin address.
+     * @param price The new price value.
+     * @param timestamp The timestamp of the price.
+     */
+    function _setStable(address tokenAddress, uint256 price, uint256 timestamp) internal {
+        if (price > stablePriceUpper || price < stablePriceLower) revert InvalidPriceValue();
+        StablePrice storage stablePrice = _stablePrices[tokenAddress];
+        _validateSrcBlock(timestamp, stablePrice.timestamp);
+        stablePrice.price = price;
+        stablePrice.timestamp = timestamp;
     }
 
     /**
@@ -142,11 +172,38 @@ contract PriceManager is IPriceManager, Initializable, AccessControlEnumerableUp
     // -------------------------------------------------------------
     //                     EXTERNAL FUNCTIONS
     // -------------------------------------------------------------
-
     /// @inheritdoc IPriceManager
     function setMuonClient(address _muonClientAddress) public onlyRole(SETTER_ROLE) {
         muonClient = IMuonClient(_muonClientAddress);
         emit SetMuonClient(_muonClientAddress);
+    }
+
+    /// @inheritdoc IPriceManager
+    function setStablePriceBounds(uint256 _stablePriceLower, uint256 _stablePriceUpper) public onlyRole(SETTER_ROLE) {
+        stablePriceLower = _stablePriceLower;
+        stablePriceUpper = _stablePriceUpper;
+        emit StablePriceBoundsSet(stablePriceLower, stablePriceUpper);
+    }
+
+    ////// Stablecoins SET Price Values FUNCTIONS //////
+
+    /// @inheritdoc IPriceManager
+    function setStable(address tokenAddress, uint256 price) external onlyRole(TOKEN_UPDATER_ROLE) {
+        _setStable(tokenAddress, price, block.timestamp);
+    }
+
+    /// @inheritdoc IPriceManager
+    function setStableWithSig(address tokenAddress, uint256 price, MuonSig calldata sig) external {
+        if (keccak256(bytes(sig.token)) != keccak256("stable")) revert SigTokenMismatch();
+        bytes memory data = abi.encodePacked(
+            sig.srcBlock.number,
+            sig.srcBlock.timestamp,
+            tokenAddress,
+            price,
+            sig.token
+        );
+        muonClient.verifyTSSAndGW(data, sig.reqId, sig.signature, sig.gatewaySignature);
+        _setStable(tokenAddress, price, sig.srcBlock.timestamp);
     }
 
     ////// SUsde SET Price Values FUNCTIONS //////
@@ -229,6 +286,27 @@ contract PriceManager is IPriceManager, Initializable, AccessControlEnumerableUp
     // -------------------------------------------------------------
     //                      VIEW FUNCTIONS
     // -------------------------------------------------------------
+    /// @inheritdoc IPriceManager
+    function stableTokenPrice(address token) public view returns (uint256 price) {
+        price = _stablePrices[token].price;
+        if (price > stablePriceUpper || price < stablePriceLower) revert InvalidPriceValue();
+    }
+
+    /// @inheritdoc IPriceManager
+    function stakedTokenPrice(TokenType tokenType) external view returns (uint256) {
+        uint256 assets;
+        if (tokenType == TokenType.SUSDE) {
+            assets = sUSDe.previewRedeem(SCALED_UNIT);
+        } else if (tokenType == TokenType.SFRAX) {
+            assets = sFRAX.previewRedeem(SCALED_UNIT);
+        } else if (tokenType == TokenType.SDAI) {
+            assets = pot.previewRedeem(SCALED_UNIT);
+        } else {
+            revert InvalidTokenType();
+        }
+        uint256 stablePrice = stableTokenPrice(address(uint160(tokenType)));
+        return Math.mulDiv(assets, stablePrice, SCALED_UNIT);
+    }
 
     /// @inheritdoc IPriceManager
     function sUsdePreviewRedeem(uint256 shares) external view returns (uint256) {

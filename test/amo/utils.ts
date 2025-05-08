@@ -88,6 +88,12 @@ export enum V2PoolType {
   VELO_LIKE // Aerodrome, Velodrome
 }
 
+function numberToAddress(n: number): string {
+  const hex = n.toString(16);
+  const padded = hex.padStart(40, "0");
+  return `0x${padded}`;
+}
+
 export async function initNetwork(
   jsonRpcUrl: string,
   blockNumber?: number
@@ -108,6 +114,10 @@ export async function initNetwork(
   await priceManager.connect(user).setSUsdeWithSig(sigs.susde.states, sigs.susde.muonSig);
   await priceManager.connect(user).setSFraxWithSig(sigs.sfrax.states, sigs.sfrax.muonSig);
   await priceManager.connect(user).setPotWithSig(sigs.sdai.states, sigs.sdai.muonSig);
+  const priceOne = ethers.parseUnits("1", 6);
+  await priceManager.connect(admin).setStable(numberToAddress(PairTokenType.SUSDE), priceOne);
+  await priceManager.connect(admin).setStable(numberToAddress(PairTokenType.SFRAX), priceOne);
+  await priceManager.connect(admin).setStable(numberToAddress(PairTokenType.SDAI), priceOne);
   return [admin, user, priceManager];
 }
 
@@ -222,11 +232,13 @@ export async function deployPriceManager(admin: SignerWithAddress): Promise<Pric
   const muonClient = await MuonClientFactory.deploy();
   await muonClient.waitForDeployment();
   const muonClientAddress = await muonClient.getAddress();
+  const stablePriceLower = ethers.parseUnits("0.5", 6);
+  const stablePriceUpper = ethers.parseUnits("2.0", 6);
 
   const PriceManagerFactory = await ethers.getContractFactory("PriceManager");
   const priceManager = await upgrades.deployProxy(
     PriceManagerFactory,
-    [admin.address, admin.address, admin.address, muonClientAddress],
+    [admin.address, admin.address, admin.address, muonClientAddress, stablePriceLower, stablePriceUpper],
     {
       initializer: "initialize"
     }
@@ -248,9 +260,16 @@ export async function deployV2AMO(
   validRangeWidth: bigint,
   sellRatio: bigint,
   buyRatio: bigint,
+  sellIonRatioLimit: bigint = ethers.parseUnits("10", 6),
+  removeLiquidityRatioLimit: bigint = ethers.parseUnits("1", 6),
+  periodDuration: bigint = 1n,
   feeDivider: bigint = BigInt(10 ** 4),
   isSolidly: boolean = false
 ): Promise<V2AMO> {
+  if (pairedTokenType === PairTokenType.STABLE) {
+    const priceManager = await ethers.getContractAt("PriceManager", priceManagerAddress);
+    await priceManager.connect(admin).setStable(pairTokenAddress, ethers.parseUnits("1", 6));
+  }
   const stable = false;
   let poolAddress: string;
   let factoryAddress: string;
@@ -299,7 +318,10 @@ export async function deployV2AMO(
     false, // useTokenId
     validRangeWidth,
     sellRatio,
-    buyRatio
+    buyRatio,
+    sellIonRatioLimit,
+    removeLiquidityRatioLimit,
+    periodDuration
   ];
   const V2AMOFactory = await ethers.getContractFactory("V2AMO");
   const amo = await upgrades.deployProxy(V2AMOFactory, args, {
@@ -324,8 +346,15 @@ export async function deployV3AMO(
   tickUpper: number,
   validRangeWidth: bigint,
   sellRatio: bigint,
-  buyRatio: bigint
+  buyRatio: bigint,
+  sellIonRatioLimit: bigint = ethers.parseUnits("10", 6),
+  removeLiquidityRatioLimit: bigint = ethers.parseUnits("1", 6),
+  periodDuration: bigint = 1n
 ): Promise<V3AMO> {
+  if (pairedTokenType === PairTokenType.STABLE) {
+    const priceManager = await ethers.getContractAt("PriceManager", priceManagerAddress);
+    await priceManager.connect(admin).setStable(pairTokenAddress, ethers.parseUnits("1", 6));
+  }
   const args = [
     admin.address,
     ionAddress,
@@ -340,7 +369,10 @@ export async function deployV3AMO(
     tickUpper,
     validRangeWidth,
     sellRatio,
-    buyRatio
+    buyRatio,
+    sellIonRatioLimit,
+    removeLiquidityRatioLimit,
+    periodDuration
   ];
   const V3AMOFactory = await ethers.getContractFactory("V3AMO");
   const amo = await upgrades.deployProxy(V3AMOFactory, args, {

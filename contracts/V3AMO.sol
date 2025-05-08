@@ -75,6 +75,9 @@ contract V3AMO is IV3AMO, MasterAMO {
      * @param validRangeWidth_ The valid range width for liquidity addition.
      * @param sellRatio_ The sell ratio as mintSellFarm's swap ratio.
      * @param buyRatio_ The buy ratio as unfarmBuyBurn's swap ratio.
+     * @param sellIonRatioLimit_ The ratio limit for ION amount to sell.
+     * @param removeLiquidityRatioLimit_ The ratio limit for liquidity to remove.
+     * @param periodDuration_ The period duration (using for amounts limit).
      */
     function initialize(
         address admin,
@@ -85,12 +88,15 @@ contract V3AMO is IV3AMO, MasterAMO {
         address poolCustomDeployer_,
         address ionMinterAddress_,
         address priceManagerAddress_,
-        PairTokenType pairTokenType_,
+        IPriceManager.TokenType pairTokenType_,
         int24 tickLower_,
         int24 tickUpper_,
         uint24 validRangeWidth_,
         uint24 sellRatio_,
-        uint24 buyRatio_
+        uint24 buyRatio_,
+        uint24 sellIonRatioLimit_,
+        uint24 removeLiquidityRatioLimit_,
+        uint256 periodDuration_
     ) public initializer {
         super.initialize(
             admin,
@@ -102,7 +108,10 @@ contract V3AMO is IV3AMO, MasterAMO {
             pairTokenType_,
             validRangeWidth_,
             sellRatio_,
-            buyRatio_
+            buyRatio_,
+            sellIonRatioLimit_,
+            removeLiquidityRatioLimit_,
+            periodDuration_
         );
         poolType = poolType_;
         poolCustomDeployer = poolCustomDeployer_;
@@ -126,6 +135,29 @@ contract V3AMO is IV3AMO, MasterAMO {
     // -------------------------------------------------------------
     //                INTERNAL HELPER VIEW FUNCTIONS
     // -------------------------------------------------------------
+
+    /**
+     * @notice Returns the current amount of liquidity held in the position.
+     * @return liquidity The amount of liquidity owned in the position.
+     */
+    function _getPositionLiquidity() internal view returns (uint256 liquidity) {
+        bytes32 key;
+        if (poolType == PoolType.ALGEBRA_V1 || poolType == PoolType.ALGEBRA_INTEGRAL) {
+            address owner = address(this);
+            int24 bottomTick = tickLower;
+            int24 topTick = tickUpper;
+            assembly {
+                key := or(shl(24, or(shl(24, owner), and(bottomTick, 0xFFFFFF))), and(topTick, 0xFFFFFF))
+            }
+        } else if (poolType == PoolType.RAMSES_V2) {
+            uint256 index = 0;
+            key = keccak256(abi.encodePacked(address(this), index, tickLower, tickUpper));
+        } else {
+            key = keccak256(abi.encodePacked(address(this), tickLower, tickUpper));
+        }
+        (, bytes memory data) = poolAddress.staticcall(abi.encodeWithSignature("positions(bytes32)", key));
+        liquidity = poolType == PoolType.ALGEBRA_INTEGRAL ? abi.decode(data, (uint256)) : abi.decode(data, (uint128));
+    }
 
     /**
      * @notice Internal function to calculate liquidity for a given pairToken Amount.
@@ -250,16 +282,29 @@ contract V3AMO is IV3AMO, MasterAMO {
     /// @inheritdoc MasterAMO
     function _mintAndSell(uint24 swapRatio) internal override returns (uint256 postOperationIonPrice) {
         uint256 targetPrice = limitedTargetPriceForSell(swapRatio);
+
+        // Ensure that the AmountAtPeriod is initialized for this period, before swapping.
+        increaseSoldIon(0);
+
+        int256 amountSpecified;
+        if (hasRole(OPERATOR_ROLE, msg.sender)) {
+            amountSpecified = type(int256).max;
+        } else {
+            amountSpecified = periodAllowedIonToSell().toInt256();
+        }
         (int256 amount0, int256 amount1) = IUniswapV3Pool(poolAddress).swap(
             address(this),
             ionAddress < pairTokenAddress, // zeroForOne
-            type(int256).max, // amountSpecified
+            amountSpecified,
             toSqrtPriceX96(targetPrice),
             abi.encode(SwapType.SELL)
         );
         (int256 ionDelta, int256 pairTokenDelta) = orderAmountsByTokenAddress(amount0, amount1);
         uint256 ionAmountIn = uint256(ionDelta);
         uint256 pairTokenAmountOut = uint256(-pairTokenDelta);
+
+        increaseSoldIon(ionAmountIn);
+
         postOperationIonPrice = ionPriceInPairToken();
         emit MintSell(ionAmountIn, pairTokenAmountOut);
     }
@@ -339,7 +384,7 @@ contract V3AMO is IV3AMO, MasterAMO {
     function _calculateLiquidityToUnfarm(
         uint24 swapRatio
     ) internal returns (uint256 liquidity, uint160 sqrtPriceLimitX96) {
-        uint256 positionLiquidity = getLiquidity();
+        uint256 positionLiquidity = _getPositionLiquidity();
         uint256 targetPrice = limitedTargetPriceForBuy(swapRatio);
         sqrtPriceLimitX96 = toSqrtPriceX96(targetPrice);
         try
@@ -367,6 +412,11 @@ contract V3AMO is IV3AMO, MasterAMO {
     ) internal override returns (uint256 liquidity, uint256 postOperationIonPrice) {
         uint160 sqrtPriceLimitX96;
         (liquidity, sqrtPriceLimitX96) = _calculateLiquidityToUnfarm(swapRatio);
+
+        if (!hasRole(OPERATOR_ROLE, msg.sender)) {
+            liquidity = Math.min(liquidity, periodAllowedLiquidityToRemove());
+        }
+        increaseRemovedLiquidity(liquidity);
         (
             uint256 ionRemoved,
             uint256 pairTokenRemoved,
@@ -386,7 +436,11 @@ contract V3AMO is IV3AMO, MasterAMO {
         uint256 ionAmountOut = uint256(-ionDelta);
 
         uint256 remainedPairTokenAfterOperation = pairTokenRemoved - pairTokenAmountIn;
-        if (remainedPairTokenAfterOperation > 0) _addLiquidity(remainedPairTokenAfterOperation);
+        if (remainedPairTokenAfterOperation > 0) {
+            uint256 addedLiquidity = _addLiquidity(remainedPairTokenAfterOperation);
+            lastPeriodAmounts.removedLiquidity -= addedLiquidity;
+            liquidity -= addedLiquidity;
+        }
 
         IIon(ionAddress).burn(ionCollectedFee + ionRemoved + ionAmountOut);
         postOperationIonPrice = ionPriceInPairToken();
@@ -520,23 +574,23 @@ contract V3AMO is IV3AMO, MasterAMO {
         return sqrtPriceX96.toUint160();
     }
 
-    /// @inheritdoc IV3AMO
-    function getLiquidity() public view override returns (uint256 liquidity) {
-        bytes32 key;
-        if (poolType == PoolType.ALGEBRA_V1 || poolType == PoolType.ALGEBRA_INTEGRAL) {
-            address owner = address(this);
-            int24 bottomTick = tickLower;
-            int24 topTick = tickUpper;
-            assembly {
-                key := or(shl(24, or(shl(24, owner), and(bottomTick, 0xFFFFFF))), and(topTick, 0xFFFFFF))
-            }
-        } else if (poolType == PoolType.RAMSES_V2) {
-            uint256 index = 0;
-            key = keccak256(abi.encodePacked(address(this), index, tickLower, tickUpper));
-        } else {
-            key = keccak256(abi.encodePacked(address(this), tickLower, tickUpper));
-        }
-        (, bytes memory data) = poolAddress.staticcall(abi.encodeWithSignature("positions(bytes32)", key));
-        liquidity = poolType == PoolType.ALGEBRA_INTEGRAL ? abi.decode(data, (uint256)) : abi.decode(data, (uint128));
+    /// @inheritdoc IMasterAMO
+    function getOwnedTokens()
+        public
+        view
+        override
+        returns (uint256 liquidityOwned, uint256 ionOwned, uint256 pairTokenOwned)
+    {
+        liquidityOwned = _getPositionLiquidity();
+        uint160 sqrtRatioX96 = _getSqrtPriceX96();
+        uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(tickLower);
+        uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(tickUpper);
+        (uint256 amount0, uint256 amount1) = LiquidityAmounts.getAmountsForLiquidity(
+            sqrtRatioX96,
+            sqrtRatioAX96,
+            sqrtRatioBX96,
+            liquidityOwned.toUint128()
+        );
+        (ionOwned, pairTokenOwned) = orderAmountsByTokenAddress(amount0, amount1);
     }
 }

@@ -29,6 +29,7 @@ import {IIon} from "./interfaces/IIon.sol";
  *      - SETTER_ROLE: For setting critical parameters.
  *      - PAUSER_ROLE / UNPAUSER_ROLE: For pausing and unpausing contract operations.
  *      - WITHDRAWER_ROLE: For token withdrawals.
+ *      - OPERATOR_ROLE: Bypass swap ratio limit and amounts (Ion to sell and liquidity to remove) ratio limit.
  *
  *      Future upgrades may incorporate strict governance mechanisms.
  */
@@ -54,6 +55,8 @@ abstract contract MasterAMO is
     bytes32 public constant override UNPAUSER_ROLE = keccak256("UNPAUSER_ROLE");
     /// @inheritdoc IMasterAMO
     bytes32 public constant override WITHDRAWER_ROLE = keccak256("WITHDRAWER_ROLE");
+    /// @inheritdoc IMasterAMO
+    bytes32 public constant override OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
 
     // -------------------------------------------------------------
     //                        STATE VARIABLES
@@ -75,20 +78,25 @@ abstract contract MasterAMO is
     /// @inheritdoc IMasterAMO
     address public priceManagerContractAddress;
     /// @inheritdoc IMasterAMO
-    PairTokenType public pairTokenType;
+    IPriceManager.TokenType public pairTokenType;
 
     ////// MUTABLE //////
     /// @inheritdoc IMasterAMO
-    uint24 public override validRangeWidth;
-    /// @inheritdoc IMasterAMO
     uint256 public override ionTargetPricePremium;
+    /// @inheritdoc IMasterAMO
+    uint24 public override validRangeWidth;
     /// @inheritdoc IMasterAMO
     uint24 public override sellRatio;
     /// @inheritdoc IMasterAMO
     uint24 public override buyRatio;
     /// @inheritdoc IMasterAMO
-    mapping(address => bool) public override bypassSwapRatioWhitelist;
-    EnumerableSet.AddressSet internal _bypassSwapRatioMembers;
+    uint24 public override sellIonRatioLimit;
+    /// @inheritdoc IMasterAMO
+    uint24 public override removeLiquidityRatioLimit;
+    /// @inheritdoc IMasterAMO
+    AmountAtPeriod public override lastPeriodAmounts;
+    /// @inheritdoc IMasterAMO
+    uint256 public override periodDuration;
 
     /**
      * @dev This empty reserved space is put in place to allow future versions to add new
@@ -128,15 +136,18 @@ abstract contract MasterAMO is
     /**
      * @notice Initializes the MasterAMO contract.
      * @param admin Address to be granted the DEFAULT_ADMIN_ROLE.
-     * @param ionAddress_ Address of the Ion stableCoin.
+     * @param ionAddress_ Address of the ION stableCoin.
      * @param pairTokenAddress_ Address of the pairToken.
      * @param pool_ Address of the liquidity pool for the ION-PairToken pair.
-     * @param ionMinterAddress_ Address of the Ion minter contract.
+     * @param ionMinterAddress_ Address of the ION minter contract.
      * @param priceManager_ Address of the price manager contract.
      * @param pairTokenType_ The type of the token paired with ION.
      * @param validRangeWidth_ The valid range width for liquidity addition.
      * @param sellRatio_ The sell ratio as mintSellFarm's swap ratio.
      * @param buyRatio_ The buy ratio as unfarmBuyBurn's swap ratio.
+     * @param sellIonRatioLimit_ The ratio limit for ION amount to sell.
+     * @param removeLiquidityRatioLimit_ The ratio limit for liquidity to remove.
+     * @param periodDuration_ The period duration (using for amounts limit).
      */
     function initialize(
         address admin,
@@ -145,10 +156,13 @@ abstract contract MasterAMO is
         address pool_,
         address ionMinterAddress_,
         address priceManager_,
-        PairTokenType pairTokenType_,
+        IPriceManager.TokenType pairTokenType_,
         uint24 validRangeWidth_,
         uint24 sellRatio_,
-        uint24 buyRatio_
+        uint24 buyRatio_,
+        uint24 sellIonRatioLimit_,
+        uint24 removeLiquidityRatioLimit_,
+        uint256 periodDuration_
     ) internal onlyInitializing {
         __AccessControlEnumerable_init();
         __Pausable_init();
@@ -175,7 +189,8 @@ abstract contract MasterAMO is
 
         // Temporarily grant SETTER_ROLE to msg.sender for initialization
         _grantRole(SETTER_ROLE, msg.sender);
-        setParams(validRangeWidth_, sellRatio_, buyRatio_);
+        setParams(validRangeWidth_, sellRatio_, buyRatio_, sellIonRatioLimit_, removeLiquidityRatioLimit_);
+        setPeriodDuration(periodDuration_);
         _revokeRole(SETTER_ROLE, msg.sender);
     }
 
@@ -192,34 +207,26 @@ abstract contract MasterAMO is
     function setParams(
         uint24 validRangeWidth_,
         uint24 sellRatio_,
-        uint24 buyRatio_
+        uint24 buyRatio_,
+        uint24 sellIonRatioLimit_,
+        uint24 removeLiquidityRatioLimit_
     ) public override onlyRole(SETTER_ROLE) {
         if (validRangeWidth_ > SCALED_UNIT || sellRatio_ > SCALED_UNIT || buyRatio_ > SCALED_UNIT)
             revert InvalidRatioValue();
         validRangeWidth = validRangeWidth_;
         sellRatio = sellRatio_;
         buyRatio = buyRatio_;
-        emit ParamsSet(validRangeWidth, sellRatio, buyRatio);
+        sellIonRatioLimit = sellIonRatioLimit_;
+        removeLiquidityRatioLimit = removeLiquidityRatioLimit_;
+        emit ParamsSet(validRangeWidth, sellRatio, buyRatio, sellIonRatioLimit, removeLiquidityRatioLimit);
     }
 
-    function addBypassSwapRatioMember(address member) external onlyRole(SETTER_ROLE) returns (bool) {
-        if (!bypassSwapRatioWhitelist[member]) {
-            bypassSwapRatioWhitelist[member] = true;
-            _bypassSwapRatioMembers.add(member);
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    function removeBypassSwapRatioMember(address member) external onlyRole(SETTER_ROLE) returns (bool) {
-        if (bypassSwapRatioWhitelist[member]) {
-            bypassSwapRatioWhitelist[member] = false;
-            _bypassSwapRatioMembers.remove(member);
-            return true;
-        } else {
-            return false;
-        }
+    /// @inheritdoc IMasterAMO
+    function setPeriodDuration(uint256 periodDuration_) public override onlyRole(SETTER_ROLE) {
+        if (periodDuration_ == 0) revert InvalidDurationValue();
+        periodDuration = periodDuration_;
+        delete lastPeriodAmounts;
+        emit PeriodDurationSet(periodDuration);
     }
 
     // -------------------------------------------------------------
@@ -238,6 +245,96 @@ abstract contract MasterAMO is
     // -------------------------------------------------------------
     //                INTERNAL HELPER VIEW FUNCTIONS
     // -------------------------------------------------------------
+    /**
+     * @notice Calculates the current period index based on the current block timestamp and period duration.
+     * @return The index of the current period.
+     */
+    function currentPeriodIndex() internal view returns (uint256) {
+        return block.timestamp / periodDuration;
+    }
+
+    /**
+     * @notice Increases the recorded amount of ION sold in the current period.
+     * @dev If a new period has started, it resets the period data and initializes a new record.
+     * @param amount The amount of ION sold to add.
+     */
+    function increaseSoldIon(uint256 amount) internal {
+        uint256 _currentPeriodIndex = currentPeriodIndex();
+        if (lastPeriodAmounts.periodIndex == _currentPeriodIndex) {
+            lastPeriodAmounts.soldIon += amount;
+        } else {
+            (uint256 liquidityOwned, uint256 ionOwned, ) = getOwnedTokens();
+            lastPeriodAmounts = AmountAtPeriod({
+                periodIndex: _currentPeriodIndex,
+                totalIon: ionOwned,
+                soldIon: amount,
+                totalLiquidity: liquidityOwned,
+                removedLiquidity: 0
+            });
+        }
+    }
+
+    /**
+     * @notice Increases the recorded amount of liquidity removed in the current period.
+     * @dev If a new period has started, it resets the period data and initializes a new record.
+     * @param amount The amount of liquidity removed to add.
+     */
+    function increaseRemovedLiquidity(uint256 amount) internal {
+        uint256 _currentPeriodIndex = currentPeriodIndex();
+        if (lastPeriodAmounts.periodIndex == _currentPeriodIndex) {
+            lastPeriodAmounts.removedLiquidity += amount;
+        } else {
+            (uint256 liquidityOwned, uint256 ionOwned, ) = getOwnedTokens();
+            lastPeriodAmounts = AmountAtPeriod({
+                periodIndex: _currentPeriodIndex,
+                totalIon: ionOwned,
+                soldIon: 0,
+                totalLiquidity: liquidityOwned,
+                removedLiquidity: amount
+            });
+        }
+    }
+
+    /**
+     * @notice Returns the remaining amount of ION that is allowed to be sold in the current period.
+     * @dev Reverts if the already sold amount exceeds or equals the allowed limit.
+     * @return The remaining allowed ION amount for sale.
+     */
+    function periodAllowedIonToSell() internal view returns (uint256) {
+        uint256 totalIon;
+        uint256 soldIon;
+        if (lastPeriodAmounts.periodIndex == currentPeriodIndex()) {
+            totalIon = lastPeriodAmounts.totalIon;
+            soldIon = lastPeriodAmounts.soldIon;
+        } else {
+            (, totalIon, ) = getOwnedTokens();
+            soldIon = 0;
+        }
+        uint256 totalAllowed = totalIon.mulDiv(sellIonRatioLimit, SCALED_UNIT);
+        if (totalAllowed <= soldIon) revert NoAllowedAmount();
+        return totalAllowed - soldIon;
+    }
+
+    /**
+     * @notice Returns the remaining amount of liquidity that is allowed to be removed in the current period.
+     * @dev Reverts if the already removed liquidity exceeds or equals the allowed limit.
+     * @return The remaining allowed liquidity for removal.
+     */
+    function periodAllowedLiquidityToRemove() internal view returns (uint256) {
+        uint256 totalLiquidity;
+        uint256 removedLiquidity;
+        if (lastPeriodAmounts.periodIndex == currentPeriodIndex()) {
+            totalLiquidity = lastPeriodAmounts.totalLiquidity;
+            removedLiquidity = lastPeriodAmounts.removedLiquidity;
+        } else {
+            (totalLiquidity, , ) = getOwnedTokens();
+            removedLiquidity = 0;
+        }
+        uint256 totalAllowed = totalLiquidity.mulDiv(removeLiquidityRatioLimit, SCALED_UNIT);
+        if (totalAllowed <= removedLiquidity) revert NoAllowedAmount();
+        return totalAllowed - removedLiquidity;
+    }
+
     /**
      * @notice Sorts two token amounts based on token addresses.
      * @param ionAmount The Ion token amount.
@@ -455,6 +552,8 @@ abstract contract MasterAMO is
             revert InsufficientOutputAmount(pairTokenRemoved, pairTokenMinRemove);
         IERC20(pairTokenAddress).safeTransfer(recipient, pairTokenRemoved + pairTokenCollectedFee);
         IIon(ionAddress).burn(ionRemoved + ionCollectedFee);
+
+        delete lastPeriodAmounts;
     }
 
     /// @inheritdoc IMasterAMO
@@ -466,7 +565,7 @@ abstract contract MasterAMO is
         validateSell
         returns (uint256 liquidity, uint256 postOperationIonPrice)
     {
-        uint24 swapRatio = bypassSwapRatioWhitelist[msg.sender] ? uint24(SCALED_UNIT) : sellRatio;
+        uint24 swapRatio = hasRole(OPERATOR_ROLE, msg.sender) ? uint24(SCALED_UNIT) : sellRatio;
         (liquidity, postOperationIonPrice) = _mintSellFarm(swapRatio);
     }
 
@@ -479,7 +578,7 @@ abstract contract MasterAMO is
         validateBuy
         returns (uint256 liquidity, uint256 postOperationIonPrice)
     {
-        uint24 swapRatio = bypassSwapRatioWhitelist[msg.sender] ? uint24(SCALED_UNIT) : buyRatio;
+        uint24 swapRatio = hasRole(OPERATOR_ROLE, msg.sender) ? uint24(SCALED_UNIT) : buyRatio;
         (liquidity, postOperationIonPrice) = _unfarmBuyBurn(swapRatio);
     }
 
@@ -499,22 +598,23 @@ abstract contract MasterAMO is
     //                        VIEW FUNCTIONS
     // -------------------------------------------------------------
     /// @inheritdoc IMasterAMO
+    function getOwnedTokens()
+        public
+        view
+        virtual
+        returns (uint256 liquidityOwned, uint256 ionOwned, uint256 pairTokenOwned);
+
+    /// @inheritdoc IMasterAMO
     function ionPriceInPairToken() public view virtual override returns (uint256 price);
 
     /// @inheritdoc IMasterAMO
     function ionTargetPriceInPairToken() public view override returns (uint256) {
-        uint256 baseUnit = 10 ** PRICE_DECIMALS;
-        if (pairTokenType == PairTokenType.STABLE) return baseUnit;
-        else if (pairTokenType == PairTokenType.SUSDE)
-            return IPriceManager(priceManagerContractAddress).sUsdePreviewDeposit(baseUnit) + ionTargetPricePremium;
-        else if (pairTokenType == PairTokenType.SFRAX)
-            return IPriceManager(priceManagerContractAddress).sFraxPreviewDeposit(baseUnit) + ionTargetPricePremium;
-        else if (pairTokenType == PairTokenType.SDAI)
-            return IPriceManager(priceManagerContractAddress).sDaiPreviewDeposit(baseUnit) + ionTargetPricePremium;
-        else revert InvalidPairTokenType();
-    }
-
-    function getBypassSwapRatioMembers() external view returns (address[] memory) {
-        return _bypassSwapRatioMembers.values();
+        uint256 pairTokenPrice;
+        if (pairTokenType == IPriceManager.TokenType.STABLE) {
+            pairTokenPrice = IPriceManager(priceManagerContractAddress).stableTokenPrice(pairTokenAddress);
+        } else {
+            pairTokenPrice = IPriceManager(priceManagerContractAddress).stakedTokenPrice(pairTokenType);
+        }
+        return Math.mulDiv(SCALED_UNIT, SCALED_UNIT, pairTokenPrice) + ionTargetPricePremium;
     }
 }

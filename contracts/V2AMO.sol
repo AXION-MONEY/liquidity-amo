@@ -87,6 +87,9 @@ contract V2AMO is IV2AMO, MasterAMO {
      * @param validRangeWidth_ The valid range width for liquidity addition.
      * @param sellRatio_ The sell ratio as mintSellFarm's swap ratio.
      * @param buyRatio_ The buy ratio as unfarmBuyBurn's swap ratio.
+     * @param sellIonRatioLimit_ The ratio limit for ION amount to sell.
+     * @param removeLiquidityRatioLimit_ The ratio limit for liquidity to remove.
+     * @param periodDuration_ The period duration (using for amounts limit).
      */
     function initialize(
         address admin,
@@ -97,7 +100,7 @@ contract V2AMO is IV2AMO, MasterAMO {
         uint256 poolFee_,
         address ionMinterAddress_,
         address priceManagerAddress_,
-        PairTokenType pairTokenType_,
+        IPriceManager.TokenType pairTokenType_,
         address factoryAddress_,
         address routerAddress_,
         address gaugeAddress_,
@@ -106,7 +109,10 @@ contract V2AMO is IV2AMO, MasterAMO {
         bool useTokenId_,
         uint24 validRangeWidth_,
         uint24 sellRatio_,
-        uint24 buyRatio_
+        uint24 buyRatio_,
+        uint24 sellIonRatioLimit_,
+        uint24 removeLiquidityRatioLimit_,
+        uint256 periodDuration_
     ) public initializer {
         // Validate required addresses
         if (factoryAddress_ == address(0) || routerAddress_ == address(0) || gaugeAddress_ == address(0))
@@ -133,7 +139,10 @@ contract V2AMO is IV2AMO, MasterAMO {
             pairTokenType_,
             validRangeWidth_,
             sellRatio_,
-            buyRatio_
+            buyRatio_,
+            sellIonRatioLimit_,
+            removeLiquidityRatioLimit_,
+            periodDuration_
         );
 
         routerAddress = routerAddress_;
@@ -220,6 +229,11 @@ contract V2AMO is IV2AMO, MasterAMO {
         uint256 ionAmountWithoutFee = Math.sqrt((pairTokenReserve * ionReserve * SCALED_UNIT) / targetPrice) -
             ionReserve;
         uint256 ionAmount = ionAmountWithoutFee.mulDiv(SCALED_UNIT, (SCALED_UNIT - poolFee));
+
+        if (!hasRole(OPERATOR_ROLE, msg.sender)) {
+            ionAmount = Math.min(ionAmount, periodAllowedIonToSell());
+        }
+        increaseSoldIon(ionAmount);
 
         // Mint ION tokens to this contract
         IMinter(ionMinterAddress).protocolMint(address(this), ionAmount);
@@ -399,6 +413,11 @@ contract V2AMO is IV2AMO, MasterAMO {
         uint24 swapRatio
     ) internal override returns (uint256 liquidity, uint256 postOperationIonPrice) {
         liquidity = _calculateLiquidityToUnfarm(swapRatio);
+
+        if (!hasRole(OPERATOR_ROLE, msg.sender)) {
+            liquidity = Math.min(liquidity, periodAllowedLiquidityToRemove());
+        }
+        increaseRemovedLiquidity(liquidity);
         (uint256 ionRemoved, uint256 pairTokenRemoved, , ) = _removeLiquidity(liquidity);
 
         // Approve router for the PairToken swap.
@@ -502,5 +521,22 @@ contract V2AMO is IV2AMO, MasterAMO {
             ionReserve = reserve1;
             pairTokenReserve = scalePairTokenToIonDecimals(reserve0);
         }
+    }
+
+    /// @inheritdoc IMasterAMO
+    function getOwnedTokens()
+        public
+        view
+        override
+        returns (uint256 liquidityOwned, uint256 ionOwned, uint256 pairTokenOwned)
+    {
+        uint256 totalLiquidity = IERC20(poolAddress).totalSupply();
+        liquidityOwned = balanceOfToken(poolAddress) + balanceOfToken(gaugeAddress);
+
+        (uint256 reserve0, uint256 reserve1, ) = IPair(poolAddress).getReserves();
+        (uint256 ionReserve, uint256 pairTokenReserve) = orderAmountsByTokenAddress(reserve0, reserve1);
+
+        ionOwned = (liquidityOwned * ionReserve) / totalLiquidity;
+        pairTokenOwned = (liquidityOwned * pairTokenReserve) / totalLiquidity;
     }
 }
