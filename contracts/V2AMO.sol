@@ -52,6 +52,8 @@ contract V2AMO is IV2AMO, MasterAMO {
     uint256 public override tokenId;
     /// @inheritdoc IV2AMO
     bool public override useTokenId;
+    /// @inheritdoc IV2AMO
+    bool public override useGauge;
 
     // -------------------------------------------------------------
     //                        INITIALIZATION
@@ -140,6 +142,8 @@ contract V2AMO is IV2AMO, MasterAMO {
         setPoolFee(poolFee_);
         setVault(rewardVault_);
         setTokenId(tokenId_, useTokenId_);
+        bool depositAllToGauge = false;
+        enableStaking(depositAllToGauge);
         _revokeRole(SETTER_ROLE, msg.sender);
     }
 
@@ -165,6 +169,33 @@ contract V2AMO is IV2AMO, MasterAMO {
         tokenId = tokenId_;
         useTokenId = useTokenId_;
         emit TokenIdSet(tokenId, useTokenId);
+    }
+
+    /// @inheritdoc IV2AMO
+    function enableStaking(bool depositAllToGauge) public override onlyRole(SETTER_ROLE) {
+        useGauge = true;
+        emit StakingEnabled();
+        if (depositAllToGauge) {
+            // Deposit all the liquidity into the gauge.
+            uint256 liquidity = balanceOfToken(poolAddress);
+            IERC20(poolAddress).approve(gaugeAddress, liquidity);
+            if (useTokenId) {
+                IGauge(gaugeAddress).deposit(liquidity, tokenId);
+            } else {
+                IGauge(gaugeAddress).deposit(liquidity);
+            }
+        }
+    }
+
+    /// @inheritdoc IV2AMO
+    function disableStaking(bool withdrawAllFromGauge) external override onlyRole(SETTER_ROLE) {
+        if (withdrawAllFromGauge) {
+            // Withdraw all the liquidity from the gauge.
+            uint256 liquidity = balanceOfToken(gaugeAddress);
+            IGauge(gaugeAddress).withdraw(liquidity);
+        }
+        useGauge = false;
+        emit StakingDisabled();
     }
 
     /// @inheritdoc IV2AMO
@@ -297,12 +328,14 @@ contract V2AMO is IV2AMO, MasterAMO {
         IERC20(ionAddress).approve(routerAddress, 0);
         IERC20(pairTokenAddress).forceApprove(routerAddress, 0);
 
-        // Deposit liquidity into the gauge.
-        IERC20(poolAddress).approve(gaugeAddress, liquidity);
-        if (useTokenId) {
-            IGauge(gaugeAddress).deposit(liquidity, tokenId);
-        } else {
-            IGauge(gaugeAddress).deposit(liquidity);
+        if (useGauge) {
+            // Deposit liquidity into the gauge.
+            IERC20(poolAddress).approve(gaugeAddress, liquidity);
+            if (useTokenId) {
+                IGauge(gaugeAddress).deposit(liquidity, tokenId);
+            } else {
+                IGauge(gaugeAddress).deposit(liquidity);
+            }
         }
 
         // Burn any excessive minted ION.
@@ -320,8 +353,10 @@ contract V2AMO is IV2AMO, MasterAMO {
         override
         returns (uint256 ionRemoved, uint256 pairTokenRemoved, uint256 ionCollectedFee, uint256 pairTokenCollectedFee)
     {
-        // Withdraw LP tokens from the gauge.
-        IGauge(gaugeAddress).withdraw(liquidity);
+        if (useGauge) {
+            // Withdraw LP tokens from the gauge.
+            IGauge(gaugeAddress).withdraw(liquidity);
+        }
         IERC20(poolAddress).approve(routerAddress, liquidity);
 
         uint256 preOperationPairTokenBalance = balanceOfToken(pairTokenAddress);
