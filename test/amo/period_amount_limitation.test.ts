@@ -197,7 +197,7 @@ describe("AERODROME", function () {
               const AMO_ROLE = await minter.AMO_ROLE();
               await minter.connect(admin).grantRole(AMO_ROLE, amoAddress);
               const initPrice = await getInitPrice(priceManager, pairedTokenType);
-              await addV2Liquidity(admin, AERO_V2_ROUTER, ion, pairToken, amoAddress, lpAmount, initPrice);
+              await addV2Liquidity(admin, AERO_V2_ROUTER, ion, pairToken, v2amo, lpAmount, initPrice);
               tp = await v2amo.ionTargetPriceInPairToken();
             });
 

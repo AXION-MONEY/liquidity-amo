@@ -220,9 +220,6 @@ contract V3AMO is IV3AMO, MasterAMO {
             revert UntrustedCaller(msg.sender);
         }
 
-        // Retrieve the current target price for ION.
-        uint256 targetPrice = ionTargetPriceInPairToken();
-
         // Order the amounts so that ionDelta corresponds to ION token and pairTokenDelta to the pair token.
         (int256 ionDelta, int256 pairTokenDelta) = orderAmountsByTokenAddress(amount0Delta, amount1Delta);
 

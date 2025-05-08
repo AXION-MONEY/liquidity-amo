@@ -73,6 +73,9 @@ describe("EQUALIZER", function () {
                 validRangeWidth,
                 sellRatio,
                 buyRatio,
+                undefined,
+                undefined,
+                undefined,
                 BigInt(10 ** 18)
               );
               const amoAddress = await v2amo.getAddress();

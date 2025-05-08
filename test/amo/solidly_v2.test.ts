@@ -73,13 +73,16 @@ describe("SOLIDLY V2", function () {
                 validRangeWidth,
                 sellRatio,
                 buyRatio,
+                undefined,
+                undefined,
+                undefined,
                 BigInt(10 ** 6),
                 true
               );
               const amoAddress = await v2amo.getAddress();
               const AMO_ROLE = await minter.AMO_ROLE();
               await minter.connect(admin).grantRole(AMO_ROLE, amoAddress);
-              await addV2Liquidity(admin, V2_ROUTER, ion, pairToken, amoAddress, lpAmount, initPrice);
+              await addV2Liquidity(admin, V2_ROUTER, ion, pairToken, v2amo, lpAmount, initPrice);
             });
 
             describe("V2 Public mintSellFarm", () => {
