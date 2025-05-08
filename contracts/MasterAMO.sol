@@ -313,6 +313,28 @@ abstract contract MasterAMO is
         return price + price.mulDiv(validRangeWidth, SCALED_UNIT);
     }
 
+    /**
+     * @notice Calculates a limited adjusted target price for a sell based on the given sell ratio.
+     * @param _sellRatio The ratio to scale the price delta.
+     * @return The adjusted price resulting from applying the scaled delta to the target price.
+     */
+    function limitedTargetPriceForSell(uint24 _sellRatio) internal view returns (uint256) {
+        uint256 targetPrice = ionTargetPriceInPairToken();
+        uint256 priceDelta = ionPriceInPairToken() - targetPrice;
+        return targetPrice + priceDelta.mulDiv((SCALED_UNIT - _sellRatio), SCALED_UNIT);
+    }
+
+    /**
+     * @notice Calculates a limited adjusted target price for a buy based on the given buy ratio.
+     * @param _buyRatio The ratio to scale the price delta.
+     * @return The adjusted price resulting from subtracting the scaled delta from the target price.
+     */
+    function limitedTargetPriceForBuy(uint24 _buyRatio) internal view returns (uint256) {
+        uint256 targetPrice = ionTargetPriceInPairToken();
+        uint256 priceDelta = targetPrice - ionPriceInPairToken();
+        return targetPrice - priceDelta.mulDiv((SCALED_UNIT - _buyRatio), SCALED_UNIT);
+    }
+
     /// @notice Internal function to validate mintSellFarm.
     function _validateSell() internal view virtual {
         uint256 currentPrice = ionPriceInPairToken();
