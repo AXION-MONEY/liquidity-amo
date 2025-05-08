@@ -17,9 +17,9 @@ import {
   v2Swap
 } from "./utils";
 
-describe("EQUALIZER", function () {
-  const rpcUrl = "https://rpc.soniclabs.com";
-  const forkingBlock = 10025000;
+describe("SOLIDLY V2", function () {
+  const rpcUrl = "https://eth-mainnet.public.blastapi.io";
+  const forkingBlock = 22274000;
   const swapAmounts = ["900000"];
   const LOG_PRICES = false;
   const initAmount = "11000000"; // 11M
@@ -34,7 +34,7 @@ describe("EQUALIZER", function () {
   const buyRatio = ethers.parseUnits("1", 6);
 
   // V2 consts
-  const V2_ROUTER = "0xcC6169aA1E879d3a4227536671F85afdb2d23fAD"; // Router03
+  const V2_ROUTER = "0x77784f96C936042A3ADB1dD29C91a55EB2A4219f"; // BaseV2Router01
 
   let admin: SignerWithAddress;
   let user: SignerWithAddress;
@@ -73,7 +73,8 @@ describe("EQUALIZER", function () {
                 validRangeWidth,
                 sellRatio,
                 buyRatio,
-                BigInt(10 ** 18)
+                BigInt(10 ** 6),
+                true
               );
               const amoAddress = await v2amo.getAddress();
               const AMO_ROLE = await minter.AMO_ROLE();

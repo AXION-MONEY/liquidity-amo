@@ -85,8 +85,7 @@ export enum V3PoolType {
 
 export enum V2PoolType {
   SOLIDLY_V2,
-  VELO_LIKE, // Aerodrome, Velodrome
-  EQUAL_LIKE // Equalizer (EQUAL on Sonic, SCALE on Base)
+  VELO_LIKE // Aerodrome, Velodrome
 }
 
 export async function initNetwork(
@@ -248,31 +247,45 @@ export async function deployV2AMO(
   routerAddress: string,
   validRangeWidth: bigint,
   sellRatio: bigint,
-  buyRatio: bigint
+  buyRatio: bigint,
+  feeDivider: bigint = BigInt(10 ** 4),
+  isSolidly: boolean = false
 ): Promise<V2AMO> {
   const GaugeFactory = await ethers.getContractFactory("MockGauge");
   const gauge = await GaugeFactory.deploy();
   await gauge.waitForDeployment();
   const gaugeAddress = await gauge.getAddress();
   const stable = false;
-  let factoryAddress;
-  if ([V2PoolType.SOLIDLY_V2, V2PoolType.EQUAL_LIKE].includes(poolType)) {
+  let factoryAddress: string;
+  let poolFee: bigint;
+  if (poolType === V2PoolType.SOLIDLY_V2) {
     const router = await ethers.getContractAt("ISolidlyRouter", routerAddress);
     factoryAddress = await router.factory();
+    const factory = await ethers.getContractAt("IPairFactory", factoryAddress);
     if ((await router.pairFor(ionAddress, pairTokenAddress, stable)) === ethers.ZeroAddress) {
-      const factory = await ethers.getContractAt("IPairFactory", factoryAddress);
       await factory.createPair(ionAddress, pairTokenAddress, stable);
+    }
+    if (isSolidly) {
+      const factory = await ethers.getContractAt("IPairFactory", factoryAddress);
+      poolFee = stable ? await factory.stableFees() : await factory.volatileFees();
+    } else {
+      poolFee = await factory.getFee(stable);
     }
   } else {
     const router = await ethers.getContractAt("IVRouter", routerAddress);
     factoryAddress = await router.defaultFactory();
+    const poolAddress = await router.poolFor(pairTokenAddress, ionAddress, stable, factoryAddress);
+    const factory = await ethers.getContractAt("IPoolFactory", factoryAddress);
+    poolFee = await factory.getFee(poolAddress, stable);
   }
+  poolFee = (poolFee * BigInt(10 ** 6)) / feeDivider; // scaled to decimals 6
   const args = [
     admin.address,
     ionAddress,
     pairTokenAddress,
     stable,
     poolType,
+    poolFee,
     minterAddress,
     priceManagerAddress,
     pairedTokenType,
