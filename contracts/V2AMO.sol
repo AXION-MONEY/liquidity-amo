@@ -241,10 +241,7 @@ contract V2AMO is IV2AMO, MasterAMO {
         // Approve router to spend ION
         IERC20(ionAddress).approve(routerAddress, ionAmount);
         // Calculate minimum expected USD output based on target price
-        uint256 minPairTokenAmountOut = scaleIonToPairTokenDecimals(ionAmountWithoutFee).mulDiv(
-            targetPrice,
-            SCALED_UNIT
-        );
+        uint256 minPairTokenAmountOut = scaleIonToPairTokenDecimals(ionAmount).mulDiv(targetPrice, SCALED_UNIT);
         uint256 preOperationPairTokenBalance = balanceOfToken(pairTokenAddress);
 
         uint256[] memory amounts;
