@@ -171,8 +171,9 @@ interface IPriceManager {
      * @dev Callable only by an account with TOKEN_UPDATER_ROLE.
      * @param tokenAddress The stablecoin address to set the price.
      * @param price The price.
+     * @param timestamp The timestamp of the price.
      */
-    function setStable(address tokenAddress, uint256 price) external;
+    function setStable(address tokenAddress, uint256 price, uint256 timestamp) external;
 
     /**
      * @notice Updates a stablecoin price using off-chain signature verification.

@@ -99,12 +99,12 @@ contract PriceManager is IPriceManager, Initializable, AccessControlEnumerableUp
     //                      INTERNAL FUNCTIONS
     // -------------------------------------------------------------
     /**
-     * @notice Validates that the source block timestamp is acceptable.
-     * @dev Ensures the source block timestamp is not in the future and is newer than the last update.
-     * @param srcTimestamp The timestamp from the signed source block.
-     * @param lastTimestamp The timestamp of the last processed block.
+     * @notice Validates that the source timestamp is acceptable.
+     * @dev Ensures the source timestamp is not in the future and is newer than the last update.
+     * @param srcTimestamp The source timestamp of the new price.
+     * @param lastTimestamp The timestamp of the last price.
      */
-    function _validateSrcBlock(uint256 srcTimestamp, uint256 lastTimestamp) internal view {
+    function _validateSrcTimestamp(uint256 srcTimestamp, uint256 lastTimestamp) internal view {
         if (srcTimestamp > block.timestamp) {
             revert InvalidBlock(srcTimestamp, block.timestamp);
         }
@@ -122,7 +122,7 @@ contract PriceManager is IPriceManager, Initializable, AccessControlEnumerableUp
     function _setStable(address tokenAddress, uint256 price, uint256 timestamp) internal {
         if (price > stablePriceUpper || price < stablePriceLower) revert InvalidPriceValue();
         StablePrice storage stablePrice = _stablePrices[tokenAddress];
-        _validateSrcBlock(timestamp, stablePrice.timestamp);
+        _validateSrcTimestamp(timestamp, stablePrice.timestamp);
         stablePrice.price = price;
         stablePrice.timestamp = timestamp;
     }
@@ -133,7 +133,7 @@ contract PriceManager is IPriceManager, Initializable, AccessControlEnumerableUp
      * @param srcBlock The block reference associated with the update.
      */
     function _setSUsde(StakedUSDeLib.StakedUSDe calldata _sUSDe, Block calldata srcBlock) internal {
-        _validateSrcBlock(srcBlock.timestamp, sUsdeLastBlock.timestamp);
+        _validateSrcTimestamp(srcBlock.timestamp, sUsdeLastBlock.timestamp);
         if (_sUSDe.lastDistributionTimestamp > block.timestamp) revert InvalidLastDistribution();
 
         sUSDe = _sUSDe;
@@ -147,7 +147,7 @@ contract PriceManager is IPriceManager, Initializable, AccessControlEnumerableUp
      * @param srcBlock The block reference associated with the update.
      */
     function _setSFrax(StakedFraxLib.StakedFrax calldata _sFRAX, Block calldata srcBlock) internal {
-        _validateSrcBlock(srcBlock.timestamp, sFraxLastBlock.timestamp);
+        _validateSrcTimestamp(srcBlock.timestamp, sFraxLastBlock.timestamp);
         if (_sFRAX.lastRewardsDistribution > block.timestamp) revert InvalidLastDistribution();
 
         sFRAX = _sFRAX;
@@ -161,7 +161,7 @@ contract PriceManager is IPriceManager, Initializable, AccessControlEnumerableUp
      * @param srcBlock The block reference associated with the update.
      */
     function _setPot(SavingsDaiLib.Pot calldata _pot, Block calldata srcBlock) internal {
-        _validateSrcBlock(srcBlock.timestamp, sDaiLastBlock.timestamp);
+        _validateSrcTimestamp(srcBlock.timestamp, sDaiLastBlock.timestamp);
         if (_pot.rho > block.timestamp) revert InvalidLastDistribution();
 
         pot = _pot;
@@ -188,8 +188,8 @@ contract PriceManager is IPriceManager, Initializable, AccessControlEnumerableUp
     ////// Stablecoins SET Price Values FUNCTIONS //////
 
     /// @inheritdoc IPriceManager
-    function setStable(address tokenAddress, uint256 price) external onlyRole(TOKEN_UPDATER_ROLE) {
-        _setStable(tokenAddress, price, block.timestamp);
+    function setStable(address tokenAddress, uint256 price, uint256 timestamp) external onlyRole(TOKEN_UPDATER_ROLE) {
+        _setStable(tokenAddress, price, timestamp);
     }
 
     /// @inheritdoc IPriceManager

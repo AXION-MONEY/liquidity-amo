@@ -3,6 +3,7 @@ import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { nearestUsableTick, TickMath, priceToClosestTick } from "@uniswap/v3-sdk";
 import { Price, Token } from "@uniswap/sdk-core";
 import { Minter, MockERC20, PriceManager, V2AMO, V3AMO, MockUniswapV3PoolCaller, Ion } from "../../typechain-types";
+import { time } from "@nomicfoundation/hardhat-network-helpers";
 
 const sigs = {
   susde: {
@@ -115,9 +116,10 @@ export async function initNetwork(
   await priceManager.connect(user).setSFraxWithSig(sigs.sfrax.states, sigs.sfrax.muonSig);
   await priceManager.connect(user).setPotWithSig(sigs.sdai.states, sigs.sdai.muonSig);
   const priceOne = ethers.parseUnits("1", 6);
-  await priceManager.connect(admin).setStable(numberToAddress(PairTokenType.SUSDE), priceOne);
-  await priceManager.connect(admin).setStable(numberToAddress(PairTokenType.SFRAX), priceOne);
-  await priceManager.connect(admin).setStable(numberToAddress(PairTokenType.SDAI), priceOne);
+  const timestamp = await time.latest();
+  await priceManager.connect(admin).setStable(numberToAddress(PairTokenType.SUSDE), priceOne, timestamp);
+  await priceManager.connect(admin).setStable(numberToAddress(PairTokenType.SFRAX), priceOne, timestamp);
+  await priceManager.connect(admin).setStable(numberToAddress(PairTokenType.SDAI), priceOne, timestamp);
   return [admin, user, priceManager];
 }
 
@@ -268,7 +270,8 @@ export async function deployV2AMO(
 ): Promise<V2AMO> {
   if (pairedTokenType === PairTokenType.STABLE) {
     const priceManager = await ethers.getContractAt("PriceManager", priceManagerAddress);
-    await priceManager.connect(admin).setStable(pairTokenAddress, ethers.parseUnits("1", 6));
+    const timestamp = await time.latest();
+    await priceManager.connect(admin).setStable(pairTokenAddress, ethers.parseUnits("1", 6), timestamp);
   }
   const stable = false;
   let poolAddress: string;
@@ -353,7 +356,8 @@ export async function deployV3AMO(
 ): Promise<V3AMO> {
   if (pairedTokenType === PairTokenType.STABLE) {
     const priceManager = await ethers.getContractAt("PriceManager", priceManagerAddress);
-    await priceManager.connect(admin).setStable(pairTokenAddress, ethers.parseUnits("1", 6));
+    const timestamp = await time.latest();
+    await priceManager.connect(admin).setStable(pairTokenAddress, ethers.parseUnits("1", 6), timestamp);
   }
   const args = [
     admin.address,
